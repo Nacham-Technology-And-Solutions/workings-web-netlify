@@ -11,15 +11,17 @@ const Input: React.FC<InputProps> = ({ label, id, error, rightIcon, className, .
   
   return (
     <div className="w-full">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+      <label htmlFor={id} className="block text-sm font-semibold text-gray-800 mb-2 font-exo">
         {label}
       </label>
       <div className="relative">
         <input
           id={id}
-          className={`w-full px-4 py-3.5 text-gray-900 bg-white border ${
-            hasError ? 'border-red-500' : 'border-gray-300'
-          } rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400 ${className || ''}`}
+          className={`w-full px-4 py-4 text-gray-900 bg-gray-50 border-2 ${
+            hasError 
+              ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' 
+              : 'border-gray-200 focus:border-gray-400 focus:ring-gray-400/20'
+          } rounded-xl focus:outline-none focus:ring-4 transition-all duration-300 placeholder:text-gray-500 hover:border-gray-300 font-exo ${className || ''}`}
           {...props}
         />
         {rightIcon && (
@@ -28,7 +30,12 @@ const Input: React.FC<InputProps> = ({ label, id, error, rightIcon, className, .
           </div>
         )}
       </div>
-      {error && <p className="mt-1 text-sm text-red-600">*{error}*</p>}
+      {error && (
+        <p className="mt-2 text-sm text-red-600 font-medium flex items-center font-exo">
+          <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+          {error}
+        </p>
+      )}
     </div>
   );
 };

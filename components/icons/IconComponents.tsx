@@ -2,11 +2,13 @@ import React from 'react';
 
 // FIX: This file was a placeholder. All icon components are now implemented and exported.
 
-export const HeaderLogo: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-    <rect width="32" height="32" rx="8" fill="#1F2937"/>
-    <path d="M9 23V9L16 16L23 9V23" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
+export const HeaderLogo: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (props) => (
+  <img 
+    src="/logo.png" 
+    alt="Workings Logo" 
+    className="w-8 h-8"
+    {...props}
+  />
 );
 
 export const HamburgerIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -87,11 +89,14 @@ export const SendIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 
 export const WorkingsLogo: React.FC<{className?: string, isAnimated?: boolean}> = ({ className, isAnimated }) => (
-    <svg width="160" height="160" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <rect width="32" height="32" rx="8" fill="currentColor"/>
-      <path d="M9 23V9L16 16L23 9V23" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-);
+        <div className={`${className} ${isAnimated ? 'logo-animated' : ''}`}>
+          <img 
+            src="/logo.png" 
+            alt="Workings Logo" 
+            className="w-full h-full object-contain"
+          />
+        </div>
+    );
 export const EyeIcon: React.FC = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>

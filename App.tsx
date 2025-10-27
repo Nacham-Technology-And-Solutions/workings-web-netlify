@@ -34,7 +34,6 @@ const WALL_HEIGHT_FEET = 8;
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isHidingSplash, setIsHidingSplash] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSettingUp, setIsSettingUp] = useState(false);
@@ -53,22 +52,17 @@ const App: React.FC = () => {
   const [estimates, setEstimates] = useState<EstimateCategory[]>(initialEstimates);
 
   // Splash screen, onboarding, and auth flow
-  useEffect(() => {
+  const handleSplashComplete = () => {
+    setIsLoading(false);
     const onboardingShown = localStorage.getItem('onboardingShown');
     const userAuthenticated = localStorage.getItem('isAuthenticated');
-
-    setTimeout(() => {
-      setIsHidingSplash(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        if (userAuthenticated === 'true') {
-          setIsAuthenticated(true);
-        } else if (!onboardingShown) {
-          setShowOnboarding(true);
-        }
-      }, 500); // match splash screen transition
-    }, 2000); // show splash for 2s
-  }, []);
+    
+    if (userAuthenticated === 'true') {
+      setIsAuthenticated(true);
+    } else if (!onboardingShown) {
+      setShowOnboarding(true);
+    }
+  };
 
   const handleOnboardingComplete = () => {
     localStorage.setItem('onboardingShown', 'true');
@@ -124,6 +118,13 @@ const App: React.FC = () => {
   const handleCreateNewMaterialList = () => {
     setPreviousView(currentView);
     setCurrentView('createMaterialList');
+  };
+
+  const handleSaveMaterialListDraft = (listData: FullMaterialList) => {
+    // In a real app, you would save this to a backend or local storage
+    // For now, we'll just navigate back to the material list screen
+    // The draft would be stored in the MaterialListScreen's state or a global store
+    setCurrentView('material-list');
   };
 
   const handlePreviewMaterialList = (listData: FullMaterialList) => {
@@ -187,7 +188,7 @@ const App: React.FC = () => {
   }, [floorPlan, calculateEstimates]);
 
   if (isLoading) {
-    return <SplashScreen isHiding={isHidingSplash} />;
+    return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
   if (showOnboarding) {
@@ -223,7 +224,17 @@ const App: React.FC = () => {
   }
   
   if (currentView === 'settings') {
-    return <SettingsScreen onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />;
+    return (
+      <div className="flex flex-col h-screen bg-white">
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          onClose={() => setIsSidebarOpen(false)} 
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <SettingsScreen onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />
+      </div>
+    );
   }
 
   if (currentView === 'profile') {
@@ -254,12 +265,12 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'createMaterialList') {
-    return <CreateMaterialListScreen onBack={() => setCurrentView('material-list')} onPreview={handlePreviewMaterialList} />;
+    return <CreateMaterialListScreen onBack={() => setCurrentView('material-list')} onPreview={handlePreviewMaterialList} onSaveDraft={handleSaveMaterialListDraft} />;
   }
 
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 text-gray-800 font-sans">
+    <div className="flex flex-col h-screen bg-main text-text-primary font-exo">
       <Sidebar 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 

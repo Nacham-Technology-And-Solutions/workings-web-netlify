@@ -52,7 +52,7 @@ const Canvas: React.FC<CanvasProps> = ({ floorPlan, activeTool, addWall, addDoor
   };
 
   return (
-    <div className="w-full h-full bg-slate-900 rounded-lg shadow-inner overflow-hidden border border-slate-700">
+    <div className="w-full h-full bg-primary rounded-lg shadow-inner overflow-hidden border border-primary/20">
       <svg
         ref={svgRef}
         width="100%"
@@ -63,25 +63,25 @@ const Canvas: React.FC<CanvasProps> = ({ floorPlan, activeTool, addWall, addDoor
       >
         <defs>
           <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#2c3a54" strokeWidth="0.5"/>
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#8a9ea2" strokeWidth="0.5"/>
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         {/* Render existing floor plan */}
         {floorPlan.walls.map(wall => (
-          <line key={wall.id} x1={wall.start.x} y1={wall.start.y} x2={wall.end.x} y2={wall.end.y} stroke="#a7b3c9" strokeWidth="5" />
+          <line key={wall.id} x1={wall.start.x} y1={wall.start.y} x2={wall.end.x} y2={wall.end.y} stroke="#ffffff" strokeWidth="5" />
         ))}
         {floorPlan.doors.map(door => (
-          <rect key={door.id} x={door.position.x - door.width / 2} y={door.position.y - 5} width={door.width} height="10" fill="#38bdf8" />
+          <rect key={door.id} x={door.position.x - door.width / 2} y={door.position.y - 5} width={door.width} height="10" fill="#8a9ea2" />
         ))}
         {floorPlan.windows.map(win => (
-          <rect key={win.id} x={win.position.x - win.width / 2} y={win.position.y - 3} width={win.width} height="6" fill="#67e8f9" stroke="#0f172a" strokeWidth="2" />
+          <rect key={win.id} x={win.position.x - win.width / 2} y={win.position.y - 3} width={win.width} height="6" fill="#ffffff" stroke="#2d2e2e" strokeWidth="2" />
         ))}
         
         {/* Render drawing helpers */}
         {drawingWall && (
-          <line x1={drawingWall.x} y1={drawingWall.y} x2={mousePos.x} y2={mousePos.y} stroke="#38bdf8" strokeWidth="3" strokeDasharray="5,5" />
+          <line x1={drawingWall.x} y1={drawingWall.y} x2={mousePos.x} y2={mousePos.y} stroke="#8a9ea2" strokeWidth="3" strokeDasharray="5,5" />
         )}
       </svg>
     </div>

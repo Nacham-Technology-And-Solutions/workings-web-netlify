@@ -13,6 +13,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #ffffff;
+  color: #2d2e2e;
 }
 
 #root {
@@ -42,7 +44,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #2d2e2e;
   outline-offset: 2px;
 }
 
@@ -52,14 +54,42 @@ textarea:focus-visible {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f9fafb;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #8a9ea2;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #6d7a7e;
+}
+
+/* Performance optimizations */
+.logo-frame,
+.logo-crossbars,
+.logo-dims-lines,
+.logo-dims-arrows,
+.workings-title {
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Smooth transitions for interactive elements */
+button,
+a {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Optimize animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

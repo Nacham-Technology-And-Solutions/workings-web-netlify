@@ -113,7 +113,7 @@ const AccordionItem: React.FC<{ title: string; children: React.ReactNode; isOpen
         {isOpen ? <ChevronUpIcon className="w-5 h-5 text-gray-600" /> : <ChevronDownIcon className="w-5 h-5 text-gray-600" />}
       </button>
       {isOpen && (
-        <div className="px-5 py-4 mb-4 bg-gray-100 rounded-lg">
+        <div className="px-5 py-4 mb-4 bg-blue-50 rounded-lg">
           {children}
         </div>
       )}

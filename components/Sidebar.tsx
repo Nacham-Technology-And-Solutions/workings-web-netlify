@@ -32,7 +32,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, isActive = false, onClic
       e.preventDefault();
       onClick();
     }}
-    className={`flex items-center gap-4 px-4 py-3 rounded-lg text-gray-700 font-medium transition-colors ${
+    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 font-medium transition-colors ${
       isActive ? 'bg-gray-100 text-gray-900' : 'hover:bg-gray-50'
     }`}
   >
@@ -69,26 +69,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
         aria-label="Main menu"
       >
         <div className="p-6 pt-12">
-          <nav className="space-y-4">
+          <nav className="space-y-1">
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 px-4 mb-2">Main</h3>
+              <h3 className="text-xs font-semibold text-gray-500 px-4 mb-2 uppercase tracking-wide">Main</h3>
               <NavLink icon={<HomeIcon isActive={currentView === 'home'} />} label="Home" isActive={currentView === 'home'} onClick={() => onNavigate('home')} />
               <NavLink icon={<ProjectsIcon />} label="Projects" isActive={currentView === 'projects'} onClick={() => onNavigate('projects')} />
               <NavLink icon={<QuotesIcon />} label="Quotes" isActive={currentView === 'quotes'} onClick={() => onNavigate('quotes')} />
               <NavLink icon={<MaterialListIcon />} label="Material List" isActive={currentView === 'material-list'} onClick={() => onNavigate('material-list')} />
             </div>
-            <hr />
+            <hr className="border-gray-200 my-1" />
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 px-4 mb-2">Tools / Resources</h3>
+              <h3 className="text-xs font-semibold text-gray-500 px-4 mb-2 uppercase tracking-wide">Tools / Resources</h3>
               <NavLink icon={<TemplatesIcon />} label="Pre-built Templates" isActive={currentView === 'templates'} onClick={() => onNavigate('templates')} />
             </div>
-            <hr />
+            <hr className="border-gray-200 my-1" />
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 px-4 mb-2">Support & Info</h3>
+              <h3 className="text-xs font-semibold text-gray-500 px-4 mb-2 uppercase tracking-wide">Support & Info</h3>
               <NavLink icon={<HelpIcon />} label="Help & Tips" isActive={currentView === 'help'} onClick={() => onNavigate('help')} />
               <NavLink icon={<FeedbackIcon />} label="Feedback / Contact Us" isActive={currentView === 'feedback'} onClick={() => onNavigate('feedback')} />
             </div>
-            <hr />
+            <hr className="border-gray-200 my-1" />
             <div>
               <NavLink icon={<SettingsIcon />} label="Settings" isActive={currentView === 'settings'} onClick={() => onNavigate('settings')} />
               <NavLink icon={<LogoutIcon />} label="Log out" onClick={handleLogout} />

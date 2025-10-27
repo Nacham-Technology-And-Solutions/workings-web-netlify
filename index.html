@@ -5,48 +5,51 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WORKINGS - Construction Estimating</title>
+    
+    <!-- Custom Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide:wght@400&family=Exo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /* For a better dark mode experience */
       body {
         background-color: #ffffff; /* white */
+        color: #2d2e2e; /* primary color */
+        font-family: 'Exo', sans-serif;
       }
       
-      /* Splash Screen Logo Animation */
-      @keyframes draw {
-        to {
-          stroke-dashoffset: 0;
-        }
+      /* Custom Font Classes */
+      .font-audiowide {
+        font-family: 'Audiowide', cursive;
       }
-      @keyframes fadeIn {
+      
+      .font-exo {
+        font-family: 'Exo', sans-serif;
+      }
+      
+      /* Splash Screen Logo Animation - Simplified */
+      @keyframes logoFadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.8);
+        }
         to {
           opacity: 1;
+          transform: scale(1);
         }
       }
-
-      .logo-frame, .logo-crossbars {
+      
+      .logo-animated {
         opacity: 0;
-        animation: fadeIn 0.5s ease-out forwards;
-      }
-      
-      .logo-crossbars {
-        animation-delay: 0.3s;
-      }
-      
-      /* Target paths within the group for drawing animation */
-      .logo-dims-lines path {
-        stroke-dasharray: 250; /* A value larger than any path length */
-        stroke-dashoffset: 250;
-        animation: draw 1s ease-in-out 0.6s forwards;
-      }
-
-      .logo-dims-arrows {
-          opacity: 0;
-          animation: fadeIn 0.3s ease-out 1.4s forwards;
+        animation: logoFadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
       }
       
       .workings-title {
-        animation: fadeIn 0.5s ease-out 1.6s forwards;
+        opacity: 0;
+        animation: logoFadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+        font-family: 'Audiowide', cursive;
       }
     </style>
   <script type="importmap">
