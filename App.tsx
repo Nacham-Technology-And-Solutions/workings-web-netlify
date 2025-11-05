@@ -23,6 +23,8 @@ import MaterialListScreen from './components/MaterialListScreen';
 import MaterialListDetailScreen from './components/MaterialListDetailScreen';
 import CreateMaterialListScreen from './components/CreateMaterialListScreen';
 import MaterialListPreviewScreen from './components/MaterialListPreviewScreen';
+import ProjectDescriptionScreen from './components/ProjectDescriptionScreen';
+import SelectProjectScreen from './components/SelectProjectScreen';
 
 
 // Import types and constants
@@ -50,6 +52,8 @@ const App: React.FC = () => {
   const [floorPlan, setFloorPlan] = useState<FloorPlan>({ walls: [], doors: [], windows: [] });
   const [activeTool, setActiveTool] = useState<Tool>('SELECT');
   const [estimates, setEstimates] = useState<EstimateCategory[]>(initialEstimates);
+  const [projectDescriptionData, setProjectDescriptionData] = useState<any>(null);
+  const [selectProjectData, setSelectProjectData] = useState<any>(null);
 
   // Splash screen, onboarding, and auth flow
   const handleSplashComplete = () => {
@@ -94,6 +98,18 @@ const App: React.FC = () => {
 
   const handleNewProject = () => {
     setPreviousView(currentView);
+    setCurrentView('projectDescription');
+  };
+
+  const handleProjectDescriptionNext = (data: any) => {
+    setProjectDescriptionData(data);
+    setCurrentView('selectProject');
+  };
+
+  const handleSelectProjectNext = (data: any) => {
+    setSelectProjectData(data);
+    // For now, navigate to the existing newProject flow
+    // In the future, this would go to step 3, 4 of the project creation flow
     setCurrentView('newProject');
   };
   
@@ -268,6 +284,13 @@ const App: React.FC = () => {
     return <CreateMaterialListScreen onBack={() => setCurrentView('material-list')} onPreview={handlePreviewMaterialList} onSaveDraft={handleSaveMaterialListDraft} />;
   }
 
+  if (currentView === 'projectDescription') {
+    return <ProjectDescriptionScreen onBack={() => setCurrentView(previousView)} onNext={handleProjectDescriptionNext} />;
+  }
+
+  if (currentView === 'selectProject') {
+    return <SelectProjectScreen onBack={() => setCurrentView('projectDescription')} onNext={handleSelectProjectNext} previousData={projectDescriptionData} />;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-main text-text-primary font-exo">
