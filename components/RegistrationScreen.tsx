@@ -100,8 +100,9 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
   };
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-white z-40 flex items-center justify-center font-exo p-4 overflow-y-auto">
-      <div className="w-full max-w-md mx-auto py-8">
+    <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-white z-40 font-exo overflow-y-auto">
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8">
+        <div className="w-full max-w-md mx-auto py-8">
         {/* Header Section */}
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 font-audiowide">Create an account</h1>
@@ -204,6 +205,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
               Sign in
             </button>
           </p>
+        </div>
         </div>
       </div>
     </div>

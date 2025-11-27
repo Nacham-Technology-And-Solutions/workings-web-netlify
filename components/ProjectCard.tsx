@@ -1,44 +1,57 @@
 import React from 'react';
 import type { Project, ProjectStatus } from '../types';
-import { MoreVerticalIcon } from './icons/IconComponents';
 
 interface ProjectCardProps {
   project: Project;
 }
 
 const statusStyles: Record<ProjectStatus, string> = {
-  'In Progress': 'bg-secondary/10 text-secondary',
-  'Completed': 'bg-green-100 text-green-800',
-  'On Hold': 'bg-yellow-100 text-yellow-800',
+  'In Progress': 'text-blue-600',
+  'Completed': 'text-green-600',
+  'On Hold': 'text-yellow-600',
+  'Draft': 'text-gray-500',
 };
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
-  const { name, address, status, lastUpdated } = project;
+  const { name, status, lastUpdated, projectId } = project;
 
   const formattedDate = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
     day: 'numeric',
+    month: 'short',
     year: 'numeric',
   }).format(new Date(lastUpdated));
 
+  const getInitials = (name: string) => {
+    const words = name.split(' ');
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
   return (
-    <div className="bg-main border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow duration-200 flex items-center justify-between">
-      <div className="flex-1 pr-4">
-        <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-lg font-semibold text-text-primary truncate">{name}</h2>
-          <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusStyles[status]}`}>
-            {status}
+    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-start gap-3">
+        {/* Avatar with Initials */}
+        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+          <span className="text-gray-700 font-semibold text-sm">
+            {getInitials(name)}
           </span>
         </div>
-        <p className="text-sm text-text-secondary truncate">{address}</p>
-        <p className="text-xs text-text-tertiary mt-2">Last updated: {formattedDate}</p>
+        
+        {/* Project Details */}
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-bold text-gray-900 mb-1 truncate">{name}</h2>
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <span>{formattedDate}</span>
+            <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+            <span>{projectId || `#${project.id}`}</span>
+          </div>
+          <p className={`text-sm font-medium ${statusStyles[status]}`}>
+            {status}
+          </p>
+        </div>
       </div>
-      <button 
-        className="p-2 text-text-tertiary hover:bg-background-tertiary rounded-full"
-        aria-label={`Actions for ${name}`}
-      >
-        <MoreVerticalIcon />
-      </button>
     </div>
   );
 };

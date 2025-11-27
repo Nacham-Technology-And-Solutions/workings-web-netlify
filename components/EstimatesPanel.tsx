@@ -1,7 +1,6 @@
 
 import React, { useMemo } from 'react';
 import type { EstimateCategory } from '../types';
-import AIAssistant from './AIAssistant';
 
 interface EstimatesPanelProps {
   estimates: EstimateCategory[];
@@ -37,11 +36,10 @@ const EstimatesPanel: React.FC<EstimatesPanelProps> = ({ estimates }) => {
         ))}
       </div>
       <div className="border-t-2 border-slate-700 pt-4 mt-4">
-        <div className="flex justify-between items-center text-xl mb-4">
+        <div className="flex justify-between items-center text-xl">
           <span className="font-bold text-slate-100">Grand Total</span>
           <span className="font-bold text-sky-400 font-mono">${grandTotal.toFixed(2)}</span>
         </div>
-        <AIAssistant />
       </div>
     </aside>
   );

@@ -40,8 +40,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount }) =
   };
 
   return (
-    <div className="fixed inset-0 bg-main z-40 flex items-center justify-center font-exo p-4 overflow-y-auto">
-      <div className="w-full max-w-sm mx-auto py-8">
+    <div className="fixed inset-0 bg-main z-40 font-exo overflow-y-auto">
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8">
+        <div className="w-full max-w-sm mx-auto py-8">
         <div className="text-left mb-8">
           <h1 className="text-3xl font-bold text-text-primary font-audiowide">Sign in</h1>
           <p className="text-text-secondary mt-2 font-exo">Welcome back — pick up where you left off.</p>
@@ -107,6 +108,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount }) =
                   </button>
               </p>
           </div>
+        </div>
       </div>
     </div>
   );

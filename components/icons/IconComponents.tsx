@@ -4,9 +4,9 @@ import React from 'react';
 
 export const HeaderLogo: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (props) => (
   <img 
-    src="/logo.png" 
+    src="/logo2.png" 
     alt="Workings Logo" 
-    className="w-8 h-8"
+    className="h-8 w-auto"
     {...props}
   />
 );
@@ -91,7 +91,7 @@ export const SendIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 export const WorkingsLogo: React.FC<{className?: string, isAnimated?: boolean}> = ({ className, isAnimated }) => (
         <div className={`${className} ${isAnimated ? 'logo-animated' : ''}`}>
           <img 
-            src="/logo.png" 
+            src="/logo1.png" 
             alt="Workings Logo" 
             className="w-full h-full object-contain"
           />
@@ -140,6 +140,14 @@ export const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <line x1="12" y1="5" x2="12" y2="19"></line>
         <line x1="5" y1="12" x2="19" y2="12"></line>
     </svg>
+);
+export const SearchIcon: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (props) => (
+    <img 
+        src="/search-normal.png" 
+        alt="Search" 
+        className="w-6 h-6"
+        {...props}
+    />
 );
 export const MoreVerticalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>

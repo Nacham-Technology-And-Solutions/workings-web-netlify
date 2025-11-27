@@ -93,3 +93,82 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Slide-up animation for bottom sheet */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Desktop-specific enhancements */
+@media (min-width: 1024px) {
+  /* Smooth hover transitions for interactive elements on desktop */
+  button, a, input, select, textarea {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Enhanced hover states for cards on desktop */
+  .hover\:shadow-md:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Better scrollbar for desktop */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 5px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+  
+  /* Remove tap highlights on desktop */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Ensure proper layout spacing on large screens */
+  .max-w-7xl {
+    max-width: 80rem;
+  }
+  
+  /* Better focus states for keyboard navigation */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid #2d2e2e;
+    outline-offset: 3px;
+  }
+}
+
+/* Extra large screens (1536px and up) */
+@media (min-width: 1536px) {
+  /* Optimize spacing for very large screens */
+  body {
+    font-size: 16px;
+  }
+  
+  /* Wider max-width for XL screens */
+  .max-w-7xl {
+    max-width: 90rem;
+  }
+}

@@ -23,8 +23,12 @@ import MaterialListScreen from './components/MaterialListScreen';
 import MaterialListDetailScreen from './components/MaterialListDetailScreen';
 import CreateMaterialListScreen from './components/CreateMaterialListScreen';
 import MaterialListPreviewScreen from './components/MaterialListPreviewScreen';
+import EditMaterialListScreen from './components/EditMaterialListScreen';
 import ProjectDescriptionScreen from './components/ProjectDescriptionScreen';
 import SelectProjectScreen from './components/SelectProjectScreen';
+import ProjectMeasurementScreen from './components/ProjectMeasurementScreen';
+import ProjectSolutionScreen from './components/ProjectSolutionScreen';
+import QuoteConfigurationScreen from './components/QuoteConfigurationScreen';
 
 
 // Import types and constants
@@ -47,6 +51,7 @@ const App: React.FC = () => {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedMaterialListId, setSelectedMaterialListId] = useState<string | null>(null);
   const [materialListPreviewData, setMaterialListPreviewData] = useState<FullMaterialList | null>(null);
+  const [editingMaterialList, setEditingMaterialList] = useState<FullMaterialList | null>(null);
 
 
   const [floorPlan, setFloorPlan] = useState<FloorPlan>({ walls: [], doors: [], windows: [] });
@@ -54,13 +59,15 @@ const App: React.FC = () => {
   const [estimates, setEstimates] = useState<EstimateCategory[]>(initialEstimates);
   const [projectDescriptionData, setProjectDescriptionData] = useState<any>(null);
   const [selectProjectData, setSelectProjectData] = useState<any>(null);
+  const [projectMeasurementData, setProjectMeasurementData] = useState<any>(null);
+  const [materialCostFromStep4, setMaterialCostFromStep4] = useState<number>(0);
 
   // Splash screen, onboarding, and auth flow
   const handleSplashComplete = () => {
     setIsLoading(false);
     const onboardingShown = localStorage.getItem('onboardingShown');
     const userAuthenticated = localStorage.getItem('isAuthenticated');
-    
+
     if (userAuthenticated === 'true') {
       setIsAuthenticated(true);
     } else if (!onboardingShown) {
@@ -73,14 +80,14 @@ const App: React.FC = () => {
     setShowOnboarding(false);
     setAuthScreen('register'); // For new users, go to registration after onboarding.
   };
-  
+
   const handleRegistrationComplete = () => {
     setIsSettingUp(true);
     // Simulate API call and workspace setup
     setTimeout(() => {
-        localStorage.setItem('isAuthenticated', 'true');
-        setIsAuthenticated(true);
-        setIsSettingUp(false);
+      localStorage.setItem('isAuthenticated', 'true');
+      setIsAuthenticated(true);
+      setIsSettingUp(false);
     }, 2500); // Show setup screen for 2.5s
   };
 
@@ -101,6 +108,11 @@ const App: React.FC = () => {
     setCurrentView('projectDescription');
   };
 
+  const handleNewQuote = () => {
+    setPreviousView(currentView);
+    setCurrentView('newProject');
+  };
+
   const handleProjectDescriptionNext = (data: any) => {
     setProjectDescriptionData(data);
     setCurrentView('selectProject');
@@ -108,11 +120,37 @@ const App: React.FC = () => {
 
   const handleSelectProjectNext = (data: any) => {
     setSelectProjectData(data);
-    // For now, navigate to the existing newProject flow
-    // In the future, this would go to step 3, 4 of the project creation flow
-    setCurrentView('newProject');
+    setCurrentView('projectMeasurement');
   };
-  
+
+  const handleProjectMeasurementNext = (data: any) => {
+    setProjectMeasurementData(data);
+    setCurrentView('projectSolution');
+  };
+
+  const handleProjectSolutionGenerate = () => {
+    // Handle generation of final output (PDF, material list, cutting list, etc.)
+    // For now, navigate back to home or show success
+    setCurrentView('home');
+  };
+
+  const handleCreateQuoteFromSolution = (materialCost?: number) => {
+    // Store material cost for quote configuration
+    if (materialCost !== undefined) {
+      setMaterialCostFromStep4(materialCost);
+    }
+    // Navigate to quote configuration screen
+    setPreviousView(currentView);
+    setCurrentView('quoteConfiguration');
+  };
+
+  const handleQuoteConfigurationComplete = (quoteData: any) => {
+    // Handle final quote generation (could save to database, generate PDF, etc.)
+    console.log('Quote generated:', quoteData);
+    // For now, navigate back to home
+    setCurrentView('home');
+  };
+
   const handleGenerateQuote = (quoteData: QuotePreviewData) => {
     setGeneratedQuote(quoteData);
     setPreviousView(currentView); // Save the current view (likely 'newProject')
@@ -124,7 +162,7 @@ const App: React.FC = () => {
     setPreviousView(currentView);
     setCurrentView('quoteDetail');
   };
-  
+
   const handleViewMaterialList = (listId: string) => {
     setSelectedMaterialListId(listId);
     setPreviousView(currentView);
@@ -220,15 +258,32 @@ const App: React.FC = () => {
     }
     return <RegistrationScreen onRegister={handleRegistrationComplete} onSwitchToLogin={() => setAuthScreen('login')} />;
   }
-  
+
   if (currentView === 'newProject') {
     return <NewProjectScreen onBack={() => setCurrentView(previousView)} onGenerateQuote={handleGenerateQuote} />;
   }
-  
+
+  if (currentView === 'quotes') {
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <QuotesScreen onNewQuote={handleNewQuote} onViewQuote={handleViewQuote} onBack={() => setCurrentView('home')} />
+        </div>
+      </div>
+    );
+  }
+
   if (currentView === 'quotePreview' && generatedQuote) {
     return <QuotePreviewScreen quote={generatedQuote} onBack={() => setCurrentView('quotes')} onEdit={() => setCurrentView('newProject')} />;
   }
-  
+
   if (currentView === 'quoteDetail' && selectedQuoteId) {
     const quoteData = sampleFullQuotes.find(q => q.id === selectedQuoteId);
     if (quoteData) {
@@ -238,17 +293,20 @@ const App: React.FC = () => {
     setCurrentView('quotes');
     return null;
   }
-  
+
   if (currentView === 'settings') {
     return (
-      <div className="flex flex-col h-screen bg-white">
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          onClose={() => setIsSidebarOpen(false)} 
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <SettingsScreen onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <SettingsScreen onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />
+        </div>
       </div>
     );
   }
@@ -260,20 +318,94 @@ const App: React.FC = () => {
   if (currentView === 'subscriptionPlans') {
     return <SubscriptionPlanScreen onBack={() => setCurrentView(previousView)} />;
   }
-  
+
   if (currentView === 'help') {
-    return <HelpAndTipsScreen onBack={() => setCurrentView(previousView)} />;
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <HelpAndTipsScreen onBack={() => setCurrentView(previousView)} />
+        </div>
+      </div>
+    );
   }
-  
+
   if (currentView === 'material-list') {
-    return <MaterialListScreen onBack={() => setCurrentView('home')} onViewList={handleViewMaterialList} onCreateNewList={handleCreateNewMaterialList} />;
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <MaterialListScreen onBack={() => setCurrentView('home')} onViewList={handleViewMaterialList} onCreateNewList={handleCreateNewMaterialList} />
+        </div>
+      </div>
+    );
   }
-  
+
   if (currentView === 'materialListDetail' && selectedMaterialListId) {
     const listData = sampleFullMaterialLists.find(l => l.id === selectedMaterialListId);
     // Find a fallback or default if listData is not found
     const displayData = listData || sampleFullMaterialLists[0];
-    return <MaterialListDetailScreen list={displayData} onBack={() => setCurrentView('material-list')} />;
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <MaterialListDetailScreen
+            list={displayData}
+            onBack={() => setCurrentView('material-list')}
+            onEdit={() => {
+              setEditingMaterialList(displayData);
+              setCurrentView('editMaterialList');
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentView === 'editMaterialList' && editingMaterialList) {
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <EditMaterialListScreen
+            list={editingMaterialList}
+            onBack={() => {
+              setCurrentView('materialListDetail');
+              setEditingMaterialList(null);
+            }}
+            onNext={() => {
+              // Handle next - could navigate to Item List tab or save
+              setCurrentView('materialListDetail');
+              setEditingMaterialList(null);
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   if (currentView === 'materialListPreview' && materialListPreviewData) {
@@ -284,6 +416,23 @@ const App: React.FC = () => {
     return <CreateMaterialListScreen onBack={() => setCurrentView('material-list')} onPreview={handlePreviewMaterialList} onSaveDraft={handleSaveMaterialListDraft} />;
   }
 
+  if (currentView === 'projects') {
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <ProjectsScreen onNewProject={handleNewProject} onBack={() => setCurrentView('home')} />
+        </div>
+      </div>
+    );
+  }
+
   if (currentView === 'projectDescription') {
     return <ProjectDescriptionScreen onBack={() => setCurrentView(previousView)} onNext={handleProjectDescriptionNext} />;
   }
@@ -292,19 +441,50 @@ const App: React.FC = () => {
     return <SelectProjectScreen onBack={() => setCurrentView('projectDescription')} onNext={handleSelectProjectNext} previousData={projectDescriptionData} />;
   }
 
+  if (currentView === 'projectMeasurement') {
+    return <ProjectMeasurementScreen onBack={() => setCurrentView('selectProject')} onNext={handleProjectMeasurementNext} previousData={selectProjectData} />;
+  }
+
+  if (currentView === 'projectSolution') {
+    const combinedData = {
+      projectDescription: projectDescriptionData,
+      selectProject: selectProjectData,
+      projectMeasurement: projectMeasurementData
+    };
+    return <ProjectSolutionScreen onBack={() => setCurrentView('projectMeasurement')} onGenerate={handleProjectSolutionGenerate} onCreateQuote={handleCreateQuoteFromSolution} previousData={combinedData} />;
+  }
+
+  if (currentView === 'quoteConfiguration') {
+    return (
+      <QuoteConfigurationScreen
+        onBack={() => setCurrentView('projectSolution')}
+        onGenerateQuote={handleQuoteConfigurationComplete}
+        materialCost={materialCostFromStep4}
+        projectData={{
+          projectName: projectDescriptionData?.projectName,
+          customerName: projectDescriptionData?.customerName,
+          siteAddress: projectDescriptionData?.siteAddress
+        }}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-main text-text-primary font-exo">
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+    <div className="flex h-screen bg-main text-text-primary font-exo">
+      {/* Sidebar - Mobile: overlay modal, Desktop: permanent sidebar */}
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         currentView={currentView}
         onNavigate={handleNavigate}
       />
-      <Header onMenuClick={() => setIsSidebarOpen(true)} />
-      <div className="flex-1 overflow-y-auto">
-        {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} />}
-        {currentView === 'projects' && <ProjectsScreen />}
-        {currentView === 'quotes' && <QuotesScreen onNewQuote={handleNewProject} onViewQuote={handleViewQuote} />}
+
+      {/* Main Content Area - Desktop: offset by sidebar width (collapsed: 80px, expanded: 256px) */}
+      <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <div className="flex-1 overflow-y-auto">
+          {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} />}
+        </div>
       </div>
     </div>
   );

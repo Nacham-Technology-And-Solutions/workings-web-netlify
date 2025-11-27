@@ -44,7 +44,7 @@ export interface EstimateCategory {
 
 export type Tool = 'SELECT' | 'WALL' | 'DOOR' | 'WINDOW';
 
-export type ProjectStatus = 'In Progress' | 'Completed' | 'On Hold';
+export type ProjectStatus = 'In Progress' | 'Completed' | 'On Hold' | 'Draft';
 
 export interface Project {
   id: string;
@@ -52,6 +52,7 @@ export interface Project {
   address: string;
   status: ProjectStatus;
   lastUpdated: string; // ISO string date
+  projectId?: string; // e.g. #000045
 }
 
 export interface QuoteItem {
@@ -60,6 +61,10 @@ export interface QuoteItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  type?: 'material' | 'dimension'; // Optional field to distinguish item types
+  width?: number; // For dimension items
+  height?: number; // For dimension items
+  panels?: number; // For dimension items
 }
 
 export type QuoteStatus = 'Draft' | 'Sent' | 'Accepted' | 'Rejected' | 'Paid';

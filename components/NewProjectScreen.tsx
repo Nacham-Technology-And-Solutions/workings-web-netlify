@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Input from './Input';
-import { 
+import {
     ChevronLeftIcon,
     UserIcon,
     CalendarIcon,
@@ -11,11 +11,12 @@ import {
 } from './icons/IconComponents';
 import CalendarModal from './CalendarModal';
 import AddItemsModal from './AddItemsModal';
+import DimensionInputModal from './DimensionInputModal';
 import { QuoteItem, QuotePreviewData } from '../types';
 
 interface NewProjectScreenProps {
-  onBack: () => void;
-  onGenerateQuote: (quoteData: QuotePreviewData) => void;
+    onBack: () => void;
+    onGenerateQuote: (quoteData: QuotePreviewData) => void;
 }
 
 const formatNaira = (amount: number) => {
@@ -28,7 +29,7 @@ const formatNaira = (amount: number) => {
 }
 
 const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQuote }) => {
-    const [quoteTab, setQuoteTab] = useState<'Overview' | 'Item-List' | 'Extras & Notes'>('Item-List');
+    const [quoteTab, setQuoteTab] = useState<'Overview' | 'Item-List' | 'Extras & Notes'>('Overview');
     const [itemView, setItemView] = useState<'edit' | 'review'>('edit');
 
     // Form State
@@ -43,12 +44,14 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     );
     const [extraCharge, setExtraCharge] = useState({ type: '', amount: '' });
     const [additionalNotes, setAdditionalNotes] = useState('');
-    
+
     // Modal & UI State
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isAddItemsModalOpen, setIsAddItemsModalOpen] = useState(false);
+    const [isDimensionModalOpen, setIsDimensionModalOpen] = useState(false);
     const [selectedList, setSelectedList] = useState<'dimension' | 'material'>('material');
     const [isChargesDropdownOpen, setIsChargesDropdownOpen] = useState(false);
+    const [editingDimension, setEditingDimension] = useState<Omit<QuoteItem, 'total'> | null>(null);
     const chargesDropdownRef = useRef<HTMLDivElement>(null);
 
     const chargeOptions = [
@@ -71,20 +74,27 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     }, []);
 
     const subtotal = useMemo(() => {
-        return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+        return items.reduce((sum, item) => {
+            if (item.type === 'dimension' && item.width && item.height) {
+                // For dimension items: (width * height in mm²) / 1,000,000 * quantity * unitPrice
+                return sum + ((item.width * item.height) / 1000000 * item.quantity * item.unitPrice);
+            }
+            // For material items: quantity * unitPrice
+            return sum + (item.quantity * item.unitPrice);
+        }, 0);
     }, [items]);
 
     const quoteTotal = useMemo(() => {
         const extraAmount = parseFloat(extraCharge.amount) || 0;
         return subtotal + extraAmount;
     }, [subtotal, extraCharge.amount]);
-    
+
     const getDayWithSuffix = (day: number) => {
         if (day > 3 && day < 21) return day + 'th';
         switch (day % 10) {
-            case 1:  return day + "st";
-            case 2:  return day + "nd";
-            case 3:  return day + "rd";
+            case 1: return day + "st";
+            case 2: return day + "nd";
+            case 3: return day + "rd";
             default: return day + "th";
         }
     };
@@ -114,7 +124,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
             // Allow empty string for temporary clearing of input
             const numValue = value === '' ? 0 : parseFloat(value.replace(/,/g, ''));
             if (!isNaN(numValue)) {
-                 if (field === 'quantity') {
+                if (field === 'quantity') {
                     item.quantity = numValue;
                 } else if (field === 'unitPrice') {
                     item.unitPrice = numValue;
@@ -126,19 +136,49 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     };
 
     const addItem = () => {
-        setItems([...items, { id: `item-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }]);
+        if (selectedList === 'dimension') {
+            setIsDimensionModalOpen(true);
+        } else {
+            setItems([...items, { id: `item-${Date.now()}`, description: '', quantity: 1, unitPrice: 0, type: 'material' }]);
+        }
     };
 
     const removeItem = (indexToRemove: number) => {
         setItems(items.filter((_, index) => index !== indexToRemove));
     };
-    
+
+    const handleAddDimension = (dimensionData: Omit<QuoteItem, 'total' | 'id'>) => {
+        const newDimension: Omit<QuoteItem, 'total'> = {
+            id: editingDimension?.id || `dim-${Date.now()}`,
+            ...dimensionData,
+            total: 0 // Will be calculated
+        };
+
+        if (editingDimension) {
+            // Update existing dimension
+            const updatedItems = items.map(item =>
+                item.id === editingDimension.id ? newDimension : item
+            );
+            setItems(updatedItems);
+            setEditingDimension(null);
+        } else {
+            // Add new dimension
+            setItems([...items, newDimension]);
+        }
+        setIsDimensionModalOpen(false);
+    };
+
+    const handleEditDimension = (item: Omit<QuoteItem, 'total'>) => {
+        setEditingDimension(item);
+        setIsDimensionModalOpen(true);
+    };
+
     const handleFinalGenerateQuote = () => {
         const charges = [];
         if (extraCharge.type && extraCharge.amount) {
             charges.push({ label: extraCharge.type, amount: parseFloat(extraCharge.amount) });
         }
-        
+
         const quoteData: QuotePreviewData = {
             projectName: projectName || "Unnamed Project",
             siteAddress: siteAddress || "N/A",
@@ -146,7 +186,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
             customerEmail: customerEmail || "N/A",
             quoteId: quoteId,
             issueDate: formatDisplayDate(issueDate) || 'N/A',
-            items: items.map(item => ({...item, total: item.quantity * item.unitPrice})),
+            items: items.map(item => ({ ...item, total: item.quantity * item.unitPrice })),
             summary: {
                 subtotal: subtotal,
                 charges: charges,
@@ -167,16 +207,16 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">CUSTOMERS' INFORMATION</h3>
                 <div className="border-b-2 border-dashed border-gray-300 mb-4"></div>
                 <div className="space-y-4">
-                    <Input 
-                        id="quoteCustomerName" 
+                    <Input
+                        id="quoteCustomerName"
                         label="Customer's name"
                         placeholder="Select a name"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
                         rightIcon={<UserIcon className="text-gray-500" />}
                     />
-                    <Input 
-                        id="quoteCustomerEmail" 
+                    <Input
+                        id="quoteCustomerEmail"
                         label="Customer's email address"
                         type="email"
                         placeholder="samanthagreen@example.com"
@@ -189,34 +229,34 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">QUOTE DETAILS</h3>
                 <div className="border-b-2 border-dashed border-gray-300 mb-4"></div>
                 <div className="space-y-4">
-                    <Input 
-                        id="quoteProjectName" 
+                    <Input
+                        id="quoteProjectName"
                         label="Project name"
                         placeholder="Enter a project name"
                         value={projectName}
                         onChange={(e) => setProjectName(e.target.value)}
                     />
-                    <Input 
-                        id="quoteSiteAddress" 
+                    <Input
+                        id="quoteSiteAddress"
                         label="Site Address"
                         placeholder="Enter site address eg- Doom Refurbishments..."
                         value={siteAddress}
                         onChange={(e) => setSiteAddress(e.target.value)}
                     />
                     <div onClick={() => setIsCalendarOpen(true)} className="cursor-pointer">
-                        <Input 
-                            id="issueDate" 
-                            label="Issue Date" 
+                        <Input
+                            id="issueDate"
+                            label="Issue Date"
                             value={formatDisplayDate(issueDate)}
                             placeholder="Select quote date"
                             readOnly
-                            rightIcon={<CalendarIcon className="text-gray-500"/>}
+                            rightIcon={<CalendarIcon className="text-gray-500" />}
                             className="pointer-events-none"
                         />
                     </div>
-                    <Input 
-                        id="quoteId" 
-                        label="Quote ID" 
+                    <Input
+                        id="quoteId"
+                        label="Quote ID"
                         value={quoteId}
                         readOnly
                         className="bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed"
@@ -225,140 +265,309 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
             </div>
         </div>
     );
-    
-    const renderItemListEdit = () => (
-        <div className="pt-6 pb-24">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">ITEM LISTS</h3>
-            <div className="border-b-2 border-dashed border-gray-300 mb-6"></div>
 
-            {/* Item Table */}
-            <div className="w-full">
-                {/* Table Header */}
-                <div className="grid grid-cols-12 gap-x-4 text-xs font-medium text-gray-500 pb-2 border-b border-gray-200">
-                    <div className="col-span-5">Description</div>
-                    <div className="col-span-2">Qty</div>
-                    <div className="col-span-2 text-right">Unit Price(₦)</div>
-                    <div className="col-span-3 text-right">Total(₦)</div>
+    const renderItemListEdit = () => {
+        const filteredItems = items.filter(item => {
+            if (selectedList === 'dimension') {
+                return item.type === 'dimension';
+            } else {
+                return !item.type || item.type === 'material';
+            }
+        });
+
+        return (
+            <div className="pt-6 pb-24">
+                {/* Toggle between Material List and Dimension List */}
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">ITEM LISTS</h3>
+                    <div className="bg-gray-100 rounded-full p-1 flex items-center gap-1">
+                        <button
+                            onClick={() => setSelectedList('material')}
+                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'material'
+                                    ? 'bg-gray-800 text-white'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            Material
+                        </button>
+                        <button
+                            onClick={() => setSelectedList('dimension')}
+                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'dimension'
+                                    ? 'bg-gray-800 text-white'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            Dimension
+                        </button>
+                    </div>
+                </div>
+                <div className="border-b-2 border-dashed border-gray-300 mb-6"></div>
+
+                {/* Item Table */}
+                <div className="w-full">
+                    {selectedList === 'dimension' ? (
+                        <>
+                            {/* Dimension Table Header */}
+                            <div className="grid grid-cols-12 gap-x-2 text-xs font-medium text-gray-500 pb-2 border-b border-gray-200">
+                                <div className="col-span-3">Description</div>
+                                <div className="col-span-2 text-center">Dimension</div>
+                                <div className="col-span-2 text-center">Qty</div>
+                                <div className="col-span-2 text-right">Price(₦)</div>
+                                <div className="col-span-3 text-right">Total(₦)</div>
+                            </div>
+
+                            {/* Dimension Table Body */}
+                            <div className="mt-1">
+                                {filteredItems.map((item, index) => {
+                                    const itemTotal = (item.width || 0) * (item.height || 0) * item.quantity * item.unitPrice / 1000000; // Convert mm² to m²
+                                    return (
+                                        <div key={item.id} className="grid grid-cols-12 gap-x-2 items-center py-3 border-b border-gray-200 group">
+                                            <div className="col-span-3">
+                                                <span className="text-sm text-gray-800 font-medium">{item.description}</span>
+                                            </div>
+                                            <div className="col-span-2 text-center">
+                                                <span className="text-xs text-gray-600">{item.width}×{item.height}</span>
+                                            </div>
+                                            <div className="col-span-2 text-center">
+                                                <span className="text-sm text-gray-600">{item.quantity}</span>
+                                            </div>
+                                            <div className="col-span-2 text-right">
+                                                <span className="text-sm text-gray-600">{item.unitPrice.toLocaleString('en-US')}</span>
+                                            </div>
+                                            <div className="col-span-3 flex items-center justify-end gap-2">
+                                                <span className="text-sm font-semibold text-gray-800 text-right">
+                                                    {itemTotal.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                                                </span>
+                                                <button
+                                                    onClick={() => handleEditDimension(item)}
+                                                    aria-label="Edit dimension"
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-600 hover:text-blue-700"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => removeItem(items.indexOf(item))}
+                                                    aria-label="Remove item"
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <TrashIcon className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Material Table Header */}
+                            <div className="grid grid-cols-12 gap-x-4 text-xs font-medium text-gray-500 pb-2 border-b border-gray-200">
+                                <div className="col-span-5">Description</div>
+                                <div className="col-span-2">Qty</div>
+                                <div className="col-span-2 text-right">Unit Price(₦)</div>
+                                <div className="col-span-3 text-right">Total(₦)</div>
+                            </div>
+
+                            {/* Material Table Body */}
+                            <div className="mt-1">
+                                {filteredItems.map((item, index) => {
+                                    const actualIndex = items.findIndex(i => i.id === item.id);
+                                    return (
+                                        <div key={item.id} className="grid grid-cols-12 gap-x-4 items-center py-2 border-b border-gray-200 group">
+                                            <div className="col-span-5">
+                                                <input
+                                                    type="text"
+                                                    value={item.description}
+                                                    onChange={(e) => handleItemChange(actualIndex, 'description', e.target.value)}
+                                                    placeholder="Item Description"
+                                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-800 font-medium"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="number"
+                                                    value={item.quantity || ''}
+                                                    onChange={(e) => handleItemChange(actualIndex, 'quantity', e.target.value)}
+                                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-600 text-left"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="text"
+                                                    value={item.unitPrice ? item.unitPrice.toLocaleString('en-US') : ''}
+                                                    onChange={(e) => handleItemChange(actualIndex, 'unitPrice', e.target.value)}
+                                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-600 text-right"
+                                                />
+                                            </div>
+                                            <div className="col-span-3 flex items-center justify-end gap-2">
+                                                <span className="text-sm font-semibold text-gray-800 text-right">
+                                                    {(item.quantity * item.unitPrice).toLocaleString('en-US')}
+                                                </span>
+                                                {filteredItems.length > 1 && (
+                                                    <button onClick={() => removeItem(actualIndex)} aria-label="Remove item" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <TrashIcon className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Table Body */}
-                <div className="mt-1">
-                    {items.map((item, index) => (
-                        <div key={item.id} className="grid grid-cols-12 gap-x-4 items-center py-2 border-b border-gray-200 group">
-                            <div className="col-span-5">
-                                <input
-                                    type="text"
-                                    value={item.description}
-                                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                                    placeholder="Item Description"
-                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-800 font-medium"
-                                />
-                            </div>
-                            <div className="col-span-2">
-                                <input
-                                    type="number"
-                                    value={item.quantity || ''}
-                                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-600 text-left"
-                                />
-                            </div>
-                            <div className="col-span-2">
-                                <input
-                                    type="text"
-                                    value={item.unitPrice ? item.unitPrice.toLocaleString('en-US') : ''}
-                                    onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)}
-                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-600 text-right"
-                                />
-                            </div>
-                            <div className="col-span-3 flex items-center justify-end gap-2">
-                                <span className="text-sm font-semibold text-gray-800 text-right">
-                                    {(item.quantity * item.unitPrice).toLocaleString('en-US')}
-                                </span>
-                                {items.length > 1 && (
-                                    <button onClick={() => removeItem(index)} aria-label="Remove item" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <TrashIcon className="w-4 h-4 text-gray-400 hover:text-red-500" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                <button onClick={addItem} className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded-lg hover:bg-cyan-50 transition-colors">
+                    <span>{selectedList === 'dimension' ? 'Add a dimension' : 'Add an item'}</span>
+                    <PlusCircleIcon className="text-cyan-600 w-5 h-5" />
+                </button>
+
+                <div className="mt-8 py-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center text-lg">
+                        <span className="text-gray-800 font-semibold">Subtotal</span>
+                        <span className="text-gray-900 font-bold">{formatNaira(subtotal)}</span>
+                    </div>
                 </div>
             </div>
-            
-            <button onClick={addItem} className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded-lg hover:bg-cyan-50 transition-colors">
-                <span>Add a dimension</span>
-                <PlusCircleIcon className="text-cyan-600 w-5 h-5" />
-            </button>
+        );
+    };
 
-            <div className="mt-8 py-4 border-t border-gray-200">
-                <div className="flex justify-between items-center text-lg">
-                    <span className="text-gray-800 font-semibold">Subtotal</span>
-                    <span className="text-gray-900 font-bold">{formatNaira(subtotal)}</span>
+    const renderItemListReview = () => {
+        const filteredItems = items.filter(item => {
+            if (selectedList === 'dimension') {
+                return item.type === 'dimension';
+            } else {
+                return !item.type || item.type === 'material';
+            }
+        });
+
+        return (
+            <div className="pt-6 pb-24">
+                {/* Toggle between Material List and Dimension List */}
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">ITEM LISTS</h3>
+                    <div className="bg-gray-100 rounded-full p-1 flex items-center gap-1">
+                        <button
+                            onClick={() => setSelectedList('material')}
+                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'material'
+                                    ? 'bg-gray-800 text-white'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            Material
+                        </button>
+                        <button
+                            onClick={() => setSelectedList('dimension')}
+                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'dimension'
+                                    ? 'bg-gray-800 text-white'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            Dimension
+                        </button>
+                    </div>
+                </div>
+                <div className="border-b-2 border-dashed border-gray-300 mb-6"></div>
+
+                {/* Item Table */}
+                <div className="w-full">
+                    {selectedList === 'dimension' ? (
+                        <>
+                            {/* Dimension Table Header */}
+                            <div className="grid grid-cols-12 gap-x-2 text-sm font-medium text-gray-500 pb-2 border-b border-gray-300">
+                                <div className="col-span-3">Description</div>
+                                <div className="col-span-2 text-center">Dimension</div>
+                                <div className="col-span-2 text-center">Qty</div>
+                                <div className="col-span-2 text-right">Price(₦)</div>
+                                <div className="col-span-3 text-right">Total(₦)</div>
+                            </div>
+
+                            {/* Dimension Table Body */}
+                            <div className="mt-1">
+                                {filteredItems.map((item) => {
+                                    const itemTotal = (item.width || 0) * (item.height || 0) * item.quantity * item.unitPrice / 1000000;
+                                    return (
+                                        <div key={item.id} className="grid grid-cols-12 gap-x-2 items-center py-3 border-b border-gray-200">
+                                            <div className="col-span-3 text-base text-gray-800 font-medium">
+                                                {item.description || '-'}
+                                            </div>
+                                            <div className="col-span-2 text-sm text-gray-600 text-center">
+                                                {item.width}×{item.height}
+                                            </div>
+                                            <div className="col-span-2 text-base text-gray-600 text-center">
+                                                {item.quantity}
+                                            </div>
+                                            <div className="col-span-2 text-base text-gray-600 text-right">
+                                                {item.unitPrice.toLocaleString('en-US')}
+                                            </div>
+                                            <div className="col-span-3 text-base font-semibold text-gray-800 text-right">
+                                                {itemTotal.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Material Table Header */}
+                            <div className="grid grid-cols-12 gap-x-4 text-sm font-medium text-gray-500 pb-2 border-b border-gray-300">
+                                <div className="col-span-5">Description</div>
+                                <div className="col-span-2">Qty</div>
+                                <div className="col-span-3 text-right">Unit Price(₦)</div>
+                                <div className="col-span-2 text-right">Total(₦)</div>
+                            </div>
+
+                            {/* Material Table Body */}
+                            <div className="mt-1">
+                                {filteredItems.map((item) => (
+                                    <div key={item.id} className="grid grid-cols-12 gap-x-4 items-center py-3 border-b border-gray-200">
+                                        <div className="col-span-5 text-base text-gray-800 font-medium break-words">
+                                            {item.description || '-'}
+                                        </div>
+                                        <div className="col-span-2 text-base text-gray-600 text-left">
+                                            {item.quantity}
+                                        </div>
+                                        <div className="col-span-3 text-base text-gray-600 text-right">
+                                            {item.unitPrice.toLocaleString('en-US')}
+                                        </div>
+                                        <div className="col-span-2 text-base font-semibold text-gray-800 text-right">
+                                            {(item.quantity * item.unitPrice).toLocaleString('en-US')}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <button
+                    onClick={() => { addItem(); setItemView('edit'); }}
+                    className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded-lg hover:bg-cyan-50 transition-colors"
+                >
+                    <span>{selectedList === 'dimension' ? 'Add a dimension' : 'Add an item'}</span>
+                    <PlusCircleIcon className="text-cyan-600 w-5 h-5" />
+                </button>
+
+                <div className="mt-8 py-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center text-lg">
+                        <span className="text-gray-800 font-semibold">Subtotal</span>
+                        <span className="text-gray-900 font-bold">{formatNaira(subtotal)}</span>
+                    </div>
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
-    const renderItemListReview = () => (
-        <div className="pt-6 pb-24">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">ITEM LISTS</h3>
-            <div className="border-b-2 border-dashed border-gray-300 mb-6"></div>
-
-            {/* Item Table */}
-            <div className="w-full">
-                {/* Table Header */}
-                <div className="grid grid-cols-12 gap-x-4 text-sm font-medium text-gray-500 pb-2 border-b border-gray-300">
-                    <div className="col-span-5">Description</div>
-                    <div className="col-span-2">Qty</div>
-                    <div className="col-span-3 text-right">Unit Price(₦)</div>
-                    <div className="col-span-2 text-right">Total(₦)</div>
-                </div>
-
-                {/* Table Body */}
-                <div className="mt-1">
-                    {items.map((item) => (
-                        <div key={item.id} className="grid grid-cols-12 gap-x-4 items-center py-3 border-b border-gray-200">
-                            <div className="col-span-5 text-base text-gray-800 font-medium break-words">
-                                {item.description || '-'}
-                            </div>
-                            <div className="col-span-2 text-base text-gray-600 text-left">
-                                {item.quantity}
-                            </div>
-                            <div className="col-span-3 text-base text-gray-600 text-right">
-                                {item.unitPrice.toLocaleString('en-US')}
-                            </div>
-                            <div className="col-span-2 text-base font-semibold text-gray-800 text-right">
-                               {(item.quantity * item.unitPrice).toLocaleString('en-US')}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            
-            <button 
-              onClick={() => { addItem(); setItemView('edit'); }} 
-              className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded-lg hover:bg-cyan-50 transition-colors"
-            >
-                <span>Add a dimension</span>
-                <PlusCircleIcon className="text-cyan-600 w-5 h-5" />
-            </button>
-
-            <div className="mt-8 py-4 border-t border-gray-200">
-                <div className="flex justify-between items-center text-lg">
-                    <span className="text-gray-800 font-semibold">Subtotal</span>
-                    <span className="text-gray-900 font-bold">{formatNaira(subtotal)}</span>
-                </div>
-            </div>
-        </div>
-    );
-    
     const renderExtrasAndNotes = () => (
-         <div className="space-y-8 pt-6 pb-24">
+        <div className="space-y-8 pt-6 pb-24">
             <div>
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">EXTRA CHARGES</h3>
                 <div className="border-b-2 border-dashed border-gray-300 mb-4"></div>
                 <div className="space-y-4">
-                     <div className="relative" ref={chargesDropdownRef}>
+                    <div className="relative" ref={chargesDropdownRef}>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Charge Name
                         </label>
@@ -402,14 +611,14 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                                 type="text"
                                 placeholder="0.00"
                                 value={extraCharge.amount ? parseFloat(extraCharge.amount).toLocaleString('en-US') : ''}
-                                onChange={(e) => setExtraCharge(p => ({...p, amount: e.target.value.replace(/[^0-9.]/g, '')}))}
+                                onChange={(e) => setExtraCharge(p => ({ ...p, amount: e.target.value.replace(/[^0-9.]/g, '') }))}
                                 className="w-full pl-8 pr-4 py-3.5 text-gray-900 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400"
                             />
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <div>
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">PAYMENT METHOD</h3>
                 <div className="space-y-3 text-base">
@@ -428,14 +637,14 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                 </div>
             </div>
 
-            <hr className="border-t border-gray-200"/>
+            <hr className="border-t border-gray-200" />
 
             <div className="flex justify-between items-center py-2">
                 <span className="text-xl font-bold text-gray-800">Total</span>
                 <span className="text-xl font-bold text-gray-800">{formatNaira(quoteTotal)}</span>
             </div>
 
-            <hr className="border-t border-gray-200"/>
+            <hr className="border-t border-gray-200" />
 
             <div>
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">ADDITIONAL NOTES</h3>
@@ -466,11 +675,10 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                         <button
                             key={tab}
                             onClick={() => handleTabChange(tab)}
-                            className={`whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-base transition-colors ${
-                                quoteTab === tab
-                                ? 'border-gray-800 text-gray-800'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
+                            className={`whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-base transition-colors ${quoteTab === tab
+                                    ? 'border-gray-800 text-gray-800'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
                         >
                             {tab}
                         </button>
@@ -486,6 +694,17 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                     {quoteTab === 'Extras & Notes' && renderExtrasAndNotes()}
                 </div>
             </main>
+
+            {quoteTab === 'Overview' && (
+                <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10">
+                    <button
+                        onClick={() => handleTabChange('Item-List')}
+                        className="w-full py-4 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                        Next
+                    </button>
+                </footer>
+            )}
 
             {quoteTab === 'Item-List' && (
                 <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10 space-y-3 border-t border-gray-200">
@@ -520,8 +739,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                     </button>
                 </footer>
             )}
-            
-            <CalendarModal 
+
+            <CalendarModal
                 isOpen={isCalendarOpen}
                 onClose={() => setIsCalendarOpen(false)}
                 initialDate={issueDate}
@@ -535,7 +754,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                 }}
             />
 
-            <AddItemsModal 
+            <AddItemsModal
                 isOpen={isAddItemsModalOpen}
                 onClose={() => setIsAddItemsModalOpen(false)}
                 initialSelection={selectedList}
@@ -545,6 +764,16 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                     // In a real app, this would open another modal to select items
                     console.log("Adding items from:", selection);
                 }}
+            />
+
+            <DimensionInputModal
+                isOpen={isDimensionModalOpen}
+                onClose={() => {
+                    setIsDimensionModalOpen(false);
+                    setEditingDimension(null);
+                }}
+                onAdd={handleAddDimension}
+                editingItem={editingDimension}
             />
         </div>
     );

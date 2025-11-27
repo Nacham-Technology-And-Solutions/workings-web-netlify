@@ -32,16 +32,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, isOpen, 
         className="w-full flex justify-between items-center p-4 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
         aria-expanded={isOpen}
       >
-        <div className="flex items-center gap-3">
-          {isCompleted ? (
-            <CheckCircleIcon />
-          ) : (
-            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isOpen ? 'border-cyan-600 bg-cyan-50' : 'border-gray-300'}`}>
-                {isOpen && <div className="w-2 h-2 rounded-full bg-cyan-600"></div>}
-            </div>
-          )}
-          <span className="font-semibold text-gray-800">{title}</span>
-        </div>
+        <span className="font-semibold text-gray-800">{title}</span>
         <div className={`transform transition-transform duration-200 text-gray-500 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
           <ChevronDownIcon />
         </div>
