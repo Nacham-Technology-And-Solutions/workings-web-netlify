@@ -102,41 +102,41 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
               </button>
               
               {/* More Options */}
-              <div className="relative" ref={menuRef}>
-                <button 
-                  onClick={() => setIsMenuOpen(prev => !prev)}
+        <div className="relative" ref={menuRef}>
+          <button 
+            onClick={() => setIsMenuOpen(prev => !prev)}
                   className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors" 
-                  aria-label="More options"
-                  aria-haspopup="true"
-                  aria-expanded={isMenuOpen}
-                >
-                  <MoreVerticalIcon />
-                </button>
-                {isMenuOpen && (
-                  <div 
-                    className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    role="menu"
-                  >
-                    <ul className="py-1">
-                      <li>
-                        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+            aria-label="More options"
+            aria-haspopup="true"
+            aria-expanded={isMenuOpen}
+          >
+            <MoreVerticalIcon />
+          </button>
+          {isMenuOpen && (
+            <div 
+              className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+              role="menu"
+            >
+              <ul className="py-1">
+                <li>
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                           Share
-                        </button>
-                      </li>
-                      <li>
-                        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                  </button>
+                </li>
+                <li>
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                           Duplicate
-                        </button>
-                      </li>
-                      <li>
-                        <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">
-                          Delete
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
+                  </button>
+                </li>
+                <li>
+                  <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">
+                    Delete
+                  </button>
+                </li>
+              </ul>
+            </div>
+          )}
+        </div>
             </div>
           </div>
 
@@ -147,19 +147,19 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-gray-600">Issue Date: </span>
-                  <span className="font-medium text-gray-900">{formattedDateWithSuffix}</span>
-                </div>
+            <span className="font-medium text-gray-900">{formattedDateWithSuffix}</span>
+          </div>
                 <span className="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
-                  {list.status}
-                </span>
-              </div>
+              {list.status}
+            </span>
+          </div>
               
               {/* Prepared by */}
               <div>
                 <span className="text-gray-600">Prepared by: </span>
                 <span className="font-medium text-gray-900">{list.preparedBy}</span>
-              </div>
-              
+        </div>
+
               {/* Project */}
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,7 +167,7 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
                 </svg>
                 <span className="text-gray-600">Project: </span>
                 <span className="font-medium text-gray-900">{list.projectName}</span>
-              </div>
+        </div>
             </div>
           </div>
 
@@ -177,15 +177,15 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
             
             {/* Table */}
             <div className="bg-white rounded-lg overflow-hidden">
-              {/* Table Header */}
+            {/* Table Header */}
               <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 border-b border-gray-200">
                 <div className="col-span-5 text-sm font-semibold text-gray-700">Description</div>
                 <div className="col-span-2 text-sm font-semibold text-gray-700 text-center">Qty</div>
                 <div className="col-span-2 text-sm font-semibold text-gray-700 text-right">Unit Price (N)</div>
                 <div className="col-span-3 text-sm font-semibold text-gray-700 text-right">Total (N)</div>
-              </div>
+            </div>
 
-              {/* Table Body */}
+            {/* Table Body */}
               <div>
                 {list.items.map((item, index) => (
                   <div 
@@ -195,20 +195,20 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
                     }`}
                   >
                     <div className="col-span-5 text-base text-gray-900 font-medium">
-                      {item.description}
-                    </div>
-                    <div className="col-span-2 text-base text-gray-600 text-center">
-                      {item.quantity}
-                    </div>
+                            {item.description}
+                        </div>
+                        <div className="col-span-2 text-base text-gray-600 text-center">
+                            {item.quantity}
+                        </div>
                     <div className="col-span-2 text-base text-gray-600 text-right">
                       {formatNumber(item.unitPrice)}
-                    </div>
+                        </div>
                     <div className="col-span-3 text-base font-semibold text-gray-900 text-right">
                       {formatNumber(item.total)}
+                        </div>
                     </div>
-                  </div>
                 ))}
-              </div>
+            </div>
 
               {/* Total Row */}
               <div className="px-4 py-4 bg-gray-50 border-t-2 border-gray-300 flex justify-between items-center">
@@ -216,7 +216,7 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
                 <span className="text-lg font-bold text-gray-900">{formatNaira(list.total)}</span>
               </div>
             </div>
-          </div>
+            </div>
         </div>
       </main>
     </div>

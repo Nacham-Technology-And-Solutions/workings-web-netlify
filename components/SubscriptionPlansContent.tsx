@@ -5,14 +5,8 @@ interface SubscriptionPlansContentProps {
   onBack?: () => void;
 }
 
-const DoubleArrowRightIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M13 17l5-5-5-5M6 17l5-5-5-5"/>
-  </svg>
-);
-
 const BoxIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+  <svg width="100" height="100" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
     <path d="M50.6667 21.3333H13.3333C11.4924 21.3333 10 22.8257 10 24.6667V48C10 49.8409 11.4924 51.3333 13.3333 51.3333H50.6667C52.5076 51.3333 54 49.8409 54 48V24.6667C54 22.8257 52.5076 21.3333 50.6667 21.3333Z" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M32 51.3333V21.3333" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M54 24.6667L32 12.6667L10 24.6667" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -58,12 +52,12 @@ const plans = [
     features: [
       'Unlimited Projects',
       'Advanced Multi-SI Optimization',
-      'Branded PDFs (custom terms)',
+      'Branded PDFs (customs terms)',
       'Cost Library (unlimited history)',
       'Unlimited Templates',
       'Early Access to New Features',
     ],
-    buttonText: 'Subscribe Now',
+    buttonText: 'Subscribe',
   },
 ];
 
@@ -80,27 +74,34 @@ const PlanCard: React.FC<{ plan: Plan; billingCycle: 'monthly' | 'yearly' }> = (
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col h-full">
-      <div className="relative mb-6">
-        <div className="flex-1 pr-16">
-          <div className="text-4xl font-black text-gray-900 mb-2">
-            {plan.name === 'Free Plan' ? '₦0' : `₦${formatPrice(price)}`}
-          </div>
-          <p className="text-lg font-semibold text-gray-900 mb-1">{plan.name}</p>
-          <p className="text-sm text-gray-500">{plan.description}</p>
-        </div>
-        <div className="absolute top-0 right-0">
-          <BoxIcon />
-        </div>
+    <div className="bg-gray-100 border border-gray-200 rounded-2xl p-6 flex flex-col h-full relative">
+      {/* Icon in top-right corner - aligned with price */}
+      <div className="absolute top-6 right-6">
+        <BoxIcon />
       </div>
 
+      {/* Price, Name, Description */}
+      <div className="pr-28 mb-6">
+        <div className="text-4xl font-black text-gray-900 mb-2 leading-tight">
+          {plan.name === 'Free Plan' ? '₦0' : `₦${formatPrice(price)}`}
+        </div>
+        <p className="text-lg font-bold text-gray-900 mb-1">{plan.name}</p>
+        <p className="text-sm text-gray-500">{plan.description}</p>
+      </div>
+
+      {/* Subtitle */}
+      {plan.subtitle && (
+        <p className="text-sm font-medium text-gray-700 mb-4">{plan.subtitle}</p>
+      )}
+
+      {/* Dashed Blue Divider */}
+      <div className="border-t-2 border-dashed border-blue-400 mb-6"></div>
+
+      {/* Features List - flex-grow to take available space */}
       <div className="flex-grow mb-6">
-        {plan.subtitle && (
-          <p className="text-sm font-medium text-gray-700 mb-4">{plan.subtitle}</p>
-        )}
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {plan.features.map((feature, idx) => (
-            <li key={idx} className="flex items-start gap-3">
+            <li key={idx} className="flex items-start gap-2.5">
               <CheckIcon className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
               <span className="text-sm text-gray-700">{feature}</span>
             </li>
@@ -108,20 +109,24 @@ const PlanCard: React.FC<{ plan: Plan; billingCycle: 'monthly' | 'yearly' }> = (
         </ul>
       </div>
 
-      <button className="w-full mt-auto py-3 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2">
-        {plan.buttonText}
-        {plan.name === 'Free Plan' && <DoubleArrowRightIcon />}
+      {/* CTA Button - mt-auto pushes to bottom */}
+      <button className="w-full mt-auto py-3 px-4 bg-gray-800 text-white text-sm font-semibold rounded-full hover:bg-gray-700 transition-colors text-center">
+        {plan.buttonText === 'Continue with plan' ? 'Continue with plan >>' : plan.buttonText === 'Subscribe Now' ? 'Subscribe Now >>' : 'Subscribe >>'}
       </button>
     </div>
   );
 };
 
 const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onBack }) => {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
 
   return (
-    <div className="flex flex-col">
-      <div className="mb-8">
+    <div className="w-full font-sans">
+      {/* Top Features Heading */}
+      <h2 className="text-xl font-bold text-gray-800 mb-6">Top Features</h2>
+
+      {/* Billing Cycle Toggle - Left Aligned */}
+      <div className="flex justify-start mb-6">
         <div className="inline-flex bg-gray-100 p-1 rounded-full">
           <button
             onClick={() => setBillingCycle('monthly')}
@@ -146,9 +151,8 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
         </div>
       </div>
 
-      <h2 className="text-xl font-bold text-gray-900 mb-6">Top Features</h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Plan Cards Grid - Three Columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full items-stretch">
         {plans.map((plan) => (
           <PlanCard key={plan.name} plan={plan} billingCycle={billingCycle} />
         ))}

@@ -311,12 +311,28 @@ const App: React.FC = () => {
     );
   }
 
-  if (currentView === 'profile') {
-    return <ProfileScreen onBack={() => setCurrentView(previousView)} />;
-  }
-
-  if (currentView === 'subscriptionPlans') {
-    return <SubscriptionPlanScreen onBack={() => setCurrentView(previousView)} />;
+  // Profile and Subscription Plans are now handled within SettingsScreen
+  // Redirect to settings if someone tries to navigate directly to these views
+  if (currentView === 'profile' || currentView === 'subscriptionPlans') {
+    const targetSection = currentView === 'subscriptionPlans' ? 'subscriptionPlans' : 'profile';
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentView="settings"
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <SettingsScreen 
+            onMenuClick={() => setIsSidebarOpen(true)} 
+            onNavigate={handleNavigate}
+            initialSection={targetSection}
+          />
+        </div>
+      </div>
+    );
   }
 
   if (currentView === 'help') {

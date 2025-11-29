@@ -150,8 +150,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     const handleAddDimension = (dimensionData: Omit<QuoteItem, 'total' | 'id'>) => {
         const newDimension: Omit<QuoteItem, 'total'> = {
             id: editingDimension?.id || `dim-${Date.now()}`,
-            ...dimensionData,
-            total: 0 // Will be calculated
+            ...dimensionData
         };
 
         if (editingDimension) {
@@ -284,8 +283,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                         <button
                             onClick={() => setSelectedList('material')}
                             className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'material'
-                                    ? 'bg-gray-800 text-white'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-gray-800 text-white'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             Material
@@ -293,8 +292,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                         <button
                             onClick={() => setSelectedList('dimension')}
                             className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'dimension'
-                                    ? 'bg-gray-800 text-white'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-gray-800 text-white'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             Dimension
@@ -452,8 +451,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                         <button
                             onClick={() => setSelectedList('material')}
                             className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'material'
-                                    ? 'bg-gray-800 text-white'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-gray-800 text-white'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             Material
@@ -461,8 +460,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                         <button
                             onClick={() => setSelectedList('dimension')}
                             className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'dimension'
-                                    ? 'bg-gray-800 text-white'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-gray-800 text-white'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             Dimension
@@ -676,8 +675,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             key={tab}
                             onClick={() => handleTabChange(tab)}
                             className={`whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-base transition-colors ${quoteTab === tab
-                                    ? 'border-gray-800 text-gray-800'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                ? 'border-gray-800 text-gray-800'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             {tab}

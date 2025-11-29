@@ -86,8 +86,8 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
     },
   ];
 
-  const isFormValid = Object.values(selectedValues).some(arr => arr.length > 0);
-  const hasAnySelection = Object.values(selectedValues).some(arr => arr.length > 0);
+  const isFormValid = (Object.values(selectedValues) as string[][]).some(arr => arr.length > 0);
+  const hasAnySelection = (Object.values(selectedValues) as string[][]).some(arr => arr.length > 0);
 
   const toggleAccordion = (categoryId: string) => {
     setOpenAccordions(prev => ({
@@ -247,8 +247,8 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
                               key={option.value}
                               onClick={() => handleSelect(category.id, option.value)}
                               className={`w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between ${isSelected
-                                  ? 'bg-gray-100 border-gray-200'
-                                  : 'border-gray-200 hover:border-gray-300 bg-white'
+                                ? 'bg-gray-100 border-gray-200'
+                                : 'border-gray-200 hover:border-gray-300 bg-white'
                                 }`}
                             >
                               <span className="text-gray-900">{option.label}</span>
@@ -290,8 +290,8 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
             onClick={handleReset}
             disabled={!hasAnySelection}
             className={`w-full py-4 rounded-lg font-semibold transition-colors ${hasAnySelection
-                ? 'bg-white text-gray-800 border-2 border-gray-400 hover:bg-gray-50'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-transparent'
+              ? 'bg-white text-gray-800 border-2 border-gray-400 hover:bg-gray-50'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-transparent'
               }`}
           >
             Reset
@@ -300,8 +300,8 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
             onClick={handleNext}
             disabled={!isFormValid}
             className={`w-full py-4 rounded-lg font-semibold transition-colors ${isFormValid
-                ? 'bg-gray-800 text-white hover:bg-gray-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? 'bg-gray-800 text-white hover:bg-gray-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
           >
             Next

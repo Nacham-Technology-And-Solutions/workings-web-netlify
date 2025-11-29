@@ -116,7 +116,7 @@ const AccordionItem: React.FC<{ title: string; children: React.ReactNode; isOpen
       >
         <span className="text-base lg:text-lg font-medium">{title}</span>
         <div className="flex-shrink-0 ml-4">
-          {isOpen ? <ChevronUpIcon className="w-5 h-5 text-gray-600" /> : <ChevronDownIcon className="w-5 h-5 text-gray-600" />}
+        {isOpen ? <ChevronUpIcon className="w-5 h-5 text-gray-600" /> : <ChevronDownIcon className="w-5 h-5 text-gray-600" />}
         </div>
       </button>
       {isOpen && (
@@ -169,15 +169,15 @@ const HelpAndTipsScreen: React.FC<HelpAndTipsScreenProps> = ({ onBack }) => {
             {/* Right Column */}
             <div className="space-y-0">
               {rightColumnTopics.map(topic => (
-                <AccordionItem
-                  key={topic.id}
-                  title={topic.title}
-                  isOpen={openItemId === topic.id}
-                  onToggle={() => handleToggle(topic.id)}
-                >
-                  {topic.content}
-                </AccordionItem>
-              ))}
+            <AccordionItem
+              key={topic.id}
+              title={topic.title}
+              isOpen={openItemId === topic.id}
+              onToggle={() => handleToggle(topic.id)}
+            >
+              {topic.content}
+            </AccordionItem>
+          ))}
             </div>
           </div>
         </div>
