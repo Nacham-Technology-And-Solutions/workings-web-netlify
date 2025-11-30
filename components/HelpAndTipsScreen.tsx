@@ -150,7 +150,7 @@ const HelpAndTipsScreen: React.FC<HelpAndTipsScreenProps> = ({ onBack }) => {
 
       <main className="flex-1 px-6 lg:px-8 xl:px-10 overflow-y-auto py-6 lg:py-8">
         <div className="max-w-7xl lg:mx-auto">
-          {/* Mobile: Single column, Desktop: Two columns */}
+          {/* Two columns */}
           <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-12">
             {/* Left Column */}
             <div className="space-y-0">

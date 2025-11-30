@@ -22,7 +22,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
                     </p>
                 </div>
 
-                {/* Desktop: Two-column layout, Mobile: Single column */}
+                {/* Two-column layout */}
                 <div className="lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8 flex-grow">
                     {/* Left Column - Informational Card */}
                     <div className="lg:flex lg:flex-col">
@@ -47,7 +47,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
                             See Templates
                         </button>
                                 
-                                {/* Desktop: Additional Quick Actions */}
+                                {/* Additional Quick Actions */}
                                 <div className="hidden lg:block mt-6 pt-6 border-t border-blue-100">
                                     <h4 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h4>
                                     <div className="space-y-2">
@@ -80,7 +80,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
                 </div>
             </main>
             
-            {/* Floating Action Button - Mobile: Fixed, Desktop: Absolute within container */}
+            {/* Floating Action Button */}
             <button 
                 onClick={onNewProject}
                 className="fixed lg:absolute bottom-8 right-8 lg:bottom-10 lg:right-10 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-10"

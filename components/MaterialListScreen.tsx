@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeftIcon, ShoppingBagIcon, PlusIcon, SearchIcon, CloseIcon, UserIcon } from './icons/IconComponents';
+import { ChevronLeftIcon, ShoppingBagIcon, PlusIcon, SearchIcon, CloseIcon, UserCircleIcon } from './icons/IconComponents';
 import { sampleMaterialLists } from '../constants';
 import type { MaterialList, MaterialListStatus } from '../types';
 
@@ -233,7 +233,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
       <main className="flex-1 overflow-y-auto bg-gray-50">
         <div className="max-w-7xl lg:mx-auto p-6 lg:p-8">
           {filteredLists.length > 0 ? (
-            /* Mobile: Vertical list, Desktop: Multi-column grid */
+            /* Multi-column grid */
             <div className="space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0 pb-24">
               {filteredLists.map(list => (
                 <MaterialCard key={list.id} list={list} onClick={() => onViewList(list.id)} />
@@ -350,8 +350,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('all')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'all'
-                    ? 'bg-gray-800 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   All Time
@@ -359,8 +359,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('last7')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'last7'
-                    ? 'bg-gray-800 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   Last 7 Days
@@ -368,8 +368,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('thisMonth')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'thisMonth'
-                    ? 'bg-gray-800 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   This Month

@@ -105,7 +105,7 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
         <main className="flex-1 overflow-y-auto p-6 lg:p-8 flex flex-col">
             <div className="max-w-7xl lg:mx-auto w-full">
             {filteredQuotes.length > 0 ? (
-                    /* Mobile: Vertical list, Desktop: Multi-column grid */
+                    /* Multi-column grid */
                     <div className="space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0">
                     {filteredQuotes.map(quote => (
                         <QuoteCard key={quote.id} quote={quote} activeTab={activeTab} onViewQuote={() => onViewQuote(quote.id)} />

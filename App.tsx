@@ -272,7 +272,7 @@ const App: React.FC = () => {
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <QuotesScreen onNewQuote={handleNewQuote} onViewQuote={handleViewQuote} onBack={() => setCurrentView('home')} />
         </div>
@@ -303,8 +303,7 @@ const App: React.FC = () => {
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
-          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <SettingsScreen onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />
         </div>
       </div>
@@ -323,7 +322,7 @@ const App: React.FC = () => {
           currentView="settings"
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <SettingsScreen 
             onMenuClick={() => setIsSidebarOpen(true)} 
@@ -344,7 +343,7 @@ const App: React.FC = () => {
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <HelpAndTipsScreen onBack={() => setCurrentView(previousView)} />
         </div>
@@ -361,7 +360,7 @@ const App: React.FC = () => {
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <MaterialListScreen onBack={() => setCurrentView('home')} onViewList={handleViewMaterialList} onCreateNewList={handleCreateNewMaterialList} />
         </div>
@@ -381,7 +380,7 @@ const App: React.FC = () => {
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <MaterialListDetailScreen
             list={displayData}
@@ -405,7 +404,7 @@ const App: React.FC = () => {
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <EditMaterialListScreen
             list={editingMaterialList}
@@ -441,7 +440,7 @@ const App: React.FC = () => {
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <ProjectsScreen onNewProject={handleNewProject} onBack={() => setCurrentView('home')} />
         </div>
@@ -486,8 +485,8 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-main text-text-primary font-exo">
-      {/* Sidebar - Mobile: overlay modal, Desktop: permanent sidebar */}
+    <div className="flex h-screen bg-white">
+      {/* Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -495,8 +494,8 @@ const App: React.FC = () => {
         onNavigate={handleNavigate}
       />
 
-      {/* Main Content Area - Desktop: offset by sidebar width (collapsed: 80px, expanded: 256px) */}
-      <div className="flex flex-col flex-1 h-screen transition-all duration-300 lg:ml-20">
+      {/* Main Content Area - Gap between sidebar and header */}
+      <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0">
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
         <div className="flex-1 overflow-y-auto">
           {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} />}

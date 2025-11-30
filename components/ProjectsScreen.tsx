@@ -204,7 +204,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({ onNewProject, onBack })
               <p className="text-sm lg:text-base">Try adjusting your search or filters</p>
           </div>
         ) : (
-            /* Mobile: Vertical list, Desktop: Multi-column grid */
+            /* Multi-column grid */
             <div className="space-y-3 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 xl:gap-6 lg:space-y-0">
             {filteredProjects.map(project => (
               <ProjectCard key={project.id} project={project} />
