@@ -1,18 +1,10 @@
 import React, { useState } from 'react';
+import type { QuoteOverviewData } from '@/types';
 
 interface QuoteOverviewScreenProps {
     onBack: () => void;
     onNext: (data: QuoteOverviewData) => void;
     previousData?: any;
-}
-
-interface QuoteOverviewData {
-    customerName: string;
-    projectName: string;
-    siteAddress: string;
-    quoteId: string;
-    issueDate: string;
-    paymentTerms: string;
 }
 
 const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNext, previousData }) => {

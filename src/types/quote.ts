@@ -61,3 +61,37 @@ export interface FullQuoteData {
   };
 }
 
+// Quote flow types
+export interface QuoteOverviewData {
+  customerName: string;
+  projectName: string;
+  siteAddress: string;
+  quoteId: string;
+  issueDate: string;
+  paymentTerms: string;
+}
+
+export interface QuoteItemRow {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface QuoteItemListData {
+  listType: 'dimension' | 'material';
+  items: QuoteItemRow[];
+  subtotal: number;
+}
+
+export interface QuoteExtrasNotesData {
+  extraCharges: string;
+  amount: number;
+  additionalNotes: string;
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  total: number;
+}
+

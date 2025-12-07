@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { QuoteItemListData, QuoteItemRow } from '@/types';
 
 interface QuoteItemListScreenProps {
     onBack: () => void;
@@ -6,23 +7,9 @@ interface QuoteItemListScreenProps {
     previousData?: any;
 }
 
-interface QuoteItemListData {
-    listType: 'dimension' | 'material';
-    items: ItemRow[];
-    subtotal: number;
-}
-
-interface ItemRow {
-    id: string;
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-}
-
 const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData }) => {
     const [listType, setListType] = useState<'dimension' | 'material'>('dimension');
-    const [items, setItems] = useState<ItemRow[]>([
+    const [items, setItems] = useState<QuoteItemRow[]>([
         { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
         { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
     ]);
@@ -33,7 +20,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
     };
 
     const handleAddDimension = () => {
-        const newItem: ItemRow = {
+        const newItem: QuoteItemRow = {
             id: String(items.length + 1),
             description: '',
             quantity: 0,

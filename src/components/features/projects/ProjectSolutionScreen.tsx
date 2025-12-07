@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
-import type { ProjectDescriptionData } from './ProjectDescriptionScreen';
-import type { SelectProjectData } from './SelectProjectScreen';
-import type { ProjectMeasurementData, DimensionItem } from './ProjectMeasurementScreen';
+import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData, DimensionItem } from '@/types';
 import {
   exportMaterialListToPDF,
   exportCuttingListToPDF,

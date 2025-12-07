@@ -1,20 +1,11 @@
 import React, { useState } from 'react';
+import type { QuoteExtrasNotesData } from '@/types';
 
 interface QuoteExtrasNotesScreenProps {
     onBack: () => void;
     onPreview: (data: QuoteExtrasNotesData) => void;
     onSaveDraft: (data: QuoteExtrasNotesData) => void;
     previousData?: any;
-}
-
-interface QuoteExtrasNotesData {
-    extraCharges: string;
-    amount: number;
-    additionalNotes: string;
-    accountName: string;
-    accountNumber: string;
-    bankName: string;
-    total: number;
 }
 
 const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({

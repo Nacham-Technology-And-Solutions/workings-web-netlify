@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
-
-interface SelectProjectData {
-  windows: string[];
-  doors: string[];
-  skylights: string[];
-  glassPanels: string[];
-}
+import type { SelectProjectData } from '@/types';
 
 interface SelectProjectScreenProps {
   onBack: () => void;

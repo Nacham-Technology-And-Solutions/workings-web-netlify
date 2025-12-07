@@ -2,12 +2,7 @@ import React, { useState } from 'react';
 import Input from '@/components/common/Input';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
-
-interface ProjectDescriptionData {
-  projectName: string;
-  customerName: string;
-  siteAddress: string;
-}
+import type { ProjectDescriptionData } from '@/types';
 
 interface ProjectDescriptionScreenProps {
   onBack: () => void;

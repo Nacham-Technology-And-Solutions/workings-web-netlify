@@ -1,25 +1,12 @@
 import React, { useState } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
+import type { ProjectMeasurementData, DimensionItem } from '@/types';
 
 interface ProjectMeasurementScreenProps {
   onBack: () => void;
   onNext: (data: ProjectMeasurementData) => void;
   previousData?: any;
-}
-
-export interface DimensionItem {
-  id: string;
-  type: string;
-  width: string;
-  height: string;
-  quantity: string;
-  panel: string;
-}
-
-export interface ProjectMeasurementData {
-  dimensions: DimensionItem[];
-  unit: string;
 }
 
 const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onBack, onNext, previousData }) => {
