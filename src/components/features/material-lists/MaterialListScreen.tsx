@@ -233,7 +233,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
       <main className="flex-1 overflow-y-auto bg-gray-50">
         <div className="max-w-7xl lg:mx-auto p-6 lg:p-8">
           {filteredLists.length > 0 ? (
-            /* Mobile: Vertical list, Desktop: Multi-column grid */
+            /* Multi-column grid */
             <div className="space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0 pb-24">
               {filteredLists.map(list => (
                 <MaterialCard key={list.id} list={list} onClick={() => onViewList(list.id)} />

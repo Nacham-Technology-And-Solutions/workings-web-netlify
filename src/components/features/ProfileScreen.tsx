@@ -119,46 +119,50 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 
 
   return (
-    <div className="flex flex-col bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-full bg-white font-sans text-gray-800">
       {isSaving && <LoadingOverlay />}
       
-      <div className="flex-1 overflow-y-auto">
-        {/* User Avatar */}
-        <div className="relative w-24 h-24 mb-8">
-          <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
-            <span className="text-gray-700 font-semibold text-2xl">AJ</span>
+      <div className="flex-1 overflow-y-auto pb-24">
+        {/* User Avatar - Centered */}
+        <div className="flex justify-center mb-8">
+          <div className="relative">
+            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300">
+              <span className="text-gray-900 font-bold text-3xl">AJ</span>
+            </div>
+            <button 
+              className="absolute bottom-0 right-0 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-blue-200 transition-colors" 
+              aria-label="Edit profile picture"
+            >
+              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
           </div>
-          <button 
-            className="absolute bottom-0 right-0 bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-md border border-gray-200 hover:bg-gray-100 transition-colors" 
-            aria-label="Edit profile picture"
-          >
-            <EditIcon className="w-4 h-4 text-gray-600" />
-          </button>
         </div>
         
         <form onSubmit={handleSaveChanges}>
           {/* Personal Details Section */}
           <section className="mb-8">
-            <h2 className="text-lg font-bold mb-6 text-gray-900">Personal Details</h2>
-            <div className="space-y-6">
+            <h2 className="text-base font-bold mb-4 text-gray-900">Personal Details</h2>
+            <div className="space-y-4">
               {/* Name Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={editingField === 'name' ? tempValue : formData.name}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'name'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent ${
-                      editingField === 'name' ? 'border-gray-900' : 'border-gray-300 disabled:bg-gray-50'
+                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                      editingField === 'name' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
                   {editingField === 'name' ? (
                     <button 
                       type="button" 
                       onClick={handleCancelClick} 
-                      className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
+                      className="text-sm font-medium text-gray-700"
                     >
                       Cancel
                     </button>
@@ -166,7 +170,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                     <button 
                       type="button" 
                       onClick={() => handleEditClick('name', formData.name)} 
-                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                      className="text-sm font-medium text-gray-700"
                     >
                       Edit
                     </button>
@@ -188,21 +192,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
               {/* Email Address Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <input
                     type="email"
                     value={editingField === 'email' ? tempValue : formData.email}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'email'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent ${
-                      editingField === 'email' ? 'border-gray-900' : 'border-gray-300 disabled:bg-gray-50'
+                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                      editingField === 'email' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
                   {editingField === 'email' ? (
                     <button 
                       type="button" 
                       onClick={handleCancelClick} 
-                      className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
+                      className="text-sm font-medium text-gray-700"
                     >
                       Cancel
                     </button>
@@ -210,7 +214,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                     <button 
                       type="button" 
                       onClick={() => handleEditClick('email', formData.email)} 
-                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                      className="text-sm font-medium text-gray-700"
                     >
                       Edit
                     </button>
@@ -231,23 +235,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 
               {/* Password Field */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
-                  {editingField === 'password' && (
-                    <button 
-                      type="button" 
-                      onClick={handlePasswordCancel} 
-                      className="text-sm font-medium text-red-600 hover:text-red-800"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                 {editingField === 'password' ? (
                   <div className="space-y-4">
-                    {/* Current Password (dashed line) */}
-                    <div className="border-b-2 border-dashed border-gray-300 pb-2"></div>
-                    
                     {/* New Password */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
@@ -257,7 +247,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="************"
-                          className="w-full px-4 py-3 pr-12 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent"
+                          className="w-full px-4 py-3 pr-12 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
                           autoFocus
                         />
                         <button 
@@ -279,12 +269,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder=""
-                        className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent"
+                        className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
                       />
                     </div>
 
-                    {/* Save Button */}
-                    <div>
+                    {/* Cancel and Save Buttons */}
+                    <div className="flex items-center gap-3">
+                      <button 
+                        type="button" 
+                        onClick={handlePasswordCancel} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Cancel
+                      </button>
                       <button 
                         type="button" 
                         onClick={handlePasswordSave} 
@@ -295,14 +292,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 px-4 py-3 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg">
-                      <span>No password yet</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value="No password yet"
+                      disabled
+                      className="flex-1 px-4 py-3 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg"
+                    />
                     <button 
                       type="button" 
                       onClick={handlePasswordEdit} 
-                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                      className="text-sm font-medium text-gray-700"
                     >
                       Create new
                     </button>
@@ -314,34 +314,106 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 
           {/* Company Information Section */}
           <section>
-            <h2 className="text-lg font-bold mb-6 text-gray-900">Company Information</h2>
-            <div className="space-y-6">
-              {/* Logo Upload */}
+            <h2 className="text-base font-bold mb-4 text-gray-900">Company Information</h2>
+            <div className="space-y-4">
+              {/* Company Name Field */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Logo</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-                  <button
-                    type="button"
-                    className="px-6 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Upload
-                  </button>
-                  <p className="mt-3 text-sm text-gray-500">
-                    This logo will appear on invoices and email
-                  </p>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editingField === 'companyName' ? tempValue : formData.companyName}
+                    onChange={(e) => setTempValue(e.target.value)}
+                    disabled={editingField !== 'companyName'}
+                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                      editingField === 'companyName' ? 'bg-white border-gray-400' : ''
+                    }`}
+                  />
+                  {editingField === 'companyName' ? (
+                    <button 
+                      type="button" 
+                      onClick={handleCancelClick} 
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  ) : (
+                    <button 
+                      type="button" 
+                      onClick={() => handleEditClick('companyName', formData.companyName)} 
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
+                {editingField === 'companyName' && (
+                  <div className="mt-3">
+                    <button 
+                      type="button" 
+                      onClick={() => handleFieldSave('companyName')} 
+                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Company Address Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editingField === 'companyAddress' ? tempValue : formData.companyAddress}
+                    onChange={(e) => setTempValue(e.target.value)}
+                    disabled={editingField !== 'companyAddress'}
+                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                      editingField === 'companyAddress' ? 'bg-white border-gray-400' : ''
+                    }`}
+                  />
+                  {editingField === 'companyAddress' ? (
+                    <button 
+                      type="button" 
+                      onClick={handleCancelClick} 
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  ) : (
+                    <button 
+                      type="button" 
+                      onClick={() => handleEditClick('companyAddress', formData.companyAddress)} 
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+                {editingField === 'companyAddress' && (
+                  <div className="mt-3">
+                    <button 
+                      type="button" 
+                      onClick={() => handleFieldSave('companyAddress')} 
+                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </section>
         </form>
       </div>
 
-      {/* Save Changes Button */}
-      <div className="pt-6 border-t border-gray-200 mt-8">
+      {/* Save Changes Button - Sticky Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-10">
         <button
           type="button"
           onClick={handleSaveChanges}
-          className="w-full px-8 py-3.5 bg-gray-800 text-white text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+          className="w-full px-8 py-3.5 bg-gray-800 text-white text-base font-bold rounded-lg hover:bg-gray-700 transition-colors"
         >
           Save changes
         </button>

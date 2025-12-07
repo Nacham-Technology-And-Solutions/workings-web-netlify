@@ -36,14 +36,14 @@ const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({ l
 
     try {
       if (option === 'pdf') {
-        await exportMaterialListToPDF(list, formattedDate);
+        await exportMaterialListToPDF(list.items, list.projectName, list.preparedBy, list.total);
         showSuccessMessage('Material list exported as PDF successfully!');
       } else if (option === 'excel') {
-        await exportMaterialListToExcel(list, formattedDate);
+        await exportMaterialListToExcel(list.items, list.projectName, list.preparedBy, list.total);
         showSuccessMessage('Material list exported to Excel successfully!');
       } else if (option === 'share') {
         const shareText = `Material List: ${list.projectName}\nTotal: ${formatNaira(list.total)}\nPrepared by: ${list.preparedBy}`;
-        await shareData('Material List', shareText, '');
+        await shareData('material', shareText, list.projectName);
         showSuccessMessage('Material list shared successfully!');
       }
     } catch (error) {

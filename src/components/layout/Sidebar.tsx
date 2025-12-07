@@ -35,8 +35,8 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, isActive = false, onClic
     }}
     className={`flex items-center gap-3 py-3 rounded-lg font-medium transition-all duration-200 ${
       isActive 
-        ? 'bg-gray-800 text-white' 
-        : 'text-gray-700 hover:bg-gray-50'
+        ? 'bg-gray-100 text-gray-900' 
+        : 'text-gray-900 hover:bg-gray-50'
     } ${isExpanded ? 'px-4' : 'px-3 justify-center'}`}
   >
     <div className="flex-shrink-0">{icon}</div>
@@ -95,11 +95,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
       <div
         onClick={onClose}
         aria-hidden="true"
-        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300 ease-in-out ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
-      {/* Sidebar Panel - Mobile: Centered modal, Desktop: Fixed left sidebar with hover expand */}
+      {/* Sidebar Panel */}
       <aside
         onMouseEnter={isDesktop ? () => setIsHovered(true) : undefined}
         onMouseLeave={isDesktop ? () => setIsHovered(false) : undefined}
@@ -110,35 +110,33 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
           /* Mobile & Tablet: Centered modal slide-in - always expanded when open */
           fixed top-1/2 -translate-y-1/2 w-[85%] max-w-md rounded-2xl shadow-2xl
           ${isOpen ? 'left-1/2 -translate-x-1/2 opacity-100' : 'left-[200%] opacity-0 pointer-events-none'}
-          
-          /* Desktop: Fixed left sidebar with hover expand */
-          lg:fixed lg:translate-y-0 lg:translate-x-0 lg:top-0 lg:left-0 lg:h-screen lg:rounded-none lg:shadow-none lg:border-r lg:border-gray-200 lg:opacity-100 lg:pointer-events-auto
-          ${isHovered ? 'lg:w-64' : 'lg:w-20'}
         `}
         role="dialog"
         aria-modal={!isDesktop}
         aria-label="Main menu"
       >
-        <div className="pl-5 pr-4 py-6 max-h-[80vh] lg:max-h-full lg:h-full overflow-y-auto flex flex-col">
-          {/* Desktop Logo/Brand Section - Only show when expanded */}
+        <div className="pl-5 pr-4 py-6 max-h-[80vh] overflow-y-auto flex flex-col">
+          {/* Logo/Brand Section - Show when expanded */}
           {isExpanded && (
-            <div className="hidden lg:block mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">W</span>
-                </div>
-                <div className="opacity-100 transition-opacity duration-300">
-                  <h2 className="text-lg font-bold text-gray-900">WORKINGS</h2>
-                  <p className="text-xs text-gray-500">Estimator Pro</p>
-                </div>
-              </div>
+            <div className="flex items-center gap-3 mb-8">
+              {/* Logo Icon - Window frame with measurement lines */}
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-900">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+                <line x1="3" y1="6" x2="6" y2="6"></line>
+                <line x1="3" y1="12" x2="6" y2="12"></line>
+                <line x1="18" y1="21" x2="18" y2="18"></line>
+                <line x1="12" y1="21" x2="12" y2="18"></line>
+              </svg>
+              <h2 className="text-lg font-bold text-gray-900">Workings</h2>
             </div>
           )}
 
-          <nav className="space-y-1 flex-1">
+          <nav className="flex flex-col space-y-1 flex-1">
             <div>
               {isExpanded && (
-                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide transition-opacity duration-300">Main</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Main</h3>
               )}
               <NavLink 
                 icon={<HomeIcon isActive={currentView === 'home'} />} 
@@ -171,9 +169,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
             </div>
             <hr className="border-gray-200 my-1" />
             <div>
-              {isExpanded && (
-                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide transition-opacity duration-300">Tools / Resources</h3>
-              )}
+            {isExpanded && (
+              <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Tools / Resources</h3>
+            )}
               <NavLink 
                 icon={<TemplatesIcon />} 
                 label="Pre-built Templates" 
@@ -184,9 +182,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
             </div>
             <hr className="border-gray-200 my-1" />
             <div>
-              {isExpanded && (
-                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide transition-opacity duration-300">Support & Info</h3>
-              )}
+            {isExpanded && (
+              <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Support & Info</h3>
+            )}
               <NavLink 
                 icon={<HelpIcon />} 
                 label="Help & Tips" 
@@ -219,23 +217,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
               />
             </div>
           </nav>
-          
-          {/* Desktop User Info Section at Bottom - Only show when expanded */}
-          {isExpanded && (
-            <div className="hidden lg:block mt-auto pt-6">
-              <div className="py-3 bg-gray-50 rounded-lg transition-opacity duration-300">
-                <div className="flex items-center gap-3 px-3">
-                  <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-700 font-semibold text-sm">BA</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">Barbara</p>
-                    <p className="text-xs text-gray-500 truncate">Leads Glazing LTD</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </aside>
     </>

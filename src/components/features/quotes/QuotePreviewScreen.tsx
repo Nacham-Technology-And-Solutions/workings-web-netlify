@@ -11,10 +11,10 @@ interface QuotePreviewScreenProps {
 
 
 const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
-    <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">{title}</h3>
-        <div className="border-b-2 border-dashed border-gray-200 mb-4"></div>
-    </div>
+  <div>
+    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">{title}</h3>
+    <div className="border-b-2 border-dashed border-gray-200 mb-4"></div>
+  </div>
 );
 
 const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, onEdit }) => {
@@ -23,7 +23,7 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
 
   const handleExportOption = async (option: 'pdf' | 'excel' | 'share') => {
     setShowExportModal(false);
-    
+
     try {
       if (option === 'pdf') {
         // PDF export logic would go here
@@ -58,9 +58,8 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
       {/* Success/Error Message */}
       {exportMessage && (
         <div
-          className={`fixed top-4 left-4 right-4 z-50 p-4 rounded-lg shadow-lg animate-slide-down ${
-            exportMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          }`}
+          className={`fixed top-4 left-4 right-4 z-50 p-4 rounded-lg shadow-lg animate-slide-down ${exportMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+            }`}
         >
           <p className="text-white font-medium text-center">{exportMessage.text}</p>
         </div>
@@ -74,7 +73,7 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
           <h1 className="text-2xl font-bold">Quote Preview</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onEdit} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900" aria-label="Edit quote">
+          <button onClick={onEdit} className="hidden lg:flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900" aria-label="Edit quote">
             <EditIcon />
             <span>Edit</span>
           </button>
@@ -90,158 +89,158 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
 
       <main className="flex-1 overflow-y-auto p-6 pb-24">
         <div className="max-w-3xl mx-auto">
-            {/* Project Info Card */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-8 space-y-3">
-                <div className="flex items-start gap-3 text-gray-700">
-                    <FolderIcon className="w-6 h-6 flex-shrink-0 mt-0.5 text-gray-400" />
-                    <span className="font-medium">{quote.projectName}</span>
-                </div>
-                 <div className="flex items-start gap-3 text-gray-700">
-                    <LocationIcon className="w-6 h-6 flex-shrink-0 mt-0.5 text-gray-400" />
-                    <span className="font-medium">{quote.siteAddress}</span>
-                </div>
+          {/* Project Info Card */}
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-8 space-y-3">
+            <div className="flex items-start gap-3 text-gray-700">
+              <FolderIcon className="w-6 h-6 flex-shrink-0 mt-0.5 text-gray-400" />
+              <span className="font-medium">{quote.projectName}</span>
             </div>
+            <div className="flex items-start gap-3 text-gray-700">
+              <LocationIcon className="w-6 h-6 flex-shrink-0 mt-0.5 text-gray-400" />
+              <span className="font-medium">{quote.siteAddress}</span>
+            </div>
+          </div>
 
-            {/* Customers' Information */}
-            <section className="mb-8">
-                <SectionHeader title="CUSTOMERS' INFORMATION" />
-                <div className="space-y-3 text-base">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Customer's name:</span>
-                        <span className="font-medium text-gray-800">{quote.customerName}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Customer's email address:</span>
-                        <span className="font-medium text-gray-800">{quote.customerEmail}</span>
-                    </div>
-                </div>
-            </section>
+          {/* Customers' Information */}
+          <section className="mb-8">
+            <SectionHeader title="CUSTOMERS' INFORMATION" />
+            <div className="space-y-3 text-base">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Customer's name:</span>
+                <span className="font-medium text-gray-800">{quote.customerName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Customer's email address:</span>
+                <span className="font-medium text-gray-800">{quote.customerEmail}</span>
+              </div>
+            </div>
+          </section>
 
-            {/* Quote Information */}
-            <section className="mb-8">
-                <SectionHeader title="QUOTE INFORMATION" />
-                <div className="space-y-3 text-base">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Quote ID:</span>
-                        <span className="font-medium text-gray-800">{quote.quoteId}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Issue Date:</span>
-                        <span className="font-medium text-gray-800">{quote.issueDate}</span>
-                    </div>
-                </div>
-            </section>
-            
-            {/* Item Lists */}
-            <section className="mb-8">
-                <SectionHeader title="ITEM LISTS" />
-                
-                {/* Material Items */}
-                {quote.items.some(item => !item.type || item.type === 'material') && (
-                    <div className="mb-6">
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Material Items</h4>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead>
-                                    <tr className="text-gray-500 border-b border-gray-200">
-                                        <th className="pb-2 font-medium w-1/2">Description</th>
-                                        <th className="pb-2 font-medium text-center">Qty</th>
-                                        <th className="pb-2 font-medium text-right">Unit Price</th>
-                                        <th className="pb-2 font-medium text-right">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {quote.items.filter(item => !item.type || item.type === 'material').map(item => (
-                                        <tr key={item.id} className="border-t border-gray-200">
-                                            <td className="py-3 pr-2 font-medium text-gray-800">{item.description}</td>
-                                            <td className="py-3 text-center text-gray-600">{item.quantity}</td>
-                                            <td className="py-3 text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
-                                            <td className="py-3 text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
+          {/* Quote Information */}
+          <section className="mb-8">
+            <SectionHeader title="QUOTE INFORMATION" />
+            <div className="space-y-3 text-base">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Quote ID:</span>
+                <span className="font-medium text-gray-800">{quote.quoteId}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Issue Date:</span>
+                <span className="font-medium text-gray-800">{quote.issueDate}</span>
+              </div>
+            </div>
+          </section>
 
-                {/* Dimension Items */}
-                {quote.items.some(item => item.type === 'dimension') && (
-                    <div>
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Dimension Items</h4>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead>
-                                    <tr className="text-gray-500 border-b border-gray-200">
-                                        <th className="pb-2 font-medium w-1/3">Description</th>
-                                        <th className="pb-2 font-medium text-center">Dimension</th>
-                                        <th className="pb-2 font-medium text-center">Qty</th>
-                                        <th className="pb-2 font-medium text-right">Price/m²</th>
-                                        <th className="pb-2 font-medium text-right">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {quote.items.filter(item => item.type === 'dimension').map(item => (
-                                        <tr key={item.id} className="border-t border-gray-200">
-                                            <td className="py-3 pr-2 font-medium text-gray-800">{item.description}</td>
-                                            <td className="py-3 text-center text-gray-600 text-xs">
-                                                {item.width}×{item.height}mm
-                                                {item.panels && item.panels > 1 && (
-                                                    <span className="text-gray-500 ml-1">({item.panels}P)</span>
-                                                )}
-                                            </td>
-                                            <td className="py-3 text-center text-gray-600">{item.quantity}</td>
-                                            <td className="py-3 text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
-                                            <td className="py-3 text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </section>
+          {/* Item Lists */}
+          <section className="mb-8">
+            <SectionHeader title="ITEM LISTS" />
 
-            {/* Summary */}
-            <section className="mb-8">
-                <SectionHeader title="SUMMARY" />
-                <div className="space-y-3">
-                    <div className="flex justify-between items-center text-base">
-                        <span className="text-gray-600">Subtotal</span>
-                        <span className="font-medium text-gray-800">{formatNaira(quote.summary.subtotal)}</span>
-                    </div>
-                     {quote.summary.charges.map(charge => (
-                        <div key={charge.label} className="flex justify-between items-center text-base">
-                            <span className="text-gray-600">{charge.label}</span>
-                            <span className="font-medium text-gray-800">{formatNaira(charge.amount)}</span>
-                        </div>
-                    ))}
-                    <div className="border-t border-gray-200 my-3"></div>
-                    <div className="flex justify-between items-center text-xl">
-                        <span className="font-bold text-gray-900">Grand Total</span>
-                        <span className="font-bold text-gray-900">{formatNaira(quote.summary.grandTotal)}</span>
-                    </div>
+            {/* Material Items */}
+            {quote.items.some(item => !item.type || item.type === 'material') && (
+              <div className="mb-6">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Material Items</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="text-gray-500 border-b border-gray-200">
+                        <th className="pb-2 font-medium w-1/2">Description</th>
+                        <th className="pb-2 font-medium text-center">Qty</th>
+                        <th className="pb-2 font-medium text-right">Unit Price</th>
+                        <th className="pb-2 font-medium text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quote.items.filter(item => !item.type || item.type === 'material').map(item => (
+                        <tr key={item.id} className="border-t border-gray-200">
+                          <td className="py-3 pr-2 font-medium text-gray-800">{item.description}</td>
+                          <td className="py-3 text-center text-gray-600">{item.quantity}</td>
+                          <td className="py-3 text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
+                          <td className="py-3 text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-            </section>
-            
-            {/* Payment Information */}
-            <section>
-                <SectionHeader title="PAYMENT INFORMATION" />
-                <div className="space-y-3 text-base">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Account Name:</span>
-                        <span className="font-medium text-gray-800">{quote.paymentInfo.accountName}</span>
-                    </div>
-                     <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Account Number:</span>
-                        <span className="font-medium text-gray-800">{quote.paymentInfo.accountNumber}</span>
-                    </div>
-                     <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Bank Name:</span>
-                        <span className="font-medium text-gray-800">{quote.paymentInfo.bankName}</span>
-                    </div>
+              </div>
+            )}
+
+            {/* Dimension Items */}
+            {quote.items.some(item => item.type === 'dimension') && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Dimension Items</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="text-gray-500 border-b border-gray-200">
+                        <th className="pb-2 font-medium w-1/3">Description</th>
+                        <th className="pb-2 font-medium text-center">Dimension</th>
+                        <th className="pb-2 font-medium text-center">Qty</th>
+                        <th className="pb-2 font-medium text-right">Price/m²</th>
+                        <th className="pb-2 font-medium text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quote.items.filter(item => item.type === 'dimension').map(item => (
+                        <tr key={item.id} className="border-t border-gray-200">
+                          <td className="py-3 pr-2 font-medium text-gray-800">{item.description}</td>
+                          <td className="py-3 text-center text-gray-600 text-xs">
+                            {item.width}×{item.height}mm
+                            {item.panels && item.panels > 1 && (
+                              <span className="text-gray-500 ml-1">({item.panels}P)</span>
+                            )}
+                          </td>
+                          <td className="py-3 text-center text-gray-600">{item.quantity}</td>
+                          <td className="py-3 text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
+                          <td className="py-3 text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-            </section>
+              </div>
+            )}
+          </section>
+
+          {/* Summary */}
+          <section className="mb-8">
+            <SectionHeader title="SUMMARY" />
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-base">
+                <span className="text-gray-600">Subtotal</span>
+                <span className="font-medium text-gray-800">{formatNaira(quote.summary.subtotal)}</span>
+              </div>
+              {quote.summary.charges.map(charge => (
+                <div key={charge.label} className="flex justify-between items-center text-base">
+                  <span className="text-gray-600">{charge.label}</span>
+                  <span className="font-medium text-gray-800">{formatNaira(charge.amount)}</span>
+                </div>
+              ))}
+              <div className="border-t border-gray-200 my-3"></div>
+              <div className="flex justify-between items-center text-xl">
+                <span className="font-bold text-gray-900">Grand Total</span>
+                <span className="font-bold text-gray-900">{formatNaira(quote.summary.grandTotal)}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Payment Information */}
+          <section>
+            <SectionHeader title="PAYMENT INFORMATION" />
+            <div className="space-y-3 text-base">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Account Name:</span>
+                <span className="font-medium text-gray-800">{quote.paymentInfo.accountName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Account Number:</span>
+                <span className="font-medium text-gray-800">{quote.paymentInfo.accountNumber}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Bank Name:</span>
+                <span className="font-medium text-gray-800">{quote.paymentInfo.bankName}</span>
+              </div>
+            </div>
+          </section>
         </div>
       </main>
 
@@ -261,7 +260,7 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 animate-slide-up">
             <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">Export Options</h3>
-            
+
             <div className="space-y-3">
               <button
                 onClick={() => handleExportOption('pdf')}
