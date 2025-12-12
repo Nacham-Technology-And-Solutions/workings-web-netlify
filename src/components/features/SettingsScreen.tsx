@@ -59,7 +59,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onMenuClick, onNavigate
   if (activeSection === 'profile') {
     return (
       <div className="flex flex-col flex-1 bg-white font-sans text-gray-800 overflow-y-auto">
-        <ProfileScreen onBack={handleBack} />
+        <ProfileScreen onBack={handleBack} onNavigate={onNavigate} />
       </div>
     );
   }

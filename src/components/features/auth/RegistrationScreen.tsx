@@ -1,6 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import Input from '@/components/common/Input';
 import { EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
+import { authService } from '@/services/api';
+import { extractErrorMessage, extractFieldErrors } from '@/utils/errorHandler';
+import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
+import ErrorMessage from '@/components/common/ErrorMessage';
+import { useAuthStore } from '@/stores';
 
 interface RegistrationScreenProps {
   onRegister: () => void;
@@ -8,6 +13,7 @@ interface RegistrationScreenProps {
 }
 
 const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onSwitchToLogin }) => {
+  const { login: loginStore } = useAuthStore();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,6 +32,9 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [detailedError, setDetailedError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -33,6 +42,10 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
     // Clear error on change after a failed submission attempt
     if(errors[id as keyof typeof errors]) {
         setErrors(prev => ({...prev, [id]: ''}));
+    }
+    // Clear general error when user starts typing
+    if (generalError) {
+      setGeneralError(null);
     }
   };
   
@@ -86,7 +99,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
     );
   }, [formData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const isNameValid = validateField('name', formData.name);
     const isEmailValid = validateField('email', formData.email);
@@ -94,8 +107,117 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
     const isPasswordValid = validateField('password', formData.password);
     const isConfirmPasswordValid = validateField('confirmPassword', formData.confirmPassword);
 
-    if (isNameValid && isEmailValid && isCompanyValid && isPasswordValid && isConfirmPasswordValid) {
-      onRegister();
+    if (!isNameValid || !isEmailValid || !isCompanyValid || !isPasswordValid || !isConfirmPasswordValid) {
+      return;
+    }
+
+    setIsLoading(true);
+    setGeneralError(null);
+    // Clear all field errors
+    setErrors({
+      name: '',
+      email: '',
+      company: '',
+      password: '',
+      confirmPassword: '',
+    });
+
+    try {
+      const response = await authService.register({
+        name: formData.name,
+        email: formData.email,
+        companyName: formData.company,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+      });
+
+      const normalizedResponse = normalizeApiResponse<{
+        accessToken: string;
+        refreshToken: string;
+        userProfile: {
+          id: number;
+          name: string;
+          email: string;
+          companyName: string;
+          subscriptionStatus: string;
+          pointsBalance: number;
+        };
+      }>(response);
+      
+      if (isApiResponseSuccess(response)) {
+        const responseData = getApiResponseData<{
+          accessToken: string;
+          refreshToken: string;
+          userProfile: {
+            id: number;
+            name: string;
+            email: string;
+            companyName: string;
+            subscriptionStatus: string;
+            pointsBalance: number;
+          };
+        }>(response);
+        
+        // Update auth store
+        loginStore(
+          responseData.accessToken,
+          responseData.refreshToken,
+          {
+            id: responseData.userProfile.id,
+            email: responseData.userProfile.email,
+            name: responseData.userProfile.name,
+            companyName: responseData.userProfile.companyName,
+            subscriptionStatus: responseData.userProfile.subscriptionStatus as 'free' | 'pro' | 'starter' | 'enterprise',
+            pointsBalance: responseData.userProfile.pointsBalance,
+          }
+        );
+
+        // Call the onRegister callback to proceed with the flow
+        onRegister();
+      } else {
+        // Extract error message - the response object contains error and responseMessage
+        const apiResponseData = response as any;
+        
+        // Extract error using extractErrorMessage to handle ZodError and other formats
+        // Create a mock AxiosError structure to use extractErrorMessage
+        const mockError = {
+          response: {
+            status: 400,
+            data: apiResponseData,
+          }
+        };
+        
+        try {
+          const errorInfo = extractErrorMessage(mockError);
+          setGeneralError(errorInfo.message);
+          setDetailedError(errorInfo.detailedMessage || null);
+        } catch (err) {
+          // Fallback if extractErrorMessage fails - this should rarely happen
+          console.error('Error extracting error message:', err);
+          const errorField = apiResponseData?.error || normalizedResponse.message || 'Registration failed';
+          setGeneralError(errorField === 'BAD REQUEST' 
+            ? 'Invalid request. Please check your input.'
+            : errorField);
+          setDetailedError(null);
+        }
+      }
+    } catch (error) {
+      // Extract field-specific errors
+      const fieldErrors = extractFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        // Set field-specific errors
+        setErrors(prev => ({
+          ...prev,
+          ...fieldErrors,
+        }));
+      } else {
+        // Set general error with detailed message
+        const errorMessage = extractErrorMessage(error);
+        setGeneralError(errorMessage.message);
+        setDetailedError(errorMessage.detailedMessage || null);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -111,6 +233,20 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
         
         {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
+          {/* General Error Message */}
+          {generalError && (
+            <div className="mb-5">
+              <ErrorMessage
+                message={generalError}
+                detailedMessage={detailedError || undefined}
+                onDismiss={() => {
+                  setGeneralError(null);
+                  setDetailedError(null);
+                }}
+              />
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <Input
               id="name"
@@ -185,10 +321,20 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={!isFormValid}
-                className="w-full py-4 text-lg font-semibold text-white bg-gray-900 rounded-xl transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg hover:enabled:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo"
+                disabled={!isFormValid || isLoading}
+                className="w-full py-4 text-lg font-semibold text-white bg-gray-900 rounded-xl transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg hover:enabled:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo flex items-center justify-center gap-2"
               >
-                Create Account
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Creating Account...</span>
+                  </>
+                ) : (
+                  'Create Account'
+                )}
               </button>
             </div>
           </form>

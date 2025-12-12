@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData, DimensionItem } from '@/types';
+import type { CalculationResult, MaterialListItem, CuttingListItem, GlassListResult, RubberTotal, AccessoryTotal } from '@/types/calculations';
 import {
   exportMaterialListToPDF,
   exportCuttingListToPDF,
@@ -9,11 +10,19 @@ import {
   exportCuttingListToExcel,
   shareData
 } from '@/services/export/exportService';
+import { calculationsService, projectsService } from '@/services/api';
+import { createProjectData, projectDataToProjectCart } from '@/utils/dataTransformers';
+import { extractErrorMessage } from '@/utils/errorHandler';
+import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
 
 interface ProjectSolutionScreenProps {
   onBack: () => void;
-  onGenerate: () => void;
-  previousData?: any;
+  onGenerate: (materialCost: number) => void;
+  previousData?: {
+    projectDescription?: ProjectDescriptionData;
+    selectProject?: SelectProjectData;
+    projectMeasurement?: ProjectMeasurementData;
+  };
   initialTab?: 'material' | 'cutting' | 'glass';
 }
 
@@ -28,24 +37,188 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass'>(initialTab);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
+  const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [projectSaved, setProjectSaved] = useState(false);
+  
+  // State for prices and quantities (itemId -> value)
+  const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
+  const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
 
-  // Sample data - Profile items
-  const profileItems: MaterialItem[] = [
-    { id: '1', name: 'Width', quantity: 10, unit: 'units' },
-    { id: '2', name: 'Height', quantity: 10, unit: 'units' },
-    { id: '3', name: 'Mcllium', quantity: 10, unit: 'units' },
-    { id: '4', name: 'Glass', quantity: 10, unit: 'units' },
-    { id: '5', name: 'D/Curve', quantity: 10, unit: 'units' },
-  ];
+  // Transform calculation result to display format
+  const profileItems: MaterialItem[] = calculationResult?.materialList
+    ? calculationResult.materialList
+        .filter(item => item.type === 'Profile')
+        .map((item, index) => ({
+          id: `profile-${index}`,
+          name: item.item,
+          quantity: item.units,
+          unit: item.type === 'Profile' ? 'units' : item.type.toLowerCase(),
+        }))
+    : [];
 
-  // Sample data - Accessories items
-  const accessoriesItems: MaterialItem[] = [
-    { id: '6', name: 'Hinges', quantity: 10, unit: 'units' },
-    { id: '7', name: 'Stopper', quantity: 10, unit: 'units' },
-    { id: '8', name: 'Handle', quantity: 10, unit: 'units' },
-    { id: '9', name: 'Rubber', quantity: 10, unit: 'units' },
-    { id: '10', name: 'Screw', quantity: 10, unit: 'units' },
-  ];
+  const accessoriesItems: MaterialItem[] = calculationResult?.accessoryTotals
+    ? calculationResult.accessoryTotals.map((item, index) => ({
+        id: `accessory-${index}`,
+        name: item.name,
+        quantity: item.qty,
+        unit: 'units',
+      }))
+    : [];
+
+  // Load calculation on mount if we have previous data
+  useEffect(() => {
+    if (previousData?.projectDescription && previousData?.selectProject && previousData?.projectMeasurement) {
+      handleCalculate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  const handleCalculate = async () => {
+    if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
+      setError('Missing project data');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Transform frontend data to backend format
+      const projectData = createProjectData(
+        previousData.projectDescription,
+        previousData.selectProject,
+        previousData.projectMeasurement
+      );
+
+      // Convert to ProjectCart format
+      const { projectCart, settings } = projectDataToProjectCart(projectData);
+
+      // Call calculation API
+      const response = await calculationsService.calculate({
+        projectCart,
+        settings,
+      });
+
+      const normalizedResponse = normalizeApiResponse(response);
+      
+      if (isApiResponseSuccess(response)) {
+        const responseData = getApiResponseData(response) as any;
+        
+        // Debug: Log the response structure
+        console.log('Calculation API response data:', responseData);
+        
+        // API response structure:
+        // {
+        //   responseMessage: "...",
+        //   response: {
+        //     result: { materialList: [...], cuttingList: [...], ... },
+        //     pointsDeducted: 5,
+        //     balanceAfter: 35
+        //   }
+        // }
+        // After normalizeApiResponse, responseData = { result: {...}, pointsDeducted: 5, balanceAfter: 35 }
+        // Extract the result object which contains the calculation data
+        const calculationData = responseData?.result;
+        
+        // Debug: Log the raw calculation data structure
+        console.log('Calculation result data:', calculationData);
+        
+        // Validate calculation data structure
+        if (!calculationData) {
+          setError('Invalid calculation response: No result data received');
+          console.error('Missing result in response:', responseData);
+          return;
+        }
+        
+        // Extract all calculation result fields (API uses camelCase)
+        const materialListData = calculationData.materialList || [];
+        const cuttingListData = calculationData.cuttingList || [];
+        const glassListData = calculationData.glassList || { sheet_type: '', total_sheets: 0, cuts: [] };
+        const rubberTotalsData = calculationData.rubberTotals || [];
+        const accessoryTotalsData = calculationData.accessoryTotals || [];
+        
+        // Debug: Log extracted data
+        console.log('Extracted materialList:', materialListData);
+        console.log('Extracted accessoryTotals:', accessoryTotalsData);
+        console.log('MaterialList length:', materialListData.length);
+        console.log('AccessoryTotals length:', accessoryTotalsData.length);
+        
+        // Ensure all required arrays exist with proper defaults
+        const validatedData: CalculationResult = {
+          materialList: Array.isArray(materialListData) ? materialListData : [],
+          cuttingList: Array.isArray(cuttingListData) ? cuttingListData : [],
+          glassList: glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] },
+          rubberTotals: Array.isArray(rubberTotalsData) ? rubberTotalsData : [],
+          accessoryTotals: Array.isArray(accessoryTotalsData) ? accessoryTotalsData : [],
+        };
+        
+        console.log('Validated calculation data:', validatedData);
+        console.log('Profile items count:', validatedData.materialList.filter(item => item.type === 'Profile').length);
+        console.log('Accessory items count:', validatedData.accessoryTotals.length);
+        setCalculationResult(validatedData);
+        
+        // Auto-save project after successful calculation
+        await handleSaveProject();
+      } else {
+        setError(getApiResponseMessage(response) || 'Calculation failed');
+      }
+    } catch (err: any) {
+      const errorMessage = extractErrorMessage(err);
+      setError(errorMessage.message);
+      console.error('Calculation error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveProject = async () => {
+    if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      // Transform frontend data to backend format
+      const projectData = createProjectData(
+        previousData.projectDescription,
+        previousData.selectProject,
+        previousData.projectMeasurement
+      );
+
+      // Save project to API
+      const response = await projectsService.create({
+        projectName: projectData.projectName,
+        customer: projectData.customer,
+        siteAddress: projectData.siteAddress,
+        description: projectData.description,
+        glazingDimensions: projectData.glazingDimensions,
+        calculationSettings: projectData.calculationSettings,
+      });
+
+      // Normalize and check response using API response helpers
+      const normalizedResponse = normalizeApiResponse(response);
+      
+      if (normalizedResponse.success) {
+        setProjectSaved(true);
+        // Trigger refresh in parent component if callback exists
+        // This will be handled by the parent component's refresh mechanism
+      } else {
+        setSaveError(normalizedResponse.message || 'Failed to save project');
+      }
+    } catch (err: any) {
+      const errorMessage = extractErrorMessage(err);
+      setSaveError(errorMessage.message);
+      console.error('Save project error:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const toggleItemExpansion = (id: string) => {
     setExpandedItems(prev => ({
@@ -54,7 +227,64 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     }));
   };
 
-  const grandTotal = 255000; // Sample total
+  // Calculate item total (quantity * price)
+  const getItemTotal = (itemId: string, defaultQuantity: number): number => {
+    const quantity = itemQuantities[itemId] ?? defaultQuantity;
+    const price = itemPrices[itemId] ?? 0;
+    return quantity * price;
+  };
+
+  // Calculate grand total from all items
+  const grandTotal = useMemo(() => {
+    let total = 0;
+    
+    // Sum all profile items
+    profileItems.forEach(item => {
+      total += getItemTotal(item.id, item.quantity);
+    });
+    
+    // Sum all accessory items
+    accessoriesItems.forEach(item => {
+      total += getItemTotal(item.id, item.quantity);
+    });
+    
+    return total;
+  }, [profileItems, accessoriesItems, itemPrices, itemQuantities]);
+
+  // Initialize quantities from items when calculation result changes
+  useEffect(() => {
+    if (calculationResult) {
+      const initialQuantities: Record<string, number> = {};
+      
+      // Get profile items
+      const profiles = calculationResult.materialList
+        ? calculationResult.materialList
+            .filter(item => item.type === 'Profile')
+            .map((item, index) => ({
+              id: `profile-${index}`,
+              quantity: item.units,
+            }))
+        : [];
+      
+      // Get accessory items
+      const accessories = calculationResult.accessoryTotals
+        ? calculationResult.accessoryTotals.map((item, index) => ({
+            id: `accessory-${index}`,
+            quantity: item.qty,
+          }))
+        : [];
+      
+      profiles.forEach(item => {
+        initialQuantities[item.id] = item.quantity;
+      });
+      
+      accessories.forEach(item => {
+        initialQuantities[item.id] = item.quantity;
+      });
+      
+      setItemQuantities(prev => ({ ...prev, ...initialQuantities }));
+    }
+  }, [calculationResult]);
 
   return (
     <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
@@ -94,16 +324,60 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 </svg>
               </button>
             ) : (
-              <button
-                onClick={onGenerate}
-                className="px-8 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
-              >
-                Generate Now
-              </button>
+              <div className="flex items-center gap-3">
+                {isSaving && (
+                  <span className="text-sm text-gray-600 flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </span>
+                )}
+                <button
+                  onClick={() => onGenerate(grandTotal)}
+                  disabled={isSaving}
+                  className="px-8 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Generate Now
+                </button>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Save Status Messages */}
+      {(projectSaved || saveError) && (
+        <div className="px-8 pt-4">
+          <div className="max-w-7xl mx-auto">
+            {projectSaved && (
+              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-green-800 font-medium">Project saved successfully!</p>
+              </div>
+            )}
+            {saveError && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <p className="text-red-800 font-medium">{saveError}</p>
+                <button
+                  onClick={() => setSaveError(null)}
+                  className="ml-auto text-red-600 hover:text-red-800"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-8 py-8">
@@ -158,8 +432,36 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             </div>
           </div>
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+                <p className="text-gray-600">Calculating...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !isLoading && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-red-800">{error}</p>
+              </div>
+              <button
+                onClick={handleCalculate}
+                className="mt-3 text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
           {/* Material List Content */}
-          {activeTab === 'material' && (
+          {!isLoading && !error && activeTab === 'material' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Profile Section */}
               <div>
@@ -204,7 +506,11 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                             <span className="text-gray-900">:</span>
                             <input
                               type="number"
-                              defaultValue={item.quantity}
+                              value={itemQuantities[item.id] ?? item.quantity}
+                              onChange={(e) => {
+                                const newQty = parseFloat(e.target.value) || 0;
+                                setItemQuantities(prev => ({ ...prev, [item.id]: newQty }));
+                              }}
                               className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
                             />
                           </div>
@@ -216,8 +522,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                             <div className="flex items-center gap-1">
                               <span className="text-gray-900">₦</span>
                               <input
-                                type="text"
+                                type="number"
                                 placeholder="Enter your price..."
+                                value={itemPrices[item.id] || ''}
+                                onChange={(e) => {
+                                  const newPrice = parseFloat(e.target.value) || 0;
+                                  setItemPrices(prev => ({ ...prev, [item.id]: newPrice }));
+                                }}
                                 className="w-32 px-2 py-1 border-b border-gray-300 text-right text-gray-900 focus:outline-none focus:border-gray-400"
                               />
                             </div>
@@ -227,7 +538,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                           <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
                             <span className="text-gray-600">Total</span>
                             <span className="text-gray-900">:</span>
-                            <span className="text-gray-900 font-bold">₦ 0.00</span>
+                            <span className="text-gray-900 font-bold">₦{getItemTotal(item.id, item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
 
                           {/* Action Buttons */}
@@ -293,7 +604,11 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                             <span className="text-gray-900">:</span>
                             <input
                               type="number"
-                              defaultValue={item.quantity}
+                              value={itemQuantities[item.id] ?? item.quantity}
+                              onChange={(e) => {
+                                const newQty = parseFloat(e.target.value) || 0;
+                                setItemQuantities(prev => ({ ...prev, [item.id]: newQty }));
+                              }}
                               className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
                             />
                           </div>
@@ -305,8 +620,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                             <div className="flex items-center gap-1">
                               <span className="text-gray-900">₦</span>
                               <input
-                                type="text"
+                                type="number"
                                 placeholder="Enter your price..."
+                                value={itemPrices[item.id] || ''}
+                                onChange={(e) => {
+                                  const newPrice = parseFloat(e.target.value) || 0;
+                                  setItemPrices(prev => ({ ...prev, [item.id]: newPrice }));
+                                }}
                                 className="w-32 px-2 py-1 border-b border-gray-300 text-right text-gray-900 focus:outline-none focus:border-gray-400"
                               />
                             </div>
@@ -316,7 +636,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                           <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
                             <span className="text-gray-600">Total</span>
                             <span className="text-gray-900">:</span>
-                            <span className="text-gray-900 font-bold">₦ 0.00</span>
+                            <span className="text-gray-900 font-bold">₦{getItemTotal(item.id, item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
 
                           {/* Action Buttons */}
@@ -342,234 +662,399 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           )}
 
           {/* Cutting List Content */}
-          {activeTab === 'cutting' && (
+          {!isLoading && !error && activeTab === 'cutting' && (
             <div>
-              <div className="flex justify-between items-end mb-6">
-                <h3 className="text-base font-semibold text-gray-900">Cutting Layout</h3>
-                <div className="flex gap-6 text-sm">
-                  <div>
-                    <span className="text-gray-500">Material Length: </span>
-                    <span className="font-medium text-gray-900">6 meters</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Quantity: </span>
-                    <span className="font-medium text-gray-900">20 length</span>
-                  </div>
+              {calculationResult?.cuttingList && calculationResult.cuttingList.length > 0 ? (
+                calculationResult.cuttingList.map((cuttingItem, profileIndex) => {
+                  const stockLengthMeters = cuttingItem.stock_length / 1000; // Convert mm to meters
+                  
+                  // Parse cutting plans
+                  const layouts = cuttingItem.plan.map((planEntry, planIndex) => {
+                    // Each plan entry is an object like { "cut_1200mm": ["cut_1200mm", "cut_1200mm", ...] }
+                    const cutKeys = Object.keys(planEntry);
+                    const individualCuts: Array<{ length: number; label: string }> = [];
+                    let totalRepetition = 0;
+                    
+                    // Extract all individual cuts (one segment per cut)
+                    cutKeys.forEach(cutKey => {
+                      const cutArray = planEntry[cutKey];
+                      // Extract length from key like "cut_1200mm" -> 1200
+                      const lengthMatch = cutKey.match(/(\d+)mm/);
+                      if (lengthMatch) {
+                        const lengthMm = parseInt(lengthMatch[1]);
+                        const lengthMeters = lengthMm / 1000;
+                        const label = `${lengthMeters.toFixed(1)}m`;
+                        
+                        // Add one segment for each cut in the array
+                        for (let i = 0; i < cutArray.length; i++) {
+                          individualCuts.push({
+                            length: lengthMeters,
+                            label: label
+                          });
+                        }
+                        
+                        totalRepetition = Math.max(totalRepetition, cutArray.length);
+                      }
+                    });
+                    
+                    // Calculate total used length and offcut
+                    const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
+                    const offcut = stockLengthMeters - totalUsed;
+                    
+                    return {
+                      cuts: individualCuts,
+                      offcut,
+                      repetition: totalRepetition,
+                      totalUsed,
+                      stockLength: stockLengthMeters
+                    };
+                  });
+                  
+                  // Calculate total quantity needed
+                  const totalQuantity = layouts.reduce((sum, layout) => sum + layout.repetition, 0);
+                  
+                  return (
+                    <div key={profileIndex} className="mb-8">
+                      {/* Profile Header */}
+                      <div className="flex justify-between items-end mb-6">
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-900 mb-2">{cuttingItem.profile_name}</h3>
+                          <div className="flex gap-6 text-sm">
+                            <div>
+                              <span className="text-gray-500">Material Length: </span>
+                              <span className="font-medium text-gray-900">{stockLengthMeters.toFixed(1)} meters</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Total Quantity: </span>
+                              <span className="font-medium text-gray-900">{totalQuantity} length</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Layouts Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {layouts.map((layout, layoutIndex) => {
+                          const layoutLetter = String.fromCharCode(65 + layoutIndex); // A, B, C, etc.
+                          const totalCutsWidth = layout.cuts.reduce((sum, cut) => sum + (cut.length / layout.stockLength * 100), 0);
+                          
+                          return (
+                            <div key={layoutIndex} className="bg-white border border-gray-200 rounded-lg p-6">
+                              <div className="flex justify-between items-start mb-6">
+                                <div>
+                                  <span className="text-xs text-gray-500 uppercase block mb-1">Layout</span>
+                                  <span className="text-lg font-medium text-gray-900">{layoutLetter}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs text-gray-500 uppercase block mb-1">Repetition</span>
+                                  <span className="text-lg font-medium text-gray-900">{layout.repetition}X</span>
+                                </div>
+                              </div>
+
+                              {/* Visual Bar - Cuts fill left to right, offcut always on right */}
+                              <div className="flex h-12 mb-2">
+                                {/* All cuts displayed as individual segments from left */}
+                                {layout.cuts.map((cut, cutIndex) => {
+                                  const widthPercent = (cut.length / layout.stockLength) * 100;
+                                  const isLastCut = cutIndex === layout.cuts.length - 1;
+                                  
+                                  return (
+                                    <div 
+                                      key={cutIndex}
+                                      className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900"
+                                      style={{ 
+                                        width: `${widthPercent}%`,
+                                        borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none'
+                                      }}
+                                    >
+                                      {cut.label}
+                                    </div>
+                                  );
+                                })}
+                                
+                                {/* Offcut section - always on the right */}
+                                {layout.offcut > 0 && (
+                                  <div 
+                                    className="h-full bg-gray-100 flex items-center justify-center relative" 
+                                    style={{ 
+                                      width: `${(layout.offcut / layout.stockLength) * 100}%`,
+                                      backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)',
+                                      backgroundSize: '4px 4px'
+                                    }}
+                                  >
+                                    <div className="absolute inset-0 border-l border-gray-300"></div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="text-right">
+                                <span className="text-xs text-gray-500">Off-cut: </span>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {layout.offcut > 0 ? `${layout.offcut.toFixed(2)}m` : '0m'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No cutting list data available</p>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Layout A */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <span className="text-xs text-gray-500 uppercase block mb-1">Layout</span>
-                      <span className="text-lg font-medium text-gray-900">A</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-gray-500 uppercase block mb-1">Repetition</span>
-                      <span className="text-lg font-medium text-gray-900">6X</span>
-                    </div>
-                  </div>
-
-                  {/* Visual Bar */}
-                  <div className="flex h-12 mb-2">
-                    <div className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900" style={{ width: '75%' }}>
-                      4.5m
-                    </div>
-                    <div className="h-full bg-gray-100 flex items-center justify-center relative" style={{ width: '25%', backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '4px 4px' }}>
-                      <div className="absolute inset-0 border-l border-gray-300"></div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-gray-500">Off-cut: </span>
-                    <span className="text-sm font-medium text-gray-900">1.5m</span>
-                  </div>
-                </div>
-
-                {/* Layout B */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <span className="text-xs text-gray-500 uppercase block mb-1">Layout</span>
-                      <span className="text-lg font-medium text-gray-900">B</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-gray-500 uppercase block mb-1">Repetition</span>
-                      <span className="text-lg font-medium text-gray-900">3X</span>
-                    </div>
-                  </div>
-
-                  {/* Visual Bar */}
-                  <div className="flex h-12 mb-2">
-                    <div className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900 border-r border-white/20" style={{ width: '30%' }}>
-                      1.2m
-                    </div>
-                    <div className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900 border-r border-white/20" style={{ width: '30%' }}>
-                      1.2m
-                    </div>
-                    <div className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900" style={{ width: '28%' }}>
-                      1.1m
-                    </div>
-                    <div className="h-full bg-gray-100 flex items-center justify-center relative" style={{ width: '12%', backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '4px 4px' }}>
-                      <div className="absolute inset-0 border-l border-gray-300"></div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-gray-500">Off-cut: </span>
-                    <span className="text-sm font-medium text-gray-900">0.2m</span>
-                  </div>
-                </div>
-
-                {/* Layout C */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <span className="text-xs text-gray-500 uppercase block mb-1">Layout</span>
-                      <span className="text-lg font-medium text-gray-900">C</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-gray-500 uppercase block mb-1">Repetition</span>
-                      <span className="text-lg font-medium text-gray-900">3X</span>
-                    </div>
-                  </div>
-
-                  {/* Visual Bar */}
-                  <div className="flex h-12 mb-2">
-                    <div className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900" style={{ width: '30%' }}>
-                      1.2m
-                    </div>
-                    <div className="h-full bg-gray-100 flex items-center justify-center relative" style={{ width: '70%', backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '4px 4px' }}>
-                      <div className="absolute inset-0 border-l border-gray-300"></div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-gray-500">Off-cut: </span>
-                    <span className="text-sm font-medium text-gray-900">2.4m</span>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
 
 
           {/* Glass Cutting List Content */}
-          {activeTab === 'glass' && (
+          {!isLoading && !error && activeTab === 'glass' && (
             <div>
               <h3 className="text-base font-semibold text-gray-900 mb-6">Glass Cutting Layout</h3>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Panel - Grid Area */}
-                <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 min-h-[500px] relative flex flex-col items-center justify-center">
-                  {/* Grid Background */}
-                  <div className="absolute inset-0 m-4 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#E2E8F0 2px, transparent 2px)', backgroundSize: '24px 24px' }}></div>
+              {calculationResult?.glassList && calculationResult.glassList.total_sheets > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Panel - Grid Area */}
+                  <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 min-h-[500px] relative flex flex-col items-center justify-center">
+                    {/* Grid Background */}
+                    <div className="absolute inset-0 m-4 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#E2E8F0 2px, transparent 2px)', backgroundSize: '24px 24px' }}></div>
 
-                  {!selectedSheet ? (
-                    /* Default State - Tooltip */
-                    <div className="relative z-10 bg-[#4A8B9F] text-white px-4 py-3 rounded shadow-lg text-center">
-                      <p className="text-xs font-medium">Enter</p>
-                      <p className="text-xs">measurements below</p>
-                      {/* Tooltip Arrow */}
-                      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-[#4A8B9F] rotate-45"></div>
-                    </div>
-                  ) : (
-                    /* Selected State - Layout Visualization */
-                    <div className="relative z-10 w-full max-w-2xl">
-                      {/* Sheet Badge */}
-                      <div className="flex justify-center mb-4">
-                        <span className="bg-gray-800 text-white text-xs px-3 py-1 rounded-full">Sheet 1</span>
-                      </div>
+                    {(() => {
+                      const glassList = calculationResult.glassList;
+                      const currentSheetIndex = selectedSheet ? parseInt(selectedSheet.replace('sheet', '')) - 1 : 0;
+                      const currentSheet = currentSheetIndex + 1;
+                      
+                      // Parse sheet dimensions from sheet_type (e.g., "3310x2140mm")
+                      const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
+                      const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
+                      const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
+                      
+                      // Calculate layout for cuts
+                      const cuts = glassList.cuts || [];
+                      const totalCuts = cuts.reduce((sum, cut) => sum + cut.qty, 0);
+                      
+                      // Use the first cut type for visualization (API provides cuts with same dimensions)
+                      const primaryCut = cuts.length > 0 ? cuts[0] : null;
+                      
+                      if (!primaryCut) {
+                        return (
+                          <div className="relative z-10 text-center text-gray-500">
+                            <p>No cuts data available</p>
+                          </div>
+                        );
+                      }
+                      
+                      // Calculate how many cuts fit horizontally and vertically
+                      const cutsPerRow = Math.floor(sheetWidth / primaryCut.w);
+                      const cutsPerCol = Math.floor(sheetHeight / primaryCut.h);
+                      const maxCutsPerSheet = cutsPerRow * cutsPerCol;
+                      
+                      // Calculate dimensions as percentages for visualization
+                      const cutWidthPercent = (primaryCut.w / sheetWidth) * 100;
+                      const cutHeightPercent = (primaryCut.h / sheetHeight) * 100;
+                      
+                      // Calculate waste/offcut areas
+                      const usedWidth = cutsPerRow * primaryCut.w;
+                      const usedHeight = cutsPerCol * primaryCut.h;
+                      const wasteWidth = sheetWidth - usedWidth;
+                      const wasteHeight = sheetHeight - usedHeight;
+                      
+                      if (!selectedSheet && glassList.total_sheets > 0) {
+                        // Default state - show tooltip
+                        return (
+                          <div className="relative z-10 bg-[#4A8B9F] text-white px-4 py-3 rounded shadow-lg text-center">
+                            <p className="text-xs font-medium">Select a sheet</p>
+                            <p className="text-xs">to view layout</p>
+                            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-[#4A8B9F] rotate-45"></div>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div className="relative z-10 w-full max-w-2xl">
+                          {/* Sheet Badge */}
+                          <div className="flex justify-center mb-4">
+                            <span className="bg-gray-800 text-white text-xs px-3 py-1 rounded-full">
+                              Sheet {currentSheet}
+                            </span>
+                          </div>
 
-                      {/* Layout Diagram */}
-                      <div className="border-2 border-gray-400 bg-gray-200 p-0.5 flex">
-                        {/* Main Cuts Area */}
-                        <div className="flex-1 flex flex-col">
-                          {/* Row 1 */}
-                          <div className="flex h-40">
-                            {[1, 2, 3, 4, 5, 6].map((i) => (
-                              <div key={`r1-${i}`} className="flex-1 border border-gray-600 bg-[#C8DEE5] relative flex items-center justify-center">
-                                <span className="absolute top-1 text-xs font-medium">500</span>
-                                <span className="absolute -rotate-90 text-xs font-medium">1050</span>
+                          {/* Layout Diagram - Structured layout: cuts fill left, waste fills remaining space with 2px visual gaps */}
+                          <div 
+                            className="border-2 border-gray-400 bg-gray-200 p-0.5 flex"
+                            style={{ 
+                              aspectRatio: `${sheetWidth}/${sheetHeight}`,
+                              maxWidth: '100%'
+                            }}
+                          >
+                            {/* Left Section: Cuts + Bottom Waste */}
+                            <div 
+                              className="flex flex-col"
+                              style={{ 
+                                width: `${(usedWidth / sheetWidth) * 100}%`
+                              }}
+                            >
+                              {/* Cuts Grid Area */}
+                              <div 
+                                className="flex flex-col"
+                                style={{ 
+                                  height: `${(usedHeight / sheetHeight) * 100}%`
+                                }}
+                              >
+                                {/* Render cuts in rows with 2px visual gaps (using background to show gaps) */}
+                                {Array.from({ length: Math.min(cutsPerCol, Math.ceil(totalCuts / cutsPerRow)) }).map((_, rowIndex) => (
+                                  <div 
+                                    key={rowIndex} 
+                                    className="flex"
+                                    style={{ 
+                                      height: `${(primaryCut.h / sheetHeight) * 100}%`,
+                                      marginBottom: rowIndex < Math.min(cutsPerCol, Math.ceil(totalCuts / cutsPerRow)) - 1 ? '2px' : '0'
+                                    }}
+                                  >
+                                    {Array.from({ length: cutsPerRow }).map((_, colIndex) => {
+                                      const cutIndex = rowIndex * cutsPerRow + colIndex;
+                                      if (cutIndex >= Math.min(totalCuts, maxCutsPerSheet)) return null;
+                                      
+                                      return (
+                                        <div
+                                          key={colIndex}
+                                          className="bg-[#C8DEE5] relative"
+                                          style={{
+                                            width: `${(primaryCut.w / usedWidth) * 100}%`,
+                                            height: '100%',
+                                            marginRight: colIndex < cutsPerRow - 1 ? '2px' : '0',
+                                            border: '1px solid #4B5563' // Border for cut definition
+                                          }}
+                                        >
+                                          <span className="absolute top-1 left-1 text-xs font-medium">{primaryCut.w}</span>
+                                          <span className="absolute bottom-1 left-1 text-xs font-medium">{primaryCut.h}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                          {/* Row 2 */}
-                          <div className="flex h-40">
-                            {[1, 2, 3, 4, 5, 6].map((i) => (
-                              <div key={`r2-${i}`} className="flex-1 border border-gray-600 bg-[#C8DEE5] relative flex items-center justify-center">
-                                <span className="absolute top-1 text-xs font-medium">500</span>
-                                <span className="absolute -rotate-90 text-xs font-medium">1050</span>
+                              
+                              {/* Bottom Waste/Offcut - Takes remaining height after cuts (fills remaining vertical space) */}
+                              {wasteHeight > 0 && (
+                                <div 
+                                  className="bg-gray-300 relative flex items-center justify-center"
+                                  style={{ 
+                                    width: '100%',
+                                    height: `${(wasteHeight / sheetHeight) * 100}%`,
+                                    marginTop: '2px', // 2px visual gap from cuts
+                                    border: '1px solid #4B5563',
+                                    borderTop: '2px solid #4B5563' // Thicker top border for visual separation
+                                  }}
+                                >
+                                  <span className="absolute left-2 text-xs font-medium">{wasteHeight}</span>
+                                  <span className="absolute bottom-1 text-xs font-medium">{usedWidth}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Right Waste/Offcut - Takes remaining width after cuts (fills remaining horizontal space), spans full height */}
+                            {wasteWidth > 0 && (
+                              <div 
+                                className="bg-gray-300 relative flex flex-col items-center justify-center"
+                                style={{ 
+                                  width: `${(wasteWidth / sheetWidth) * 100}%`,
+                                  height: '100%',
+                                  marginLeft: '2px', // 2px visual gap from cuts area
+                                  border: '1px solid #4B5563',
+                                  borderLeft: '2px solid #4B5563' // Thicker left border for visual separation
+                                }}
+                              >
+                                <span className="absolute top-2 text-xs font-medium">{wasteWidth}</span>
+                                <span className="absolute -rotate-90 text-xs font-medium">{sheetHeight}</span>
                               </div>
-                            ))}
+                            )}
                           </div>
-                          {/* Bottom Offcut */}
-                          <div className="h-8 border border-gray-600 bg-gray-300 relative flex items-center justify-center">
-                            <span className="absolute left-2 text-xs font-medium">40</span>
-                            <span className="absolute bottom-1 text-xs font-medium">3000</span>
+
+                          {/* Pagination */}
+                          {glassList.total_sheets > 1 && (
+                            <div className="flex justify-center items-center gap-4 mt-6">
+                              <button
+                                onClick={() => {
+                                  if (currentSheetIndex > 0) {
+                                    setSelectedSheet(`sheet${currentSheetIndex}`);
+                                  }
+                                }}
+                                disabled={currentSheetIndex === 0}
+                                className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                              </button>
+                              <span className="text-sm font-medium text-gray-900">
+                                {currentSheet}/{glassList.total_sheets}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  if (currentSheetIndex < glassList.total_sheets - 1) {
+                                    setSelectedSheet(`sheet${currentSheetIndex + 2}`);
+                                  }
+                                }}
+                                disabled={currentSheetIndex >= glassList.total_sheets - 1}
+                                className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Right Panel - Sheet List */}
+                  <div className="space-y-4">
+                    {Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => {
+                      const sheetNumber = index + 1;
+                      const sheetId = `sheet${sheetNumber}`;
+                      const glassList = calculationResult.glassList;
+                      
+                      // Parse sheet dimensions
+                      const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
+                      const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
+                      const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
+                      
+                      // Calculate total quantity of cuts for this sheet
+                      const totalCuts = glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0;
+                      
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => setSelectedSheet(sheetId)}
+                          className={`w-full text-left border rounded-lg p-6 transition-colors ${selectedSheet === sheetId
+                            ? 'bg-[#EBF5F8] border-[#EBF5F8] ring-1 ring-blue-200'
+                            : 'bg-white border-gray-200 hover:border-blue-300'
+                            }`}
+                        >
+                          <h4 className="text-sm text-gray-500 mb-2">Sheet {sheetNumber}</h4>
+                          <p className="text-lg font-medium text-gray-900 mb-4">
+                            {sheetWidth} X {sheetHeight}
+                          </p>
+                          <div className={`border-t border-dashed pt-4 ${selectedSheet === sheetId ? 'border-blue-200' : 'border-gray-200'}`}>
+                            <p className="text-xs text-gray-500 mb-1">Quantity</p>
+                            <p className="text-base font-medium text-gray-900">{totalCuts} pcs</p>
                           </div>
-                        </div>
-
-                        {/* Right Offcut */}
-                        <div className="w-12 border border-gray-600 bg-gray-300 relative flex flex-col items-center justify-center">
-                          <span className="absolute top-2 text-xs font-medium">310</span>
-                          <span className="absolute -rotate-90 text-xs font-medium">2140</span>
-                        </div>
-                      </div>
-
-                      {/* Pagination */}
-                      <div className="flex justify-center items-center gap-4 mt-6">
-                        <button className="p-1 rounded-full hover:bg-gray-100">
-                          <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                          </svg>
                         </button>
-                        <span className="text-sm font-medium text-gray-900">1/2</span>
-                        <button className="p-1 rounded-full hover:bg-gray-100">
-                          <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
                 </div>
-
-                {/* Right Panel - Sheet List */}
-                <div className="space-y-4">
-                  {/* Sheet 1 */}
-                  <button
-                    onClick={() => setSelectedSheet('sheet1')}
-                    className={`w-full text-left border rounded-lg p-6 transition-colors ${selectedSheet === 'sheet1'
-                      ? 'bg-[#EBF5F8] border-[#EBF5F8] ring-1 ring-blue-200'
-                      : 'bg-white border-gray-200 hover:border-blue-300'
-                      }`}
-                  >
-                    <h4 className="text-sm text-gray-500 mb-2">Sheet 1</h4>
-                    <p className="text-lg font-medium text-gray-900 mb-4">827 X 2140</p>
-                    <div className={`border-t border-dashed pt-4 ${selectedSheet === 'sheet1' ? 'border-blue-200' : 'border-gray-200'}`}>
-                      <p className="text-xs text-gray-500 mb-1">Quantity</p>
-                      <p className="text-base font-medium text-gray-900">4 pcs</p>
-                    </div>
-                  </button>
-
-                  {/* Sheet 2 */}
-                  <button
-                    onClick={() => setSelectedSheet('sheet2')}
-                    className={`w-full text-left border rounded-lg p-6 transition-colors ${selectedSheet === 'sheet2'
-                      ? 'bg-[#EBF5F8] border-[#EBF5F8] ring-1 ring-blue-200'
-                      : 'bg-white border-gray-200 hover:border-blue-300'
-                      }`}
-                  >
-                    <h4 className="text-sm text-gray-500 mb-2">Sheet 2</h4>
-                    <p className="text-lg font-medium text-gray-900 mb-4">827 X 2140</p>
-                    <div className={`border-t border-dashed pt-4 ${selectedSheet === 'sheet2' ? 'border-blue-200' : 'border-gray-200'}`}>
-                      <p className="text-xs text-gray-500 mb-1">Quantity</p>
-                      <p className="text-base font-medium text-gray-900">4 pcs</p>
-                    </div>
-                  </button>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No glass cutting data available</p>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -585,7 +1070,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               <span className="text-2xl font-bold text-gray-900">₦{grandTotal.toLocaleString()}</span>
             </div>
             <button
-              onClick={onGenerate}
+              onClick={() => onGenerate(grandTotal)}
               className="w-full py-4 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
             >
               Generate Now

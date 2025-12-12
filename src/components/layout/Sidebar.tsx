@@ -10,6 +10,9 @@ import {
   SettingsIcon,
   LogoutIcon
 } from '@/assets/icons/IconComponents';
+import { authService } from '@/services/api';
+import { useAuthStore } from '@/stores';
+import { getUserInitials, getDisplayName } from '@/utils/userHelpers';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -45,6 +48,9 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, isActive = false, onClic
 );
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate }) => {
+  const { user, logout: logoutStore } = useAuthStore();
+  const userName = getDisplayName(user?.name, user?.email);
+  const userInitials = getUserInitials(user?.name);
   const [isHovered, setIsHovered] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -79,11 +85,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
     };
   }, []);
 
-  const handleLogout = () => {
-    // In a real app, you would clear tokens, etc.
-    // For this demo, we'll just reload to trigger the auth check.
-    localStorage.removeItem('isAuthenticated');
-    window.location.reload();
+  const handleLogout = async () => {
+    try {
+      // Call logout API to invalidate tokens on server
+      await authService.logout();
+    } catch (error) {
+      // Even if API call fails, clear local storage and logout
+      console.error('Logout API error:', error);
+    } finally {
+      // Update auth store
+      logoutStore();
+      // Navigate to login
+      window.location.href = '/';
+    }
   };
 
   // On mobile: always expanded when open. On desktop: expanded on hover
@@ -226,11 +240,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
               <div className="py-3 bg-gray-50 rounded-lg transition-opacity duration-300">
                 <div className="flex items-center gap-3 px-3">
                   <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-700 font-semibold text-sm">BA</span>
+                    <span className="text-gray-700 font-semibold text-sm">{userInitials}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">Barbara</p>
-                    <p className="text-xs text-gray-500 truncate">Leads Glazing LTD</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                    <p className="text-xs text-gray-500 truncate">{user?.companyName || 'Company'}</p>
                   </div>
                 </div>
               </div>

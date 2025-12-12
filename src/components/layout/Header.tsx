@@ -1,12 +1,16 @@
 
 import React from 'react';
 import { HeaderLogo, HamburgerIcon } from '@/assets/icons/IconComponents';
+import { useAuthStore } from '@/stores';
+import { getUserInitials } from '@/utils/userHelpers';
 
 interface HeaderProps {
   onMenuClick: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+  const { user } = useAuthStore();
+  const userInitials = getUserInitials(user?.name);
   return (
     <header className="bg-white border-b border-gray-200 p-4 lg:p-6 flex justify-between items-center sticky top-0 z-40">
       <div className="flex items-center gap-4 lg:gap-6 flex-1 max-w-7xl lg:mx-auto w-full">
@@ -35,9 +39,9 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         <div className="flex items-center gap-4 ml-auto">
           {/* Desktop User Info */}
           <div className="hidden lg:flex items-center gap-3">
-            <span className="text-sm text-gray-600">adelekejohn@gmail.com</span>
+            <span className="text-sm text-gray-600">{user?.email || 'User'}</span>
             <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-gray-700 font-semibold text-sm">AJ</span>
+              <span className="text-gray-700 font-semibold text-sm">{userInitials}</span>
             </div>
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

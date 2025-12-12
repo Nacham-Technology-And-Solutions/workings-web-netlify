@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { DocumentIcon, CloseIcon, PlusIcon } from '@/assets/icons/IconComponents';
+import { useAuthStore } from '@/stores';
+import { getDisplayName } from '@/utils/userHelpers';
 
 interface HomeScreenProps {
     onNewProject: () => void;
@@ -7,7 +9,8 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
     const [showTemplateCard, setShowTemplateCard] = useState(true);
-    const userName = "Barbara";
+    const { user } = useAuthStore();
+    const userName = getDisplayName(user?.name, user?.email);
 
     return (
         <div className="flex-1 relative bg-white">

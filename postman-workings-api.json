@@ -1,0 +1,1579 @@
+{
+  "info": {
+    "name": "Workings API",
+    "description": "API collection for Workings app - Development",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('accessToken', jsonData.response.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.response.refreshToken);",
+                  "    pm.environment.set('userId', jsonData.response.userProfile.id);",
+                  "    pm.environment.set('userEmail', jsonData.response.userProfile.email);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"companyName\": \"John's Glazing Co\",\n  \"password\": \"MyP@ss123!\",\n  \"confirmPassword\": \"MyP@ss123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('accessToken', jsonData.response.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.response.refreshToken);",
+                  "    pm.environment.set('userId', jsonData.response.userProfile.id);",
+                  "    pm.environment.set('userEmail', jsonData.response.userProfile.email);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"MyP@ss123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/log-in",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "log-in"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.environment.unset('accessToken');",
+                  "    pm.environment.unset('refreshToken');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/log-out",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "log-out"]
+            },
+            "description": "Logs out the user and clears tokens. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "forgot-password"]
+            },
+            "description": "Sends a password reset email. Check server logs for reset token if email is not configured."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"PASTE_RESET_TOKEN_HERE\",\n  \"email\": \"{{userEmail}}\",\n  \"newPassword\": \"NewP@ss123!\",\n  \"confirmPassword\": \"NewP@ss123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "reset-password"]
+            },
+            "description": "Resets password using token from forgot-password email. Token is valid for 15 minutes."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('accessToken', jsonData.response.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.response.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "refresh-token"]
+            },
+            "description": "Refreshes access and refresh tokens. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "{{userId}}"]
+            },
+            "description": "Gets user profile. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\",\n  \"companyName\": \"Updated Company Name\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "{{userId}}"]
+            },
+            "description": "Updates user profile (name, email, companyName). All fields are optional. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"MyP@ss123!\",\n  \"newPassword\": \"NewP@ss123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/{{userId}}/password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "{{userId}}", "password"]
+            },
+            "description": "Changes user password. Requires current password verification. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Bank Details",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountName\": \"John Doe\",\n  \"accountNumber\": \"1234567890\",\n  \"bankName\": \"Access Bank\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/{{userId}}/bank-details",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "{{userId}}", "bank-details"]
+            },
+            "description": "Updates user bank details. All fields are required. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Points History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/{{userId}}/points-history?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "{{userId}}", "points-history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Number of records to return (1-100)"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Number of records to skip"
+                }
+              ]
+            },
+            "description": "Gets user points transaction history with pagination. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Calculations",
+      "item": [
+        {
+          "name": "Calculate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectCart\": [\n    {\n      \"module_id\": \"M1_Casement_DCurve\",\n      \"W\": 1200,\n      \"H\": 1500,\n      \"N\": 2,\n      \"qty\": 1\n    }\n  ],\n  \"settings\": {\n    \"stockLength\": 6,\n    \"bladeKerf\": 5,\n    \"wasteThreshold\": 200\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/calculations/calculate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "calculations", "calculate"]
+            },
+            "description": "Runs calculation engine on Project Cart. Points are deducted after successful calculation. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Calculation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectCart\": [\n    {\n      \"module_id\": \"M1_Casement_DCurve\",\n      \"W\": 1200,\n      \"H\": 1500,\n      \"N\": 2,\n      \"qty\": 1\n    }\n  ],\n  \"settings\": {\n    \"stockLength\": 6,\n    \"bladeKerf\": 5,\n    \"wasteThreshold\": 200\n  },\n  \"frontendResult\": {\n    \"materialList\": [\n      {\n        \"item\": \"D/Curve Profile\",\n        \"units\": 10,\n        \"type\": \"Meter\"\n      }\n    ],\n    \"cuttingList\": [],\n    \"glassList\": {\n      \"sheet_type\": \"3310x2140mm\",\n      \"total_sheets\": 1,\n      \"cuts\": [\n        {\n          \"h\": 1320,\n          \"w\": 560,\n          \"qty\": 2\n        }\n      ]\n    },\n    \"rubberTotals\": [],\n    \"accessoryTotals\": []\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/calculations/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "calculations", "verify"]
+            },
+            "description": "Verifies frontend calculation results against backend calculation. No points deduction. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Sync Offline Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projects\": [\n    {\n      \"projectName\": \"Offline Project\",\n      \"customer\": {\n        \"name\": \"Customer Name\",\n        \"email\": \"customer@example.com\",\n        \"phone\": \"+2348012345678\",\n        \"address\": \"Address\"\n      },\n      \"siteAddress\": \"Site Address\",\n      \"description\": \"Project created offline\",\n      \"glazingDimensions\": [\n        {\n          \"glazingCategory\": \"Window\",\n          \"glazingType\": \"Casement Window (D/Curve)\",\n          \"moduleId\": \"M1_Casement_DCurve\",\n          \"parameters\": {\n            \"W\": 1200,\n            \"H\": 1500,\n            \"N\": 2,\n            \"qty\": 1\n          }\n        }\n      ],\n      \"calculationSettings\": {\n        \"stockLength\": 6,\n        \"bladeKerf\": 5,\n        \"wasteThreshold\": 200\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/calculations/sync",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "calculations", "sync"]
+            },
+            "description": "Syncs offline project data with backend. Backend runs calculations and stores results. Points are deducted for each project synced. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Accessories",
+      "item": [
+        {
+          "name": "List Accessories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accessories?page=1&limit=50&category=hardware&search=bracket",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accessories"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Items per page (default: 50)"
+                },
+                {
+                  "key": "category",
+                  "value": "hardware",
+                  "description": "Filter by category (optional)"
+                },
+                {
+                  "key": "search",
+                  "value": "bracket",
+                  "description": "Search by name (optional)"
+                }
+              ]
+            },
+            "description": "Lists all accessories with optional filtering and pagination. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accessories/categories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accessories", "categories"]
+            },
+            "description": "Gets list of all accessory categories. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Accessory by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('accessoryId', jsonData.response.accessory.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accessories/{{accessoryId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accessories", "{{accessoryId}}"]
+            },
+            "description": "Gets single accessory by ID. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Accessory",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('accessoryId', jsonData.response.accessory.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"40x40 Angle Bracket\",\n  \"category\": \"hardware\",\n  \"unit\": \"pc\",\n  \"defaultUnitPrice\": 150.50,\n  \"priceHistory\": [\n    {\n      \"price\": 150.50,\n      \"date\": \"2024-01-15T00:00:00.000Z\"\n    }\n  ],\n  \"applicableTo\": [\"casement\", \"sliding_2sash\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accessories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accessories"]
+            },
+            "description": "Creates a new accessory in the catalog. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Accessory",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"40x40 Angle Bracket (Updated)\",\n  \"defaultUnitPrice\": 160.00,\n  \"category\": \"hardware\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accessories/{{accessoryId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accessories", "{{accessoryId}}"]
+            },
+            "description": "Updates an accessory. All fields are optional. Price changes are automatically added to price history. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Accessory",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accessories/{{accessoryId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accessories", "{{accessoryId}}"]
+            },
+            "description": "Deletes an accessory from the catalog. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('projectId', jsonData.response.project.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectName\": \"Residential Windows Project\",\n  \"customer\": {\n    \"name\": \"John Doe\"\n  },\n  \"siteAddress\": \"456 Construction Site, Lagos\",\n  \"description\": \"Window installation for residential building\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "projects"]
+            },
+            "description": "Creates a new draft project with minimal information (projectName, customer.name, siteAddress). Description is optional. glazingDimensions is optional - can be added later via update. Points are NOT deducted on creation. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects?page=1&limit=20&status=draft",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "projects"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page (default: 20)"
+                },
+                {
+                  "key": "status",
+                  "value": "draft",
+                  "description": "Filter by status: 'draft', 'calculated', 'archived' (optional)"
+                }
+              ]
+            },
+            "description": "Lists all projects for the authenticated user with pagination and optional filtering. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects/search?q=residential",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "projects", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "residential",
+                  "description": "Search query (searches in project name and customer name)"
+                }
+              ]
+            },
+            "description": "Searches projects by name or customer name. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects/{{projectId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}"]
+            },
+            "description": "Gets a single project by ID. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectName\": \"Updated Project Name\",\n  \"description\": \"Updated description\",\n  \"status\": \"calculated\",\n  \"glazingDimensions\": [\n    {\n      \"glazingCategory\": \"Window\",\n      \"glazingType\": \"Casement Window (D/Curve)\",\n      \"moduleId\": \"M1_Casement_DCurve\",\n      \"parameters\": {\n        \"W\": 1200,\n        \"H\": 1500,\n        \"N\": 2,\n        \"qty\": 5\n      }\n    }\n  ],\n  \"calculationSettings\": {\n    \"stockLength\": 6,\n    \"bladeKerf\": 5,\n    \"wasteThreshold\": 200\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects/{{projectId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}"]
+            },
+            "description": "Updates project details. All fields are optional. Use this to add glazingDimensions to a draft project. You can update projectName, customer, siteAddress, description, glazingDimensions, calculationSettings, or status. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects/{{projectId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}"]
+            },
+            "description": "Deletes a project and all associated material lists, cutting lists, and glass cutting lists. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects/{{projectId}}/calculate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "calculate"]
+            },
+            "description": "Runs calculation on project's glazing dimensions and stores results in MaterialList, CuttingList, and GlassCuttingList. Points are deducted based on modules used. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Material Lists",
+      "item": [
+        {
+          "name": "Get Material List by Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.response && jsonData.response.materialList) {",
+                  "        pm.environment.set('materialListId', jsonData.response.materialList.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/material-lists/project/{{projectId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "material-lists", "project", "{{projectId}}"]
+            },
+            "description": "Gets the latest material list for a project. Returns 404 if project has no calculations yet. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Material List by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/material-lists/{{materialListId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "material-lists", "{{materialListId}}"]
+            },
+            "description": "Gets a single material list by ID. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cutting Lists",
+      "item": [
+        {
+          "name": "Get Cutting List by Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.response && jsonData.response.cuttingList) {",
+                  "        pm.environment.set('cuttingListId', jsonData.response.cuttingList.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cutting-lists/project/{{projectId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cutting-lists", "project", "{{projectId}}"]
+            },
+            "description": "Gets the latest cutting list for a project. Returns 404 if project has no calculations yet. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cutting List by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cutting-lists/{{cuttingListId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cutting-lists", "{{cuttingListId}}"]
+            },
+            "description": "Gets a single cutting list by ID. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Glass Cutting Lists",
+      "item": [
+        {
+          "name": "Get Glass Cutting List by Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.response && jsonData.response.glassCuttingList) {",
+                  "        pm.environment.set('glassCuttingListId', jsonData.response.glassCuttingList.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/glass-cutting-lists/project/{{projectId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "glass-cutting-lists", "project", "{{projectId}}"]
+            },
+            "description": "Gets the latest glass cutting list for a project. Returns 404 if project has no calculations yet. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Glass Cutting List by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/glass-cutting-lists/{{glassCuttingListId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "glass-cutting-lists", "{{glassCuttingListId}}"]
+            },
+            "description": "Gets a single glass cutting list by ID. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Quotes",
+      "item": [
+        {
+          "name": "Create Quote",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('quoteId', jsonData.response.quote.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quoteType\": \"standalone\",\n  \"projectId\": null,\n  \"customerName\": \"Jane Smith\",\n  \"customerAddress\": \"789 Business Street, Lagos\",\n  \"customerEmail\": \"jane@example.com\",\n  \"items\": [\n    {\n      \"description\": \"Casement Window Installation\",\n      \"quantity\": 5,\n      \"unitPrice\": 50000,\n      \"totalPrice\": 250000\n    },\n    {\n      \"description\": \"Labor Cost\",\n      \"quantity\": 1,\n      \"unitPrice\": 100000,\n      \"totalPrice\": 100000\n    }\n  ],\n  \"subtotal\": 350000,\n  \"tax\": 63000,\n  \"total\": 413000,\n  \"status\": \"draft\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quotes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quotes"]
+            },
+            "description": "Creates a new quote (from project OR standalone). Points deduction: 3 points. For 'from_project', include projectId. For 'standalone', set projectId to null. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Quotes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/quotes?page=1&limit=20&status=draft&quoteType=standalone",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quotes"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page (default: 20)"
+                },
+                {
+                  "key": "status",
+                  "value": "draft",
+                  "description": "Filter by status: 'draft', 'sent', 'accepted', 'rejected' (optional)"
+                },
+                {
+                  "key": "quoteType",
+                  "value": "standalone",
+                  "description": "Filter by type: 'from_project', 'standalone' (optional)"
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "description": "Filter by project ID (optional)"
+                }
+              ]
+            },
+            "description": "Lists all quotes for the authenticated user with pagination and optional filtering. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Quote",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quotes", "{{quoteId}}"]
+            },
+            "description": "Gets a single quote by ID. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Quote",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"sent\",\n  \"total\": 450000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quotes", "{{quoteId}}"]
+            },
+            "description": "Updates a quote. All fields are optional. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Quote",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quotes", "{{quoteId}}"]
+            },
+            "description": "Deletes a quote. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Quote PDF",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}/generate-pdf",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quotes", "{{quoteId}}", "generate-pdf"]
+            },
+            "description": "Generates a PDF for the quote and returns the PDF URL. Points deduction: 1 point. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}/send",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quotes", "{{quoteId}}", "send"]
+            },
+            "description": "Sends quote via email to customer. Updates quote status to 'sent'. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Subscriptions",
+      "item": [
+        {
+          "name": "Get Subscription Plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "subscriptions", "plans"]
+            },
+            "description": "Gets all available subscription plans with pricing and features. Public endpoint (no authentication required)."
+          },
+          "response": []
+        },
+        {
+          "name": "Subscribe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('paymentReference', jsonData.response.reference);",
+                  "    pm.environment.set('authorizationUrl', jsonData.response.authorizationUrl);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan\": \"starter\",\n  \"billingCycle\": \"monthly\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/subscribe",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "subscriptions", "subscribe"]
+            },
+            "description": "Initiates Paystack payment for subscription. Returns authorization URL for payment. Plan options: 'free', 'starter', 'pro', 'enterprise'. Billing cycle: 'monthly' or 'yearly'. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current Subscription",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/current",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "subscriptions", "current"]
+            },
+            "description": "Gets user's current subscription details including plan, billing cycle, expiration date, and points balance. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"No longer needed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "subscriptions", "cancel"]
+            },
+            "description": "Cancels user's subscription and moves them to free tier. Reason is optional. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Paystack Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-paystack-signature",
+                "value": "PASTE_WEBHOOK_SIGNATURE_HERE",
+                "type": "text",
+                "description": "HMAC SHA512 signature from Paystack. Required for webhook verification."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"charge.success\",\n  \"data\": {\n    \"reference\": \"sub_123_1234567890_abc123\",\n    \"amount\": 500000,\n    \"metadata\": {\n      \"userId\": 1,\n      \"plan\": \"starter\",\n      \"billingCycle\": \"monthly\"\n    },\n    \"customer\": {\n      \"email\": \"user@example.com\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/webhook/paystack",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "subscriptions", "webhook", "paystack"]
+            },
+            "description": "Paystack webhook endpoint for payment events. This endpoint verifies webhook signature and processes successful payments. Note: In production, Paystack will call this endpoint. For testing, you can simulate webhook calls, but signature verification must match. Events: 'charge.success', 'charge.failed'."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/deactivate-user/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "deactivate-user", "{{userId}}"]
+            },
+            "description": "Deactivates a user account. Requires admin privileges. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ]
+}
