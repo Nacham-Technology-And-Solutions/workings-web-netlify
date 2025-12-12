@@ -42,6 +42,24 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    // Handle CORS errors - provide helpful error message
+    if (!error.response && error.message) {
+      // Network error or CORS error
+      const isCorsError = error.message.includes('CORS') || 
+                         error.message.includes('Access-Control') ||
+                         error.message.includes('Network Error') ||
+                         error.code === 'ERR_NETWORK';
+      
+      if (isCorsError) {
+        const corsError = new Error(
+          'Unable to connect to the server. This may be due to CORS configuration issues. Please contact support if this problem persists.'
+        );
+        (corsError as any).isCorsError = true;
+        (corsError as any).originalError = error;
+        return Promise.reject(corsError);
+      }
+    }
+
     // Handle 401 Unauthorized - Try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;

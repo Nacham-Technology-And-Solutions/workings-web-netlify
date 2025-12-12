@@ -1,0 +1,26 @@
+# Netlify configuration for Workings Web Application
+
+[build]
+  # Build command
+  command = "npm run build"
+  # Directory to publish
+  publish = "dist"
+
+# Environment variables should be set in Netlify dashboard:
+# VITE_API_BASE_URL=https://glaze-workings-og75x.ondigitalocean.app/workings-api2
+
+# Redirect rules for SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers for security and CORS (if needed)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+

@@ -92,6 +92,8 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   'Calculation failed': 'The calculation could not be completed. Please check your inputs and try again.',
   'Network Error': 'Unable to connect to the server. Please check your internet connection.',
   'timeout': 'The request took too long. Please try again.',
+  'CORS': 'Unable to connect to the server. Please check your internet connection.',
+  'Access-Control': 'Unable to connect to the server. Please check your internet connection.',
 };
 
 /**
@@ -103,8 +105,31 @@ export function extractErrorMessage(error: unknown): ErrorMessage {
     const response = error.response;
     const request = error.request;
 
-    // Network error (no response received)
+    // Check for CORS errors (marked by apiClient interceptor)
+    if ((error as any).isCorsError) {
+      return {
+        message: 'Unable to connect to the server. Please check your internet connection.',
+        detailedMessage: 'This may be due to CORS configuration issues. Please contact support if this problem persists.',
+        code: 'CORS_ERROR',
+      };
+    }
+
+    // Network error (no response received) - includes CORS errors
     if (!response && request) {
+      const errorMessage = error.message || '';
+      const isCorsError = errorMessage.includes('CORS') || 
+                         errorMessage.includes('Access-Control') ||
+                         error.code === 'ERR_NETWORK' ||
+                         error.code === 'ERR_FAILED';
+      
+      if (isCorsError) {
+        return {
+          message: 'Unable to connect to the server. Please check your internet connection.',
+          detailedMessage: 'This may be due to CORS configuration issues. Please contact support if this problem persists.',
+          code: 'CORS_ERROR',
+        };
+      }
+      
       return {
         message: ERROR_MESSAGE_MAP['Network Error'] || 'Unable to connect to the server. Please check your internet connection.',
         code: 'NETWORK_ERROR',
