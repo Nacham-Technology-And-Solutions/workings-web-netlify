@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ProjectCard from '@/components/features/projects/ProjectCard';
 import { ChevronLeftIcon, PlusIcon, SearchIcon, CloseIcon } from '@/assets/icons/IconComponents';
 import { projectsService } from '@/services/api';
@@ -77,8 +77,18 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [quickFilter, setQuickFilter] = useState<'all' | 'recent' | 'this-month'>('all');
 
+  // Track if a request is in progress to prevent duplicates (React StrictMode double-rendering)
+  const requestInProgressRef = useRef(false);
+
   // Fetch projects from API
   const fetchProjects = useCallback(async (search?: string) => {
+    // Prevent duplicate concurrent requests (React StrictMode causes double renders in dev)
+    if (requestInProgressRef.current) {
+      console.warn('[ProjectsScreen] Request already in progress, skipping duplicate');
+      return;
+    }
+
+    requestInProgressRef.current = true;
     setIsLoading(true);
     setError(null);
     
@@ -88,6 +98,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       if (!accessToken) {
         // No token - redirect will happen via API interceptor, don't show error
         setIsLoading(false);
+        requestInProgressRef.current = false;
         return;
       }
 
@@ -104,9 +115,9 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
         // Or: { projects: [...], total: ..., page: ..., limit: ... }
         let projectsArray: any[] = [];
         
-        if (responseData && responseData.projects && Array.isArray(responseData.projects)) {
+        if (responseData && (responseData as any).projects && Array.isArray((responseData as any).projects)) {
           // Standard format: { projects: [...], pagination: {...} }
-          projectsArray = responseData.projects;
+          projectsArray = (responseData as any).projects;
         } else if (Array.isArray(responseData)) {
           // Sometimes the response might be the array directly
           projectsArray = responseData;
@@ -140,13 +151,43 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       console.error('Error fetching projects:', err);
     } finally {
       setIsLoading(false);
+      requestInProgressRef.current = false;
     }
   }, []);
 
   // Load projects on mount and when search changes
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    let isMounted = true;
+    let abortController: AbortController | null = null;
+
+    const loadProjects = async () => {
+      // Prevent duplicate requests
+      if (abortController) {
+        abortController.abort();
+      }
+      abortController = new AbortController();
+
+      try {
+        await fetchProjects();
+      } catch (error) {
+        // Ignore abort errors
+        if (error instanceof Error && error.name !== 'AbortError' && isMounted) {
+          console.error('Error loading projects:', error);
+        }
+      }
+    };
+
+    loadProjects();
+
+    return () => {
+      isMounted = false;
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+    // Only run on mount, not when fetchProjects changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load search history from localStorage
   useEffect(() => {

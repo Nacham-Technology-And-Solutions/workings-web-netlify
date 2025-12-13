@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import logger from '@/utils/logger';
 
 interface UserProfile {
   id: number;
@@ -44,7 +45,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       isAuthenticated: false,
       isLoading: true,
@@ -86,6 +87,13 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem('userId', userProfile.id.toString());
         localStorage.setItem('userEmail', userProfile.email);
         localStorage.setItem('isAuthenticated', 'true');
+        
+        // Log successful login
+        logger.logAuthEvent('User logged in successfully', {
+          userId: userProfile.id,
+          email: userProfile.email,
+          subscriptionStatus: userProfile.subscriptionStatus,
+        });
       },
       
       updateUser: (updates) => {
@@ -95,6 +103,9 @@ export const useAuthStore = create<AuthState>()(
       },
       
       logout: () => {
+        const userId = get().user?.id;
+        const userEmail = get().user?.email;
+        
         set({
           isAuthenticated: false,
           user: null,
@@ -108,6 +119,12 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('userId');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('isAuthenticated');
+        
+        // Log logout
+        logger.logAuthEvent('User logged out', {
+          userId,
+          email: userEmail,
+        });
       },
       
       initializeAuth: () => {

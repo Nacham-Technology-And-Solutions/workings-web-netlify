@@ -34,6 +34,7 @@ import MaterialListDetailScreen from '../components/features/material-lists/Mate
 import CreateMaterialListScreen from '../components/features/material-lists/CreateMaterialListScreen';
 import MaterialListPreviewScreen from '../components/features/material-lists/MaterialListPreviewScreen';
 import EditMaterialListScreen from '../components/features/material-lists/EditMaterialListScreen';
+import LogViewer from '../components/common/LogViewer';
 
 // Import stores
 import {
@@ -121,12 +122,26 @@ const App: React.FC = () => {
   const [estimates, setEstimates] = useState<EstimateCategory[]>(initialEstimates);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [refreshProjects, setRefreshProjects] = useState(0);
+  const [showLogViewer, setShowLogViewer] = useState(false);
 
   // Initialize stores on mount
   useEffect(() => {
     initializeAuth();
     initializeOnlineStatus();
   }, [initializeAuth, initializeOnlineStatus]);
+
+  // Keyboard shortcut to open log viewer (Ctrl+Shift+L or Cmd+Shift+L)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'L') {
+        e.preventDefault();
+        setShowLogViewer(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Splash screen, onboarding, and auth flow
   const handleSplashComplete = () => {
@@ -762,23 +777,30 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-white">
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        currentView={currentView}
-        onNavigate={handleNavigate}
-      />
+    <>
+      <div className="flex h-screen bg-white">
+        {/* Sidebar */}
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
 
-      {/* Main Content Area - Gap between sidebar and header */}
-      <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-20">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex-1 overflow-y-auto">
-          {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} />}
+        {/* Main Content Area - Gap between sidebar and header */}
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-20">
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+          <div className="flex-1 overflow-y-auto">
+            {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} />}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Log Viewer - Accessible via Ctrl+Shift+L / Cmd+Shift+L */}
+      {import.meta.env.DEV && (
+        <LogViewer isOpen={showLogViewer} onClose={() => setShowLogViewer(false)} />
+      )}
+    </>
   );
 };
 
