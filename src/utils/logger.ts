@@ -34,9 +34,26 @@ class Logger {
   private isEnabled: boolean = true;
 
   constructor() {
+    // Load any saved enabled state from localStorage (if previously set)
+    try {
+      const savedEnabled = localStorage.getItem('logger_enabled');
+      if (savedEnabled !== null) {
+        this.isEnabled = savedEnabled === 'true';
+      }
+    } catch (error) {
+      // localStorage might not be available, use default
+      console.warn('Could not load logger enabled state:', error);
+    }
+
     this.loadLogs();
     // Clear old logs on initialization if needed
     this.rotateLogs();
+
+    // Log initialization (this will always log to console, even if saving is disabled)
+    console.log('[LOGGER] Logger initialized', {
+      enabled: this.isEnabled,
+      logCount: this.logs.length,
+    });
   }
 
   /**
@@ -143,10 +160,7 @@ class Logger {
    * Add a log entry
    */
   private log(level: LogLevel, category: string, message: string, data?: any): void {
-    const entry = this.createLogEntry(level, category, message, data);
-    this.logs.push(entry);
-    
-    // Also log to console for immediate visibility
+    // Always log to console for immediate visibility (even if saving is disabled)
     const consoleMethod = level === LogLevel.ERROR ? 'error' :
                          level === LogLevel.WARN ? 'warn' :
                          level === LogLevel.DEBUG ? 'debug' : 'log';
@@ -158,8 +172,13 @@ class Logger {
       console[consoleMethod](logPrefix, message);
     }
 
-    this.rotateLogs();
-    this.saveLogs();
+    // Only save to localStorage if enabled
+    if (this.isEnabled) {
+      const entry = this.createLogEntry(level, category, message, data);
+      this.logs.push(entry);
+      this.rotateLogs();
+      this.saveLogs();
+    }
   }
 
   /**
@@ -380,6 +399,13 @@ class Logger {
    */
   setEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
+    // Persist enabled state to localStorage
+    try {
+      localStorage.setItem('logger_enabled', enabled.toString());
+      console.log(`[LOGGER] Logging ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.warn('Could not save logger enabled state:', error);
+    }
   }
 
   /**

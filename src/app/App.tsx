@@ -128,6 +128,16 @@ const App: React.FC = () => {
   useEffect(() => {
     initializeAuth();
     initializeOnlineStatus();
+    
+    // Ensure logger is enabled and log app initialization
+    import('@/utils/logger').then(({ default: logger }) => {
+      if (!logger.isLoggingEnabled()) {
+        logger.setEnabled(true);
+      }
+      logger.info('APP', 'Application initialized', {
+        timestamp: new Date().toISOString(),
+      });
+    });
   }, [initializeAuth, initializeOnlineStatus]);
 
   // Keyboard shortcut to open log viewer (Ctrl+Shift+L or Cmd+Shift+L)
