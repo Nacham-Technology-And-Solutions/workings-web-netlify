@@ -329,8 +329,8 @@ const App: React.FC = () => {
   };
 
   const handleProjectSolutionGenerate = (materialCost: number) => {
-    // Create quote from project solution with material cost
-    handleCreateQuoteFromSolution(materialCost);
+    // Navigate to create new quote page
+    navigate('newProject');
   };
 
   const handleCreateQuoteFromSolution = (materialCost?: number) => {
@@ -483,7 +483,20 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'newProject') {
-    return <NewProjectScreen onBack={goBack} onGenerateQuote={handleGenerateQuote} />;
+    return (
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-20">
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+          <NewProjectScreen onBack={goBack} onGenerateQuote={handleGenerateQuote} />
+        </div>
+      </div>
+    );
   }
 
   if (currentView === 'quotes') {
@@ -752,7 +765,7 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'selectProject') {
-    return <SelectProjectScreen onBack={() => navigate('projectDescription')} onNext={handleSelectProjectNext} previousData={projectDescriptionData} />;
+    return <SelectProjectScreen onBack={() => navigate('projects')} onNext={handleSelectProjectNext} previousData={projectDescriptionData} />;
   }
 
   if (currentView === 'projectMeasurement') {

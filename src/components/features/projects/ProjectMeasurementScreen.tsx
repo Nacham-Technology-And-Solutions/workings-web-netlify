@@ -17,6 +17,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   const [quantity, setQuantity] = useState<string>('');
   const [panel, setPanel] = useState<string>('');
   const [dimensions, setDimensions] = useState<DimensionItem[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const glazingTypes = [
     'Casement (D/curve)',
@@ -31,17 +32,38 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
 
   const isFormValid = type !== '' && width !== '' && height !== '' && quantity !== '' && panel !== '';
 
+  const handleEditDimension = (dimension: DimensionItem) => {
+    setType(dimension.type);
+    setWidth(dimension.width);
+    setHeight(dimension.height);
+    setQuantity(dimension.quantity);
+    setPanel(dimension.panel);
+    setEditingId(dimension.id);
+  };
+
   const handleAddDimension = () => {
     if (isFormValid) {
-      const newDimension: DimensionItem = {
-        id: `dim-${Date.now()}`,
-        type,
-        width,
-        height,
-        quantity,
-        panel
-      };
-      setDimensions([...dimensions, newDimension]);
+      if (editingId) {
+        // Update existing dimension
+        const updatedDimensions = dimensions.map(dim =>
+          dim.id === editingId
+            ? { id: editingId, type, width, height, quantity, panel }
+            : dim
+        );
+        setDimensions(updatedDimensions);
+        setEditingId(null);
+      } else {
+        // Add new dimension
+        const newDimension: DimensionItem = {
+          id: `dim-${Date.now()}`,
+          type,
+          width,
+          height,
+          quantity,
+          panel
+        };
+        setDimensions([...dimensions, newDimension]);
+      }
       // Clear form
       setType('');
       setWidth('');
@@ -49,6 +71,15 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       setQuantity('');
       setPanel('');
     }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setType('');
+    setWidth('');
+    setHeight('');
+    setQuantity('');
+    setPanel('');
   };
 
   const handleCalculateNow = () => {
@@ -134,11 +165,79 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                   const hasPanel = panel !== '' && !isNaN(Number(panel)) && Number(panel) > 0;
                   const panelCount = hasPanel ? parseInt(panel) : 1;
 
+                  // Calculate canvas dimensions proportionally
+                  const maxCanvasSize = 400; // Maximum canvas size
+                  const minCanvasSize = 200; // Minimum canvas size
+                  let canvasWidth = 280; // Default width
+                  let canvasHeight = 280; // Default height
+
+                  if (hasWidth && hasHeight) {
+                    const widthValue = Number(width);
+                    const heightValue = Number(height);
+                    const aspectRatio = widthValue / heightValue;
+                    
+                    // Calculate dimensions maintaining aspect ratio
+                    if (aspectRatio >= 1) {
+                      // Width is larger or equal
+                      canvasWidth = Math.min(maxCanvasSize, Math.max(minCanvasSize, maxCanvasSize));
+                      canvasHeight = canvasWidth / aspectRatio;
+                      if (canvasHeight < minCanvasSize) {
+                        canvasHeight = minCanvasSize;
+                        canvasWidth = canvasHeight * aspectRatio;
+                      }
+                    } else {
+                      // Height is larger
+                      canvasHeight = Math.min(maxCanvasSize, Math.max(minCanvasSize, maxCanvasSize));
+                      canvasWidth = canvasHeight * aspectRatio;
+                      if (canvasWidth < minCanvasSize) {
+                        canvasWidth = minCanvasSize;
+                        canvasHeight = canvasWidth / aspectRatio;
+                      }
+                    }
+                  } else if (hasWidth) {
+                    canvasWidth = Math.min(maxCanvasSize, Math.max(minCanvasSize, 280));
+                    canvasHeight = canvasWidth;
+                  } else if (hasHeight) {
+                    canvasHeight = Math.min(maxCanvasSize, Math.max(minCanvasSize, 280));
+                    canvasWidth = canvasHeight;
+                  }
+
                   if (hasType && (hasWidth || hasHeight || hasPanel)) {
+                    // Frame dimensions - scale to fit but maintain proportions
+                    const maxFrameSize = 350;
+                    let frameWidth = Math.min(canvasWidth, maxFrameSize);
+                    let frameHeight = Math.min(canvasHeight, maxFrameSize);
+                    
+                    // Maintain aspect ratio if both dimensions provided
+                    if (hasWidth && hasHeight) {
+                      const aspectRatio = Number(width) / Number(height);
+                      if (frameWidth / frameHeight > aspectRatio) {
+                        frameWidth = frameHeight * aspectRatio;
+                      } else {
+                        frameHeight = frameWidth / aspectRatio;
+                      }
+                    }
+                    
+                    // Space for labels outside frame
+                    const labelPadding = 70;
+                    const totalWidth = frameWidth + labelPadding;
+                    const totalHeight = frameHeight + labelPadding * 2;
+                    
                     return (
-                      <div className="absolute inset-0 flex items-center justify-center p-12">
-                        <div className="relative">
-                          <div className="relative" style={{ width: '280px', height: '280px' }}>
+                      <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
+                        <div className="relative" style={{ 
+                          width: `${totalWidth}px`, 
+                          height: `${totalHeight}px`,
+                          maxWidth: 'calc(100% - 96px)', 
+                          maxHeight: 'calc(100% - 96px)' 
+                        }}>
+                          {/* Frame container - positioned with space for labels */}
+                          <div className="absolute" style={{ 
+                            top: `${labelPadding}px`, 
+                            left: '0px',
+                            width: `${frameWidth}px`, 
+                            height: `${frameHeight}px` 
+                          }}>
                             {/* Outer Frame (Dark Gray) */}
                             <div className="absolute inset-0 bg-gray-700 rounded-sm shadow-xl">
                               {/* Inner Frame (Medium Gray) */}
@@ -169,50 +268,75 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                                 </div>
                               </div>
                             </div>
+                          </div>
 
-                            {/* Width dimension line */}
-                            {hasWidth && (
-                              <div className="absolute -top-16 left-0 right-0 flex flex-col items-center">
-                                <div className="flex items-center w-full relative">
-                                  <div className="flex-1 border-t-2 border-gray-800"></div>
-                                  <div className="absolute left-0 top-0 w-0.5 h-5 bg-gray-800"></div>
-                                  <div className="absolute right-0 top-0 w-0.5 h-5 bg-gray-800"></div>
+                          {/* Width dimension line - positioned above frame, aligned with frame edges */}
+                          {hasWidth && (
+                            <div className="absolute" style={{ 
+                              top: `${labelPadding - 45}px`, 
+                              left: '0px',
+                              width: `${frameWidth}px`
+                            }}>
+                              <div className="flex flex-col items-center w-full">
+                                {/* Horizontal dimension line with vertical end markers */}
+                                <div className="relative w-full flex items-center justify-center" style={{ height: '16px' }}>
+                                  {/* Left vertical marker */}
+                                  <div className="absolute left-0 w-0.5 h-4 bg-gray-900"></div>
+                                  {/* Horizontal line spanning full width */}
+                                  <div className="absolute left-0 right-0 h-0.5 bg-gray-900"></div>
+                                  {/* Right vertical marker */}
+                                  <div className="absolute right-0 w-0.5 h-4 bg-gray-900"></div>
                                 </div>
-                                <div className="text-lg font-bold text-gray-900 mt-2">
-                                  {width}
-                                </div>
-                                <div className="text-xs text-gray-600">{unit}</div>
-                              </div>
-                            )}
-
-                            {/* Height dimension line */}
-                            {hasHeight && (
-                              <div className="absolute -right-24 top-0 bottom-0 flex items-center">
-                                <div className="flex flex-col items-center h-full relative">
-                                  <div className="flex-1 border-l-2 border-gray-800"></div>
-                                  <div className="absolute top-0 left-0 h-0.5 w-5 bg-gray-800"></div>
-                                  <div className="absolute bottom-0 left-0 h-0.5 w-5 bg-gray-800"></div>
-                                </div>
-                                <div className="ml-4 flex flex-col items-center">
-                                  <div className="text-lg font-bold text-gray-900 transform -rotate-90 whitespace-nowrap">
-                                    {height}
-                                  </div>
-                                  <div className="text-xs text-gray-600 transform -rotate-90 whitespace-nowrap mt-6">
-                                    {unit}
-                                  </div>
+                                {/* Dimension text centered above line */}
+                                <div className="text-base font-bold text-gray-900 mt-1.5 text-center">
+                                  {width} {unit}
                                 </div>
                               </div>
-                            )}
+                            </div>
+                          )}
 
-                            {/* Panel count label */}
-                            {hasPanel && (
-                              <div className="absolute -bottom-14 left-0 right-0 text-center">
+                          {/* Height dimension line - positioned to the right of frame, aligned with frame edges */}
+                          {hasHeight && (
+                            <div className="absolute" style={{ 
+                              top: `${labelPadding}px`, 
+                              bottom: `${labelPadding}px`,
+                              left: `${frameWidth + 8}px`,
+                              width: `${labelPadding - 8}px`
+                            }}>
+                              <div className="flex items-center h-full">
+                                {/* Vertical dimension line with horizontal end markers */}
+                                <div className="relative h-full flex items-center justify-center" style={{ width: '16px' }}>
+                                  {/* Top horizontal marker */}
+                                  <div className="absolute top-0 w-4 h-0.5 bg-gray-900"></div>
+                                  {/* Vertical line spanning full height */}
+                                  <div className="absolute top-0 bottom-0 w-0.5 bg-gray-900"></div>
+                                  {/* Bottom horizontal marker */}
+                                  <div className="absolute bottom-0 w-4 h-0.5 bg-gray-900"></div>
+                                </div>
+                                {/* Dimension text - rotated 90 degrees clockwise, centered to the right */}
+                                <div className="ml-3 flex flex-col items-center">
+                                  <div className="text-base font-bold text-gray-900 transform -rotate-90 whitespace-nowrap">
+                                    {height} {unit}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Panel count label - positioned directly below frame, centered */}
+                          {hasPanel && (
+                            <div className="absolute" style={{ 
+                              top: `${labelPadding + frameHeight + 15}px`, 
+                              left: '0px',
+                              width: `${frameWidth}px`
+                            }}>
+                              <div className="text-center w-full">
                                 <div className="text-base font-semibold text-gray-900">
                                   {panelCount} Panel{panelCount > 1 ? 's' : ''}
                                 </div>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -354,20 +478,30 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                   </div>
                 </div>
 
-                {/* Add Dimension Button */}
-                <button
-                  onClick={handleAddDimension}
-                  disabled={!isFormValid}
-                  className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${isFormValid
-                    ? 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-transparent'
-                    }`}
-                >
-                  <span>Add a dimension</span>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
+                {/* Add/Update Dimension Button */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddDimension}
+                    disabled={!isFormValid}
+                    className={`flex-1 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${isFormValid
+                      ? 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-transparent'
+                      }`}
+                  >
+                    <span>{editingId ? 'Update dimension' : 'Add a dimension'}</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={editingId ? "M5 13l4 4L19 7" : "M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"} />
+                    </svg>
+                  </button>
+                  {editingId && (
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-4 py-3 rounded-lg font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Preview Table */}
@@ -382,6 +516,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                           <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Dimension</th>
                           <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Panel</th>
                           <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Qty</th>
+                          <th className="py-2 px-3 text-center font-medium text-gray-700 text-xs">Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -394,6 +529,17 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                             </td>
                             <td className="py-3 px-3 text-gray-900 text-xs">{dim.panel}</td>
                             <td className="py-3 px-3 text-gray-900 text-xs">{dim.quantity}</td>
+                            <td className="py-3 px-3 text-center">
+                              <button
+                                onClick={() => handleEditDimension(dim)}
+                                className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                aria-label="Edit dimension"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -507,11 +507,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                             <input
                               type="number"
                               value={itemQuantities[item.id] ?? item.quantity}
-                              onChange={(e) => {
-                                const newQty = parseFloat(e.target.value) || 0;
-                                setItemQuantities(prev => ({ ...prev, [item.id]: newQty }));
-                              }}
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                              readOnly
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 bg-gray-50 cursor-not-allowed"
                             />
                           </div>
 
@@ -605,11 +602,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                             <input
                               type="number"
                               value={itemQuantities[item.id] ?? item.quantity}
-                              onChange={(e) => {
-                                const newQty = parseFloat(e.target.value) || 0;
-                                setItemQuantities(prev => ({ ...prev, [item.id]: newQty }));
-                              }}
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                              readOnly
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 bg-gray-50 cursor-not-allowed"
                             />
                           </div>
 

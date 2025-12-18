@@ -70,6 +70,10 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
           error = 'Password is required.';
         } else if (value.length < 8) {
           error = 'Password must be at least 8 characters.';
+        } else if (!/[A-Z]/.test(value)) {
+          error = 'Password must contain at least one uppercase letter.';
+        } else if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
+          error = 'Password must contain at least one special character.';
         }
         break;
       case 'confirmPassword':
@@ -92,10 +96,14 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   };
 
   const isFormValid = useMemo(() => {
+    const hasUppercase = /[A-Z]/.test(formData.newPassword);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.newPassword);
     return (
       formData.token.trim() !== '' &&
       /\S+@\S+\.\S+/.test(formData.email) &&
       formData.newPassword.length >= 8 &&
+      hasUppercase &&
+      hasSpecialChar &&
       formData.newPassword === formData.confirmPassword
     );
   }, [formData]);
