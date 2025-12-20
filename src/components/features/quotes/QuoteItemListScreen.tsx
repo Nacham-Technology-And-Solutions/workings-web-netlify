@@ -5,15 +5,45 @@ interface QuoteItemListScreenProps {
     onBack: () => void;
     onNext: (data: QuoteItemListData) => void;
     previousData?: any;
+    quoteType?: 'standalone' | 'from_project';
+    materialCost?: number;
 }
 
-const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData }) => {
-    const [listType, setListType] = useState<'dimension' | 'material'>('dimension');
-    const [items, setItems] = useState<QuoteItemRow[]>([
-        { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
-        { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
-    ]);
-    const [showWarning, setShowWarning] = useState(true);
+const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData, quoteType = 'standalone', materialCost }) => {
+    // Initialize items: use previous data if available, otherwise use defaults or material cost for project quotes
+    const getInitialItems = (): QuoteItemRow[] => {
+        if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
+            return previousData.itemList.items;
+        }
+        
+        // For project quotes, initialize with material cost as a single item
+        if (quoteType === 'from_project' && materialCost !== undefined && materialCost > 0) {
+            return [
+                {
+                    id: '1',
+                    description: 'Material Cost',
+                    quantity: 1,
+                    unitPrice: materialCost,
+                    total: materialCost
+                }
+            ];
+        }
+        
+        // Default items for standalone quotes
+        return [
+            { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
+            { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
+        ];
+    };
+
+    const initialItems = getInitialItems();
+    const [listType, setListType] = useState<'dimension' | 'material'>(
+        previousData?.itemList?.listType || 'dimension'
+    );
+    const [items, setItems] = useState<QuoteItemRow[]>(initialItems);
+    const [showWarning, setShowWarning] = useState(!initialItems || initialItems.length === 0);
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState<QuoteItemRow | null>(null);
 
     const calculateSubtotal = () => {
         return items.reduce((sum, item) => sum + item.total, 0);
@@ -28,10 +58,53 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
             total: 0
         };
         setItems([...items, newItem]);
+        setEditingItemId(newItem.id);
+        setEditFormData({ ...newItem });
     };
 
     const handleDeleteItem = (id: string) => {
         setItems(items.filter(item => item.id !== id));
+        if (editingItemId === id) {
+            setEditingItemId(null);
+            setEditFormData(null);
+        }
+    };
+
+    const handleEditItem = (item: QuoteItemRow) => {
+        setEditingItemId(item.id);
+        setEditFormData({ ...item });
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingItemId || !editFormData) return;
+        
+        const updatedItems = items.map(item => {
+            if (item.id === editingItemId) {
+                const updated = {
+                    ...editFormData,
+                    total: editFormData.quantity * editFormData.unitPrice
+                };
+                return updated;
+            }
+            return item;
+        });
+        
+        setItems(updatedItems);
+        setEditingItemId(null);
+        setEditFormData(null);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingItemId(null);
+        setEditFormData(null);
+    };
+
+    const handleEditFormChange = (field: keyof QuoteItemRow, value: string | number) => {
+        if (!editFormData) return;
+        setEditFormData({
+            ...editFormData,
+            [field]: value
+        });
     };
 
     const handleNext = () => {
@@ -130,34 +203,36 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                         </div>
                     </div>
 
-                    {/* List Type Selection */}
-                    <div className="mb-6">
-                        <p className="text-sm text-gray-700 mb-3">Select a list to pull items into your quote:</p>
-                        <div className="flex items-center gap-6">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="listType"
-                                    value="dimension"
-                                    checked={listType === 'dimension'}
-                                    onChange={() => setListType('dimension')}
-                                    className="w-4 h-4 text-gray-900 focus:ring-gray-900"
-                                />
-                                <span className="text-sm text-gray-900">Dimension List</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="listType"
-                                    value="material"
-                                    checked={listType === 'material'}
-                                    onChange={() => setListType('material')}
-                                    className="w-4 h-4 text-gray-900 focus:ring-gray-900"
-                                />
-                                <span className="text-sm text-gray-900">Material List</span>
-                            </label>
+                    {/* List Type Selection - Only show for from_project quotes */}
+                    {quoteType === 'from_project' && (
+                        <div className="mb-6">
+                            <p className="text-sm text-gray-700 mb-3">Select a list to pull items into your quote:</p>
+                            <div className="flex items-center gap-6">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="listType"
+                                        value="dimension"
+                                        checked={listType === 'dimension'}
+                                        onChange={() => setListType('dimension')}
+                                        className="w-4 h-4 text-gray-900 focus:ring-gray-900"
+                                    />
+                                    <span className="text-sm text-gray-900">Dimension List</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="listType"
+                                        value="material"
+                                        checked={listType === 'material'}
+                                        onChange={() => setListType('material')}
+                                        className="w-4 h-4 text-gray-900 focus:ring-gray-900"
+                                    />
+                                    <span className="text-sm text-gray-900">Material List</span>
+                                </label>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Items Table */}
                     <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
@@ -173,29 +248,103 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {items.map((item, index) => (
-                                    <tr key={item.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-4 text-sm text-gray-900">#{item.id}</td>
-                                        <td className="px-4 py-4 text-sm text-gray-900">{item.description}</td>
-                                        <td className="px-4 py-4 text-sm text-gray-900">{item.quantity}</td>
-                                        <td className="px-4 py-4 text-sm text-gray-900">{item.unitPrice.toLocaleString()}</td>
-                                        <td className="px-4 py-4 text-sm font-medium text-gray-900">₦ {item.total.toLocaleString()}</td>
-                                        <td className="px-4 py-4 text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <button className="text-gray-600 hover:text-blue-600">
-                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                    </svg>
-                                                </button>
-                                                <button onClick={() => handleDeleteItem(item.id)} className="text-gray-600 hover:text-red-600">
-                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {items.map((item, index) => {
+                                    const isEditing = editingItemId === item.id;
+                                    return (
+                                        <tr key={item.id} className="hover:bg-gray-50">
+                                            <td className="px-4 py-4 text-sm text-gray-900">#{item.id}</td>
+                                            <td className="px-4 py-4 text-sm">
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editFormData.description}
+                                                        onChange={(e) => handleEditFormChange('description', e.target.value)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900">{item.description}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm">
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="number"
+                                                        value={editFormData.quantity}
+                                                        onChange={(e) => handleEditFormChange('quantity', parseInt(e.target.value) || 0)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900">{item.quantity}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm">
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="number"
+                                                        value={editFormData.unitPrice}
+                                                        onChange={(e) => handleEditFormChange('unitPrice', parseFloat(e.target.value) || 0)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900">{item.unitPrice.toLocaleString()}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                                                ₦ {isEditing && editFormData 
+                                                    ? (editFormData.quantity * editFormData.unitPrice).toLocaleString()
+                                                    : item.total.toLocaleString()}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button
+                                                                onClick={handleSaveEdit}
+                                                                className="text-green-600 hover:text-green-800"
+                                                                title="Save"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCancelEdit}
+                                                                className="text-gray-600 hover:text-gray-800"
+                                                                title="Cancel"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleEditItem(item)}
+                                                                className="text-gray-600 hover:text-blue-600"
+                                                                title="Edit"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteItem(item.id)}
+                                                                className="text-gray-600 hover:text-red-600"
+                                                                title="Delete"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

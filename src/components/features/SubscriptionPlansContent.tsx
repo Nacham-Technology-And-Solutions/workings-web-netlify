@@ -50,10 +50,10 @@ const plans = [
     yearlyPrice: 306000,
     subtitle: 'Everything in Free, plus',
     features: [
-      'Unlimited Projects',
-      'Advanced Multi-SI Optimization',
-      'Branded PDFs (customs terms)',
-      'Cost Library (unlimited history)',
+      'Unlimited Projects, Quotes & Lists',
+      'Advanced Multi-Sheet Cutting Optimization',
+      'Branded PDFs (custom header/footer & terms)',
+      'Cost Library (unlimited rates + price history)',
       'Unlimited Templates',
       'Early Access to New Features',
     ],
@@ -118,7 +118,7 @@ const PlanCard: React.FC<{ plan: Plan; billingCycle: 'monthly' | 'yearly' }> = (
 };
 
 const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onBack }) => {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   return (
     <div className="w-full font-sans">

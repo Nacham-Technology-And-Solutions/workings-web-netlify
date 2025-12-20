@@ -23,9 +23,7 @@ body {
 }
 
 /* Utility classes */
-.hidden {
-  display: none !important;
-}
+/* Note: .hidden is provided by Tailwind CSS, so we don't define it here */
 
 .sr-only {
   position: absolute;

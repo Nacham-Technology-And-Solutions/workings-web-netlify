@@ -653,7 +653,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     );
 
     return (
-        <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+        <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
             <header className="p-4 flex items-center gap-4 sticky top-0 z-40 bg-white border-b border-gray-200">
                 <button onClick={onBack} className="text-gray-600 hover:text-gray-900" aria-label="Go back">
                     <ChevronLeftIcon />

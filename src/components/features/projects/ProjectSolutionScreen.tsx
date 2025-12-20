@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData, DimensionItem } from '@/types';
@@ -24,6 +24,9 @@ interface ProjectSolutionScreenProps {
     projectMeasurement?: ProjectMeasurementData;
   };
   initialTab?: 'material' | 'cutting' | 'glass';
+  draftProjectId?: number | null;
+  onCreateQuote?: (materialCost?: number) => void;
+  onProjectSaved?: () => void;
 }
 
 interface MaterialItem {
@@ -33,7 +36,7 @@ interface MaterialItem {
   unit: string;
 }
 
-const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, previousData, initialTab = 'material' }) => {
+const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, previousData, initialTab = 'material', draftProjectId, onCreateQuote, onProjectSaved }) => {
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass'>(initialTab);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
@@ -43,6 +46,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [projectSaved, setProjectSaved] = useState(false);
+  
+  // Refs to prevent duplicate calculations and saves (especially with React StrictMode)
+  const calculationInProgressRef = useRef(false);
+  const saveInProgressRef = useRef(false);
+  const hasCalculatedRef = useRef(false);
+  const hasSavedRef = useRef(false);
   
   // State for prices and quantities (itemId -> value)
   const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
@@ -71,6 +80,11 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
   // Load calculation on mount if we have previous data
   useEffect(() => {
+    // Prevent duplicate calculations (React StrictMode runs effects twice in dev)
+    if (hasCalculatedRef.current || calculationInProgressRef.current) {
+      return;
+    }
+    
     if (previousData?.projectDescription && previousData?.selectProject && previousData?.projectMeasurement) {
       handleCalculate();
     }
@@ -78,11 +92,18 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   }, []); // Only run on mount
 
   const handleCalculate = async () => {
+    // Prevent duplicate calculations
+    if (calculationInProgressRef.current || hasCalculatedRef.current) {
+      console.log('[ProjectSolutionScreen] Calculation already in progress or completed, skipping');
+      return;
+    }
+
     if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
       setError('Missing project data');
       return;
     }
 
+    calculationInProgressRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -160,8 +181,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         console.log('Profile items count:', validatedData.materialList.filter(item => item.type === 'Profile').length);
         console.log('Accessory items count:', validatedData.accessoryTotals.length);
         setCalculationResult(validatedData);
+        hasCalculatedRef.current = true;
         
-        // Auto-save project after successful calculation
+        // Auto-save project after successful calculation (only once)
         await handleSaveProject();
       } else {
         setError(getApiResponseMessage(response) || 'Calculation failed');
@@ -172,14 +194,22 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       console.error('Calculation error:', err);
     } finally {
       setIsLoading(false);
+      calculationInProgressRef.current = false;
     }
   };
 
   const handleSaveProject = async () => {
+    // Prevent duplicate saves (React StrictMode or multiple calls)
+    if (saveInProgressRef.current || hasSavedRef.current || projectSaved) {
+      console.log('[ProjectSolutionScreen] Project already saved or save in progress, skipping');
+      return;
+    }
+
     if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
       return;
     }
 
+    saveInProgressRef.current = true;
     setIsSaving(true);
     setSaveError(null);
 
@@ -191,21 +221,43 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         previousData.projectMeasurement
       );
 
-      // Save project to API
-      const response = await projectsService.create({
-        projectName: projectData.projectName,
-        customer: projectData.customer,
-        siteAddress: projectData.siteAddress,
-        description: projectData.description,
-        glazingDimensions: projectData.glazingDimensions,
-        calculationSettings: projectData.calculationSettings,
-      });
+      let response;
+      
+      // If we have a draft project ID, update it instead of creating a new one
+      if (draftProjectId) {
+        console.log('[ProjectSolutionScreen] Updating existing draft project:', draftProjectId);
+        // Update the existing draft project with full data
+        response = await projectsService.update(draftProjectId, {
+          glazingDimensions: projectData.glazingDimensions,
+          calculationSettings: projectData.calculationSettings,
+          status: 'calculated', // Update status from draft to calculated
+        });
+      } else {
+        console.log('[ProjectSolutionScreen] Creating new project (no draft ID)');
+        // Create new project (fallback if draft wasn't created)
+        response = await projectsService.create({
+          projectName: projectData.projectName,
+          customer: projectData.customer,
+          siteAddress: projectData.siteAddress,
+          description: projectData.description,
+          glazingDimensions: projectData.glazingDimensions,
+          calculationSettings: projectData.calculationSettings,
+        });
+      }
 
       // Normalize and check response using API response helpers
       const normalizedResponse = normalizeApiResponse(response);
       
       if (normalizedResponse.success) {
         setProjectSaved(true);
+        hasSavedRef.current = true;
+        console.log('[ProjectSolutionScreen] Project saved successfully', draftProjectId ? '(updated)' : '(created)');
+        
+        // Notify parent that project was saved (so it can clear draftProjectId)
+        if (onProjectSaved) {
+          onProjectSaved();
+        }
+        
         // Trigger refresh in parent component if callback exists
         // This will be handled by the parent component's refresh mechanism
       } else {
@@ -213,10 +265,49 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       }
     } catch (err: any) {
       const errorMessage = extractErrorMessage(err);
+      
+      // If update failed and we have a draft ID, try creating a new project as fallback
+      if (draftProjectId && err?.response?.status !== 404) {
+        console.warn('[ProjectSolutionScreen] Update failed, attempting to create new project as fallback');
+        try {
+          const projectData = createProjectData(
+            previousData.projectDescription,
+            previousData.selectProject,
+            previousData.projectMeasurement
+          );
+          
+          const fallbackResponse = await projectsService.create({
+            projectName: projectData.projectName,
+            customer: projectData.customer,
+            siteAddress: projectData.siteAddress,
+            description: projectData.description,
+            glazingDimensions: projectData.glazingDimensions,
+            calculationSettings: projectData.calculationSettings,
+          });
+          
+          const normalizedFallback = normalizeApiResponse(fallbackResponse);
+          if (normalizedFallback.success) {
+            setProjectSaved(true);
+            hasSavedRef.current = true;
+            console.log('[ProjectSolutionScreen] Project created successfully (fallback after update failed)');
+            
+            // Notify parent that project was saved
+            if (onProjectSaved) {
+              onProjectSaved();
+            }
+            
+            return; // Success, exit early
+          }
+        } catch (fallbackErr: any) {
+          console.error('[ProjectSolutionScreen] Fallback create also failed:', fallbackErr);
+        }
+      }
+      
       setSaveError(errorMessage.message);
       console.error('Save project error:', err);
     } finally {
       setIsSaving(false);
+      saveInProgressRef.current = false;
     }
   };
 
@@ -287,7 +378,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   }, [calculationResult]);
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
       {/* Header / Breadcrumbs */}
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">

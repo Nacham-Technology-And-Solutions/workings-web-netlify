@@ -1,20 +1,55 @@
 import React, { useState } from 'react';
 import type { QuoteOverviewData } from '@/types';
+import CalendarModal from '@/components/common/CalendarModal';
 
 interface QuoteOverviewScreenProps {
     onBack: () => void;
     onNext: (data: QuoteOverviewData) => void;
     previousData?: any;
+    editingQuoteId?: string | null;
 }
 
-const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNext, previousData }) => {
+const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNext, previousData, editingQuoteId }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'itemList' | 'extras'>('overview');
-    const [customerName, setCustomerName] = useState(previousData?.projectDescription?.customerName || 'Olumide Adewale');
-    const [projectName, setProjectName] = useState(previousData?.projectDescription?.projectName || 'Olumide Residence Renovation');
-    const [siteAddress, setSiteAddress] = useState(previousData?.projectDescription?.siteAddress || 'Lagos Island Apartment Refurbishment');
-    const [quoteId] = useState('#000045');
-    const [issueDate, setIssueDate] = useState('');
-    const [paymentTerms, setPaymentTerms] = useState('');
+    const [customerName, setCustomerName] = useState(
+        previousData?.overview?.customerName || 
+        previousData?.projectDescription?.customerName || 
+        'Olumide Adewale'
+    );
+    const [projectName, setProjectName] = useState(
+        previousData?.overview?.projectName || 
+        previousData?.projectDescription?.projectName || 
+        'Olumide Residence Renovation'
+    );
+    const [siteAddress, setSiteAddress] = useState(
+        previousData?.overview?.siteAddress || 
+        previousData?.projectDescription?.siteAddress || 
+        'Lagos Island Apartment Refurbishment'
+    );
+    const [quoteId] = useState(previousData?.overview?.quoteId || '#000045');
+    const [issueDate, setIssueDate] = useState(previousData?.overview?.issueDate || '');
+    const [paymentTerms, setPaymentTerms] = useState(previousData?.overview?.paymentTerms || '');
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Date | null>(
+        previousData?.overview?.issueDate ? new Date(previousData.overview.issueDate) : null
+    );
+
+    const handleDateSelect = (date: Date) => {
+        setSelectedDate(date);
+        const formattedDate = date.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+        setIssueDate(formattedDate);
+        setShowCalendar(false);
+    };
+
+    const handleDateClear = () => {
+        setSelectedDate(null);
+        setIssueDate('');
+        setShowCalendar(false);
+    };
 
     const handleNext = () => {
         const data: QuoteOverviewData = {
@@ -31,14 +66,12 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
     return (
         <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
             {/* Header / Breadcrumbs */}
-            <div className="px-8 py-6 border-b border-gray-100">
+            <div className="px-4 lg:px-8 py-4 lg:py-6 border-b border-gray-100">
                 <div className="max-w-7xl mx-auto">
-                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-                        <span className="cursor-pointer hover:text-gray-600">Projects</span>
+                    <div className="flex items-center gap-2 text-xs lg:text-sm text-gray-400 mb-4 lg:mb-6">
+                        <span className="cursor-pointer hover:text-gray-600">Quotes</span>
                         <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Glazing-Type</span>
-                        <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Create New Quote</span>
+                        <span className="cursor-pointer hover:text-gray-600">{editingQuoteId ? 'Edit Quote' : 'Create New Quote'}</span>
                         <span>/</span>
                         <span className="text-gray-900 font-medium">Overview</span>
                     </div>
@@ -52,17 +85,32 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                             </button>
 
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 mb-1">Create New Quote</h1>
+                                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-1">
+                                    {editingQuoteId ? 'Edit Quote' : 'Create New Quote'}
+                                </h1>
                             </div>
                         </div>
 
-                        {/* Generate Now Button */}
-                        <button
-                            onClick={handleNext}
-                            className="px-8 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
-                        >
-                            Generate Now
-                        </button>
+                        {/* Action Buttons - Desktop */}
+                        <div className="hidden lg:flex items-center gap-3">
+                            <button
+                                onClick={handleNext}
+                                className="px-6 py-2.5 text-sm font-semibold rounded-lg transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={handleNext}
+                                className="px-6 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                            >
+                                Download PDF
+                            </button>
+                            <button className="p-2 text-gray-600 hover:text-gray-900">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -179,16 +227,27 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                         <input
                                             type="text"
                                             value={issueDate}
-                                            onChange={(e) => setIssueDate(e.target.value)}
+                                            readOnly
+                                            onClick={() => setShowCalendar(true)}
                                             placeholder="Select quote date"
-                                            className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                            className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer"
                                         />
-                                        <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        <button
+                                            onClick={() => setShowCalendar(true)}
+                                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
                                         </button>
                                     </div>
+                                    <CalendarModal
+                                        isOpen={showCalendar}
+                                        onClose={() => setShowCalendar(false)}
+                                        onSubmit={handleDateSelect}
+                                        onClear={handleDateClear}
+                                        initialDate={selectedDate}
+                                    />
                                 </div>
 
                                 {/* Quote ID */}

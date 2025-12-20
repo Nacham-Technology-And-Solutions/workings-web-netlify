@@ -29,7 +29,7 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
   const isFormValid = projectName.trim() !== '' && customerName.trim() !== '' && siteAddress.trim() !== '';
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
       {/* Header / Breadcrumbs */}
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-5xl mx-auto">

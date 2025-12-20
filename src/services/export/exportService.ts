@@ -231,3 +231,179 @@ export const shareData = async (
   }
 };
 
+interface QuoteItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  type?: 'material' | 'dimension';
+  width?: number;
+  height?: number;
+  panels?: number;
+}
+
+interface QuoteData {
+  projectName: string;
+  siteAddress: string;
+  customerName: string;
+  customerEmail: string;
+  quoteId: string;
+  issueDate: string;
+  items: QuoteItem[];
+  summary: {
+    subtotal: number;
+    charges: Array<{ label: string; amount: number }>;
+    grandTotal: number;
+  };
+  paymentInfo: {
+    accountName: string;
+    accountNumber: string;
+    bankName: string;
+  };
+}
+
+/**
+ * Export quote to PDF
+ */
+export const exportQuoteToPDF = (quote: QuoteData) => {
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('QUOTE', 14, 20);
+
+  // Quote Info
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Quote ID: ${quote.quoteId}`, 14, 30);
+  doc.text(`Issue Date: ${quote.issueDate}`, 14, 36);
+
+  // Project Info
+  doc.text(`Project: ${quote.projectName}`, 14, 45);
+  doc.text(`Site Address: ${quote.siteAddress}`, 14, 51);
+
+  // Customer Info
+  doc.text(`Customer: ${quote.customerName}`, 14, 60);
+  if (quote.customerEmail) {
+    doc.text(`Email: ${quote.customerEmail}`, 14, 66);
+  }
+
+  // Items Table
+  const tableData = quote.items.map((item, index) => [
+    index + 1,
+    item.description,
+    item.quantity,
+    `₦${item.unitPrice.toLocaleString()}`,
+    `₦${item.total.toLocaleString()}`
+  ]);
+
+  autoTable(doc, {
+    startY: 75,
+    head: [['S/N', 'Description', 'Qty', 'Unit Price', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' }
+  });
+
+  // Summary
+  const finalY = (doc as any).lastAutoTable.finalY || 75;
+  let currentY = finalY + 10;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Subtotal: ₦${quote.summary.subtotal.toLocaleString()}`, 14, currentY);
+  currentY += 6;
+
+  // Charges
+  quote.summary.charges.forEach(charge => {
+    doc.text(`${charge.label}: ₦${charge.amount.toLocaleString()}`, 14, currentY);
+    currentY += 6;
+  });
+
+  // Grand Total
+  currentY += 3;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Grand Total: ₦${quote.summary.grandTotal.toLocaleString()}`, 14, currentY);
+  currentY += 10;
+
+  // Payment Information
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Payment Information', 14, currentY);
+  currentY += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Account Name: ${quote.paymentInfo.accountName}`, 14, currentY);
+  currentY += 6;
+  doc.text(`Account Number: ${quote.paymentInfo.accountNumber}`, 14, currentY);
+  currentY += 6;
+  doc.text(`Bank: ${quote.paymentInfo.bankName}`, 14, currentY);
+
+  // Save
+  const fileName = `Quote-${quote.quoteId.replace(/#/g, '')}-${quote.projectName.replace(/\s+/g, '-')}.pdf`;
+  doc.save(fileName);
+};
+
+/**
+ * Export quote to Excel
+ */
+export const exportQuoteToExcel = (quote: QuoteData) => {
+  // Create worksheet data
+  const wsData = [
+    ['QUOTE'],
+    [],
+    ['Quote ID:', quote.quoteId],
+    ['Issue Date:', quote.issueDate],
+    ['Project:', quote.projectName],
+    ['Site Address:', quote.siteAddress],
+    ['Customer:', quote.customerName],
+    ['Customer Email:', quote.customerEmail || ''],
+    [],
+    ['S/N', 'Description', 'Quantity', 'Unit Price (₦)', 'Total (₦)'],
+    ...quote.items.map((item, index) => [
+      index + 1,
+      item.description,
+      item.quantity,
+      item.unitPrice,
+      item.total
+    ]),
+    [],
+    ['', '', '', 'Subtotal:', quote.summary.subtotal],
+  ];
+
+  // Add charges
+  quote.summary.charges.forEach(charge => {
+    wsData.push(['', '', '', `${charge.label}:`, charge.amount]);
+  });
+
+  // Add grand total
+  wsData.push(['', '', '', 'Grand Total:', quote.summary.grandTotal]);
+  wsData.push([]);
+  wsData.push(['Payment Information']);
+  wsData.push(['Account Name:', quote.paymentInfo.accountName]);
+  wsData.push(['Account Number:', quote.paymentInfo.accountNumber]);
+  wsData.push(['Bank Name:', quote.paymentInfo.bankName]);
+
+  // Create workbook
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Style the columns
+  ws['!cols'] = [
+    { wch: 6 },
+    { wch: 30 },
+    { wch: 10 },
+    { wch: 18 },
+    { wch: 18 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Quote');
+
+  // Save file
+  const fileName = `Quote-${quote.quoteId.replace(/#/g, '')}-${quote.projectName.replace(/\s+/g, '-')}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+};
+

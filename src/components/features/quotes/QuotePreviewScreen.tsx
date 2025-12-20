@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import type { QuotePreviewData } from '@/types';
 import { ChevronLeftIcon, EditIcon, FolderIcon, LocationIcon, MoreVerticalIcon } from '@/assets/icons/IconComponents';
+import { exportQuoteToPDF, exportQuoteToExcel } from '@/services/export/exportService';
 
 interface QuotePreviewScreenProps {
   quote: QuotePreviewData;
@@ -26,16 +27,16 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
 
     try {
       if (option === 'pdf') {
-        // PDF export logic would go here
+        exportQuoteToPDF(quote);
         showSuccessMessage('Quote exported as PDF successfully!');
       } else if (option === 'excel') {
-        // Excel export logic would go here
+        exportQuoteToExcel(quote);
         showSuccessMessage('Quote exported to Excel successfully!');
       } else if (option === 'share') {
-        // Share logic would go here
         const shareText = `Quote for ${quote.projectName}\nTotal: ${formatNaira(quote.summary.grandTotal)}\nQuote ID: ${quote.quoteId}`;
         if (navigator.share) {
           await navigator.share({ title: 'Quote', text: shareText });
+          showSuccessMessage('Quote shared successfully!');
         } else {
           await navigator.clipboard.writeText(shareText);
           showSuccessMessage('Quote details copied to clipboard!');

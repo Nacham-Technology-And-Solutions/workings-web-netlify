@@ -335,48 +335,41 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      {/* Header */}
-      <header className="p-4 lg:p-6 bg-white border-b border-gray-200">
+    <div className="flex flex-col h-full bg-[#FAFAFA]">
+      {/* Page Title and Navigation */}
+      <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
         <div className="max-w-7xl lg:mx-auto">
-        <div className="flex items-center gap-3 mb-4">
-          <button 
-            onClick={onBack}
+          <div className="flex items-center gap-3 mb-4">
+            <button 
+              onClick={onBack}
               className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors"
-            aria-label="Go back"
-          >
-            <ChevronLeftIcon />
-          </button>
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 flex-1">
-            Projects
-          </h1>
-          <button 
-            onClick={() => setShowSearch(true)}
-              className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors"
-            aria-label="Search projects"
-          >
-            <SearchIcon />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-gray-100 p-1 rounded-full flex space-x-1">
-          {tabs.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-center px-4 py-2 lg:px-6 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 focus:outline-none ${
-                activeTab === tab 
-                  ? 'bg-gray-800 text-white shadow-sm' 
-                  : 'bg-transparent text-gray-600 hover:bg-white/50'
-              }`}
+              aria-label="Go back"
             >
-              {tab}
+              <ChevronLeftIcon />
             </button>
-          ))}
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 flex-1">
+              Projects
+            </h1>
+          </div>
+
+          {/* Tabs */}
+          <div className="bg-gray-100 p-1 rounded-full flex space-x-1">
+            {tabs.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 text-center px-4 py-2 lg:px-6 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 focus:outline-none ${
+                  activeTab === tab 
+                    ? 'bg-gray-800 text-white shadow-sm' 
+                    : 'bg-transparent text-gray-600 hover:bg-white/50'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Active Filters Display */}
       {(searchQuery || selectedStatuses.length > 0 || dateRange.start || dateRange.end || quickFilter !== 'all') && (
@@ -419,7 +412,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       )}
 
       {/* Project List */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-gray-50">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-[#FAFAFA]">
         <div className="max-w-7xl lg:mx-auto">
         {isLoading ? (
           <div className="py-12 lg:py-20 text-center">

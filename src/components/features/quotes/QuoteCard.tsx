@@ -34,14 +34,11 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, activeTab, onViewQuote }) 
 
   // Conditional status text based on the active tab, as per screenshots.
   const statusText = status === 'Paid' && activeTab !== 'Paid' ? 'Completed' : status;
-  
-  const canViewDetail = status === 'Paid';
 
   return (
     <button
       onClick={onViewQuote}
-      disabled={!canViewDetail}
-      className="w-full text-left bg-main border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col gap-3 disabled:opacity-70 disabled:hover:shadow-sm disabled:cursor-not-allowed"
+      className="w-full text-left bg-main border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col gap-3"
     >
       <div className="flex justify-between items-start">
         <h2 className="text-lg font-semibold text-text-primary pr-4">{projectName}</h2>

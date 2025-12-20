@@ -1,0 +1,28 @@
+{
+  "name": "WORKINGS - Construction Estimating",
+  "short_name": "WORKINGS",
+  "description": "Automate construction takeoffs and cost estimating by importing or drawing floor plans to instantly calculate material, labor, and budget figures.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2937",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo2.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": [],
+  "shortcuts": []
+}
+

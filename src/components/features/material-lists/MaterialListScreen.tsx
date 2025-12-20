@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeftIcon, ShoppingBagIcon, PlusIcon, SearchIcon, CloseIcon, UserCircleIcon } from '@/assets/icons/IconComponents';
-import { sampleMaterialLists } from '@/constants';
+import { projectsService, materialListsService } from '@/services/api';
+import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
 import type { MaterialList, MaterialListStatus } from '@/types';
 
 interface MaterialListScreenProps {
@@ -54,7 +55,9 @@ const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ l
 
 const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewList, onCreateNewList }) => {
   const [activeTab, setActiveTab] = useState<'All' | 'Draft'>('All');
-  const [materialLists] = useState<MaterialList[]>(sampleMaterialLists);
+  const [materialLists, setMaterialLists] = useState<MaterialList[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -68,6 +71,70 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
     if (saved) {
       setSearchHistory(JSON.parse(saved));
     }
+  }, []);
+
+  // Fetch material lists from API
+  useEffect(() => {
+    const fetchMaterialLists = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // First, fetch all projects
+        const projectsResponse = await projectsService.list(1, 100);
+        
+        if (isApiResponseSuccess(projectsResponse)) {
+          const projectsData = getApiResponseData(projectsResponse) as any;
+          const projects = projectsData?.projects || [];
+          
+          // Filter projects that have been calculated (have material lists)
+          const calculatedProjects = projects.filter((p: any) => p.calculated && p.status === 'calculated');
+          
+          // Fetch material list for each calculated project
+          const materialListPromises = calculatedProjects.map(async (project: any) => {
+            try {
+              const materialListResponse = await materialListsService.getByProject(project.id);
+              
+              if (isApiResponseSuccess(materialListResponse)) {
+                const materialListData = getApiResponseData(materialListResponse) as any;
+                const materialList = materialListData?.materialList || materialListData;
+                
+                if (materialList) {
+                  // Transform API response to MaterialList type
+                  const transformed: MaterialList = {
+                    id: String(materialList.id),
+                    projectName: project.projectName || 'Untitled Project',
+                    listNumber: `#${String(materialList.id).padStart(6, '0')}`,
+                    status: project.status === 'calculated' ? 'Completed' : 'Draft',
+                    issueDate: materialList.createdAt || materialList.updatedAt || new Date().toISOString(),
+                  };
+                  return transformed;
+                }
+              }
+            } catch (err: any) {
+              // Project might not have a material list yet (404), skip it
+              console.log(`[MaterialListScreen] No material list for project ${project.id}:`, err.message);
+              return null;
+            }
+            return null;
+          });
+          
+          const results = await Promise.all(materialListPromises);
+          const validLists = results.filter((list): list is MaterialList => list !== null);
+          
+          setMaterialLists(validLists);
+        } else {
+          setError('Failed to load projects');
+        }
+      } catch (err: any) {
+        console.error('[MaterialListScreen] Error fetching material lists:', err);
+        setError('Failed to load material lists. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMaterialLists();
   }, []);
 
   const filteredLists = useMemo(() => {
@@ -232,7 +299,28 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
 
       <main className="flex-1 overflow-y-auto bg-gray-50">
         <div className="max-w-7xl lg:mx-auto p-6 lg:p-8">
-          {filteredLists.length > 0 ? (
+          {isLoading ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
+              <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-800 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Loading material lists...</p>
+            </div>
+          ) : error ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
+              <div className="w-24 h-24 lg:w-28 lg:h-28 rounded-full bg-red-50 flex items-center justify-center border-2 border-red-100 mb-4">
+                <svg className="w-12 h-12 lg:w-14 lg:h-14 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">Error Loading Material Lists</h3>
+              <p className="max-w-sm mx-auto mb-6 text-gray-500 text-sm lg:text-base">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : filteredLists.length > 0 ? (
             /* Multi-column grid */
             <div className="space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0 pb-24">
               {filteredLists.map(list => (

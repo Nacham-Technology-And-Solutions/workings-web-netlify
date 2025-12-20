@@ -6,7 +6,7 @@ export const HeaderLogo: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (
   <img 
     src="/logo2.png" 
     alt="Workings Logo" 
-    className="h-8 w-auto"
+    className="h-20 w-auto"
     {...props}
   />
 );

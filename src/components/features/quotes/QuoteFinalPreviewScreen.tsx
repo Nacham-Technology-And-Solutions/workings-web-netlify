@@ -18,6 +18,7 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
         quoteId: '#000045',
         issueDate: '19th June, 2025',
         billedTo: 'Olumide Adewale',
+        email: '',
         project: 'Olumide Residence Renovation',
         location: 'Lagos Island Apartment Refurbishment',
         items: [
@@ -25,8 +26,10 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
             { description: '600 x 700', qty: 4, unitPrice: 10000, total: 140000 },
         ],
         subtotal: 1140000,
-        laborCharge: 250000,
-        transportCharge: 70000,
+        charges: [
+            { label: 'Labor Charge', amount: 250000 },
+            { label: 'Transport Charge', amount: 70000 }
+        ],
         grandTotal: 1460000,
         paymentInfo: {
             accountName: 'Olumide Adewale',
@@ -102,39 +105,35 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                         </div>
 
                         <div className="border-t border-gray-200 pt-6">
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-4">
                                 <div>
-                                    <div className="flex items-start gap-2 mb-4">
-                                        <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        <div>
-                                            <p className="text-sm text-gray-600 mb-1">Billed to:</p>
-                                            <p className="text-base font-semibold text-gray-900">{quoteData.billedTo}</p>
-                                        </div>
+                                    <p className="text-sm text-gray-600 mb-1">Billed to:</p>
+                                    <p className="text-base font-semibold text-gray-900">{quoteData.billedTo}</p>
+                                </div>
+                                {quoteData.email && (
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-1">Email Address:</p>
+                                        <p className="text-base font-semibold text-gray-900">{quoteData.email}</p>
+                                    </div>
+                                )}
+                                <div className="flex items-start gap-2">
+                                    <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                    </svg>
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-1">Project:</p>
+                                        <p className="text-base font-semibold text-gray-900">{quoteData.project}</p>
                                     </div>
                                 </div>
-                                <div>
-                                    <div className="flex items-start gap-2 mb-4">
-                                        <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                        </svg>
-                                        <div>
-                                            <p className="text-sm text-gray-600 mb-1">Project:</p>
-                                            <p className="text-base font-semibold text-gray-900">{quoteData.project}</p>
-                                        </div>
+                                <div className="flex items-start gap-2">
+                                    <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-1">Location:</p>
+                                        <p className="text-base text-gray-900">{quoteData.location}</p>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-2">
-                                <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Location:</p>
-                                    <p className="text-base text-gray-900">{quoteData.location}</p>
                                 </div>
                             </div>
                         </div>
@@ -158,10 +157,10 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                                     <tbody className="divide-y divide-gray-100">
                                         {quoteData.items.map((item, index) => (
                                             <tr key={index}>
-                                                <td className="py-3 text-sm text-gray-900">{item.description}</td>
-                                                <td className="py-3 text-sm text-gray-900">{item.qty}</td>
-                                                <td className="py-3 text-sm text-gray-900">₦{item.unitPrice.toLocaleString()}</td>
-                                                <td className="py-3 text-sm text-gray-900 text-right font-medium">₦{item.total.toLocaleString()}</td>
+                                                <td className="py-3 text-sm text-gray-900">{item.description || (item as any).description}</td>
+                                                <td className="py-3 text-sm text-gray-900">{item.qty || (item as any).quantity}</td>
+                                                <td className="py-3 text-sm text-gray-900">₦{(item.unitPrice || (item as any).unitPrice || 0).toLocaleString()}</td>
+                                                <td className="py-3 text-sm text-gray-900 text-right font-medium">₦{(item.total || (item as any).total || 0).toLocaleString()}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -180,14 +179,24 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                                         <span className="text-sm text-gray-600">Subtotal</span>
                                         <span className="text-sm font-medium text-gray-900">₦{quoteData.subtotal.toLocaleString()}</span>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Labor Charge</span>
-                                        <span className="text-sm font-medium text-gray-900">₦{quoteData.laborCharge.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Transport Charge</span>
-                                        <span className="text-sm font-medium text-gray-900">₦{quoteData.transportCharge.toLocaleString()}</span>
-                                    </div>
+                                    {quoteData.charges && quoteData.charges.map((charge, index) => (
+                                        <div key={index} className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-600">{charge.label}</span>
+                                            <span className="text-sm font-medium text-gray-900">₦{charge.amount.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                    {!quoteData.charges && (
+                                        <>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Labor Charge</span>
+                                                <span className="text-sm font-medium text-gray-900">₦{((quoteData as any).laborCharge || 0).toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Transport Charge</span>
+                                                <span className="text-sm font-medium text-gray-900">₦{((quoteData as any).transportCharge || 0).toLocaleString()}</span>
+                                            </div>
+                                        </>
+                                    )}
                                     <div className="pt-3 border-t border-gray-200">
                                         <div className="flex justify-between items-center">
                                             <span className="text-base font-semibold text-gray-900">Grand Total</span>

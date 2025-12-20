@@ -7,6 +7,7 @@ interface UIState {
   
   // Sidebar
   isSidebarOpen: boolean;
+  isSidebarCollapsed: boolean;
   
   // Actions
   setCurrentView: (view: string) => void;
@@ -15,6 +16,7 @@ interface UIState {
   goBack: () => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -22,6 +24,14 @@ export const useUIStore = create<UIState>((set, get) => ({
   currentView: 'home',
   previousView: 'home',
   isSidebarOpen: false,
+  isSidebarCollapsed: (() => {
+    // Check localStorage for saved collapse state, default to expanded (false = not collapsed)
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarCollapsed');
+      return saved === 'true';
+    }
+    return false;
+  })(),
   
   // Actions
   setCurrentView: (view) => set({ currentView: view }),
@@ -46,5 +56,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  setSidebarCollapsed: (collapsed) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebarCollapsed', String(collapsed));
+    }
+    set({ isSidebarCollapsed: collapsed });
+  },
 }));
 

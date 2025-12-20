@@ -13,7 +13,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
     const userName = getDisplayName(user?.name, user?.email);
 
     return (
-        <div className="flex-1 relative bg-white">
+        <div className="flex-1 relative bg-[#FAFAFA]">
             <main className="p-6 lg:p-8 xl:p-10 h-full flex flex-col max-w-7xl lg:mx-auto">
                 {/* Welcome Message */}
                 <div className="mb-6 lg:mb-8">
