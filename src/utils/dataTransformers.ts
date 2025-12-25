@@ -15,43 +15,64 @@ import type { ProjectCartItem, CalculationSettings } from '@/types/calculations'
 import { mapGlazingTypeToModuleId, getCategoryFromKey, normalizeGlazingType } from './moduleMapping';
 import { MODULE_CONFIG } from './moduleConfig';
 import type { GlazingCategory } from './moduleMapping';
+import { convertStringToMillimeters, type Unit } from './unitConverter';
 
 /**
  * Converts DimensionItem to GlazingDimension format
+ * @param item - DimensionItem from form
+ * @param category - Glazing category
+ * @param unit - Unit of measurement (defaults to 'mm')
  */
 export function convertDimensionItemToGlazingDimension(
   item: DimensionItem,
-  category: 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain Wall'
+  category: 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain Wall',
+  unit: Unit = 'mm'
 ): GlazingDimension {
   const moduleId = mapGlazingTypeToModuleId(item.type, category);
   const glazingType = normalizeGlazingType(item.type, category);
 
-  // Parse numeric values
-  const width = parseFloat(item.width) || 0;
-  const height = parseFloat(item.height) || 0;
+  // Convert to millimeters
+  const width = convertStringToMillimeters(item.width, unit);
+  const height = convertStringToMillimeters(item.height, unit);
   const quantity = parseFloat(item.quantity) || 1;
   const panels = parseFloat(item.panel) || 1;
 
   // Build parameters object based on module
   const parameters: GlazingDimension['parameters'] = {
-    W: width,
-    H: height,
     qty: quantity,
   };
 
-  // Add module-specific parameters
-  if (moduleId.startsWith('M1_') || moduleId.startsWith('M2_') || moduleId.startsWith('M3_') || 
-      moduleId.startsWith('M4_') || moduleId.startsWith('M5_')) {
-    // Window modules use N for panels
-    parameters.N = panels;
-    // O (opening panels) defaults to N if not specified
-    parameters.O = panels;
+  // Net modules (M6, M7, M8) use inside-to-inside dimensions
+  if (
+    moduleId === 'M6_Net_1125_26' ||
+    moduleId === 'M7_EBM_Net_1125_26' ||
+    moduleId === 'M8_EBM_Net_UChannel'
+  ) {
+    parameters.in_to_in_width = width;
+    parameters.in_to_in_height = height;
+  } else {
+    // Window modules use W and H
+    parameters.W = width;
+    parameters.H = height;
   }
 
-  // Add curtain wall specific parameters if needed
-  if (moduleId.startsWith('M9_')) {
-    // Curtain wall modules may need N_v and N_h
-    // These would need to be collected from UI if required
+  // M1: Casement Window - requires N and O
+  if (moduleId === 'M1_Casement_DCurve') {
+    parameters.N = panels;
+    // Use openingPanels if provided, otherwise default to N
+    const openingPanels = item.openingPanels ? parseFloat(item.openingPanels) : panels;
+    parameters.O = openingPanels;
+  }
+
+  // M2-M5: Sliding Windows - no panel parameters needed
+  // (panels are determined by the module type itself)
+
+  // M9: Curtain Wall Grid - requires N_v and N_h
+  if (moduleId === 'M9_Curtain_Wall_Grid') {
+    const verticalPanels = item.verticalPanels ? parseFloat(item.verticalPanels) : 1;
+    const horizontalPanels = item.horizontalPanels ? parseFloat(item.horizontalPanels) : 1;
+    parameters.N_v = verticalPanels;
+    parameters.N_h = horizontalPanels;
   }
 
   return {
@@ -94,6 +115,7 @@ export function convertToGlazingDimensions(
   selectData: SelectProjectData
 ): GlazingDimension[] {
   const glazingDimensions: GlazingDimension[] = [];
+  const unit = (measurementData.unit as Unit) || 'mm';
 
   // Map each dimension item to its category by looking up the type in MODULE_CONFIG
   measurementData.dimensions.forEach((dimension) => {
@@ -113,7 +135,7 @@ export function convertToGlazingDimensions(
       }
     }
 
-    const glazingDimension = convertDimensionItemToGlazingDimension(dimension, category);
+    const glazingDimension = convertDimensionItemToGlazingDimension(dimension, category, unit);
     glazingDimensions.push(glazingDimension);
   });
 

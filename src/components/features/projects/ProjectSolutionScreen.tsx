@@ -8,6 +8,8 @@ import {
   exportCuttingListToPDF,
   exportMaterialListToExcel,
   exportCuttingListToExcel,
+  exportGlassCuttingListToPDF,
+  exportGlassCuttingListToExcel,
   shareData
 } from '@/services/export/exportService';
 import { calculationsService, projectsService } from '@/services/api';
@@ -25,7 +27,7 @@ interface ProjectSolutionScreenProps {
   };
   initialTab?: 'material' | 'cutting' | 'glass';
   draftProjectId?: number | null;
-  onCreateQuote?: (materialCost?: number) => void;
+  onCreateQuote?: (materialCost?: number, calculationResult?: CalculationResult, projectMeasurement?: ProjectMeasurementData) => void;
   onProjectSaved?: () => void;
 }
 
@@ -56,12 +58,45 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const hasCalculatedRef = useRef(false);
   const hasSavedRef = useRef(false);
   
-  // State for prices and quantities (itemId -> value)
-  const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
+  // State for prices and quantities (itemId -> value) - persist to localStorage
+  const [itemPrices, setItemPrices] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined' && draftProjectId) {
+      const saved = localStorage.getItem(`project-prices-${draftProjectId}`);
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
+  
+  // Filter states
+  const [materialFilter, setMaterialFilter] = useState<'all' | 'Profile' | 'Accessory_Pair'>('all');
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [cuttingFilter, setCuttingFilter] = useState<string>('all');
+  const [glassFilter, setGlassFilter] = useState<string>('all');
+  
+  // Export dropdown states
+  const [showExportDropdown, setShowExportDropdown] = useState<'cutting' | 'glass' | null>(null);
+  
+  // Save prices to localStorage when they change
+  useEffect(() => {
+    if (draftProjectId && Object.keys(itemPrices).length > 0) {
+      localStorage.setItem(`project-prices-${draftProjectId}`, JSON.stringify(itemPrices));
+    }
+  }, [itemPrices, draftProjectId]);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showExportDropdown && !(event.target as Element).closest('.export-dropdown-container')) {
+        setShowExportDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showExportDropdown]);
 
   // Transform calculation result to display format
-  const profileItems: MaterialItem[] = calculationResult?.materialList
+  const allProfileItems: MaterialItem[] = calculationResult?.materialList
     ? calculationResult.materialList
         .filter(item => item.type === 'Profile')
         .map((item, index) => ({
@@ -72,7 +107,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         }))
     : [];
 
-  const accessoriesItems: MaterialItem[] = calculationResult?.accessoryTotals
+  const allAccessoriesItems: MaterialItem[] = calculationResult?.accessoryTotals
     ? calculationResult.accessoryTotals.map((item, index) => ({
         id: `accessory-${index}`,
         name: item.name,
@@ -80,6 +115,37 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         unit: 'units',
       }))
     : [];
+
+  // Apply filters to material items
+  const profileItems = useMemo(() => {
+    let filtered = allProfileItems;
+    if (materialFilter === 'Profile') {
+      filtered = allProfileItems;
+    } else if (materialFilter === 'Accessory_Pair') {
+      filtered = [];
+    }
+    if (materialSearch) {
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(materialSearch.toLowerCase())
+      );
+    }
+    return filtered;
+  }, [allProfileItems, materialFilter, materialSearch]);
+
+  const accessoriesItems = useMemo(() => {
+    let filtered = allAccessoriesItems;
+    if (materialFilter === 'Accessory_Pair') {
+      filtered = allAccessoriesItems;
+    } else if (materialFilter === 'Profile') {
+      filtered = [];
+    }
+    if (materialSearch) {
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(materialSearch.toLowerCase())
+      );
+    }
+    return filtered;
+  }, [allAccessoriesItems, materialFilter, materialSearch]);
 
   // Load calculation on mount if we have previous data
   useEffect(() => {
@@ -339,6 +405,91 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     return quantity * price;
   };
 
+  // Export handlers
+  const handleExportCuttingList = (format: 'pdf' | 'excel') => {
+    if (!calculationResult?.cuttingList || !previousData?.projectDescription) return;
+    
+    const projectName = previousData.projectDescription.projectName || 'Project';
+    
+    calculationResult.cuttingList.forEach((cuttingItem) => {
+      const stockLengthMeters = cuttingItem.stock_length / 1000;
+      const layouts = cuttingItem.plan.map((planEntry) => {
+        const cutKeys = Object.keys(planEntry);
+        const individualCuts: Array<{ length: number; unit: string }> = [];
+        let totalRepetition = 0;
+        
+        cutKeys.forEach(cutKey => {
+          const cutArray = planEntry[cutKey];
+          const lengthMatch = cutKey.match(/(\d+)mm/);
+          if (lengthMatch) {
+            const lengthMm = parseInt(lengthMatch[1]);
+            const lengthMeters = lengthMm / 1000;
+            const label = `${lengthMeters.toFixed(1)}m`;
+            
+            for (let i = 0; i < cutArray.length; i++) {
+              individualCuts.push({
+                length: lengthMeters,
+                unit: label
+              });
+            }
+            
+            totalRepetition = Math.max(totalRepetition, cutArray.length);
+          }
+        });
+        
+        const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
+        const offcut = stockLengthMeters - totalUsed;
+        
+        return {
+          layout: String.fromCharCode(65 + cuttingItem.plan.indexOf(planEntry)),
+          cuts: individualCuts,
+          offcut,
+          repetition: totalRepetition,
+        };
+      });
+      
+      const totalQuantity = layouts.reduce((sum, layout) => sum + layout.repetition, 0);
+      
+      if (format === 'pdf') {
+        exportCuttingListToPDF(layouts, projectName, stockLengthMeters, totalQuantity);
+      } else {
+        exportCuttingListToExcel(layouts, projectName, stockLengthMeters, totalQuantity);
+      }
+    });
+    
+    setShowExportDropdown(null);
+  };
+
+  const handleExportGlassCuttingList = (format: 'pdf' | 'excel') => {
+    if (!calculationResult?.glassList || !previousData?.projectDescription) return;
+    
+    const projectName = previousData.projectDescription.projectName || 'Project';
+    const glassList = calculationResult.glassList;
+    
+    // Parse sheet dimensions
+    const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
+    const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
+    const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
+    
+    // Create layouts for each sheet
+    const layouts = Array.from({ length: glassList.total_sheets }).map((_, index) => ({
+      sheetNumber: index + 1,
+      sheetType: glassList.sheet_type,
+      sheetWidth,
+      sheetHeight,
+      cuts: glassList.cuts || [],
+      totalCuts: glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0,
+    }));
+    
+    if (format === 'pdf') {
+      exportGlassCuttingListToPDF(layouts, projectName);
+    } else {
+      exportGlassCuttingListToExcel(layouts, projectName);
+    }
+    
+    setShowExportDropdown(null);
+  };
+
   // Calculate grand total from all items
   const grandTotal = useMemo(() => {
     let total = 0;
@@ -399,9 +550,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
             <span className="cursor-pointer hover:text-gray-600" onClick={onBack}>Projects</span>
             <span>/</span>
-            <span className="cursor-pointer hover:text-gray-600">Glazing-Type</span>
+            <span className="cursor-pointer hover:text-gray-600">{previousData?.projectDescription?.projectName || 'Project'}</span>
             <span>/</span>
-            <span className="text-gray-900 font-medium">Create New Quote</span>
+            <span className="text-gray-900 font-medium">Calculation Results</span>
           </div>
 
           <div className="flex items-start justify-between">
@@ -413,39 +564,75 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               </button>
 
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Create New Quote</h1>
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">Project Calculation Results</h1>
+                <p className="text-sm text-gray-500">{previousData?.projectDescription?.projectName || 'Project'}</p>
               </div>
             </div>
 
-            {/* Header Actions */}
-            {activeTab === 'cutting' || activeTab === 'glass' ? (
-              <button
-                onClick={() => console.log('Exporting cutting list...')}
-                className="flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
-              >
-                <span>Export</span>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </button>
-            ) : (
+            {/* Action Buttons - Show after calculation completes */}
+            {!isLoading && !error && calculationResult && (
               <div className="flex items-center gap-3">
-                {isSaving && (
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Saving...
-                  </span>
-                )}
                 <button
-                  onClick={() => onGenerate(grandTotal)}
+                  onClick={() => onCreateQuote?.(grandTotal, calculationResult, previousData?.projectMeasurement) || onGenerate(grandTotal)}
                   disabled={isSaving}
-                  className="px-8 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Generate Now
+                  Generate Quote
                 </button>
+                <div className="relative export-dropdown-container">
+                  <button
+                    onClick={() => setShowExportDropdown(showExportDropdown === 'cutting' ? null : 'cutting')}
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                  >
+                    <span>Export Cutting List</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {showExportDropdown === 'cutting' && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <button
+                        onClick={() => handleExportCuttingList('pdf')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        onClick={() => handleExportCuttingList('excel')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg"
+                      >
+                        Export as Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="relative export-dropdown-container">
+                  <button
+                    onClick={() => setShowExportDropdown(showExportDropdown === 'glass' ? null : 'glass')}
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                  >
+                    <span>Export Glass List</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {showExportDropdown === 'glass' && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <button
+                        onClick={() => handleExportGlassCuttingList('pdf')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        onClick={() => handleExportGlassCuttingList('excel')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg"
+                      >
+                        Export as Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -558,13 +745,53 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 )}
               </button>
 
-              {/* Filter Button */}
-              <button className="ml-auto pb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                <span className="text-sm">Filter</span>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-              </button>
+              {/* Filter Dropdowns */}
+              <div className="ml-auto pb-4 flex items-center gap-4">
+                {activeTab === 'material' && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={materialFilter}
+                      onChange={(e) => setMaterialFilter(e.target.value as 'all' | 'Profile' | 'Accessory_Pair')}
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      <option value="all">All Types</option>
+                      <option value="Profile">Profile</option>
+                      <option value="Accessory_Pair">Accessory</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Search materials..."
+                      value={materialSearch}
+                      onChange={(e) => setMaterialSearch(e.target.value)}
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 w-48"
+                    />
+                  </div>
+                )}
+                {activeTab === 'cutting' && calculationResult?.cuttingList && (
+                  <select
+                    value={cuttingFilter}
+                    onChange={(e) => setCuttingFilter(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    <option value="all">All Profiles</option>
+                    {calculationResult.cuttingList.map((item, index) => (
+                      <option key={index} value={item.profile_name}>{item.profile_name}</option>
+                    ))}
+                  </select>
+                )}
+                {activeTab === 'glass' && (
+                  <select
+                    value={glassFilter}
+                    onChange={(e) => setGlassFilter(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    <option value="all">All Sheets</option>
+                    {calculationResult?.glassList && Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => (
+                      <option key={index} value={`sheet${index + 1}`}>Sheet {index + 1}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
           </div>
 
@@ -795,7 +1022,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           {!isLoading && !error && activeTab === 'cutting' && (
             <div>
               {calculationResult?.cuttingList && calculationResult.cuttingList.length > 0 ? (
-                calculationResult.cuttingList.map((cuttingItem, profileIndex) => {
+                calculationResult.cuttingList
+                  .filter((item) => cuttingFilter === 'all' || item.profile_name === cuttingFilter)
+                  .map((cuttingItem, profileIndex) => {
                   const stockLengthMeters = cuttingItem.stock_length / 1000; // Convert mm to meters
                   
                   // Parse cutting plans
@@ -1190,21 +1419,14 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         </div>
       </main>
 
-      {/* Footer with Grand Total and Generate Button */}
-      {/* Footer with Grand Total and Generate Button */}
-      {activeTab === 'material' && (
+      {/* Footer with Grand Total - Show on all tabs */}
+      {!isLoading && !error && calculationResult && (
         <div className="border-t border-gray-200 bg-white px-8 py-6">
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center">
               <span className="text-lg font-semibold text-gray-900">Grand Total</span>
-              <span className="text-2xl font-bold text-gray-900">₦{grandTotal.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-gray-900">₦{grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            <button
-              onClick={() => onGenerate(grandTotal)}
-              className="w-full py-4 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
-            >
-              Generate Now
-            </button>
           </div>
         </div>
       )}

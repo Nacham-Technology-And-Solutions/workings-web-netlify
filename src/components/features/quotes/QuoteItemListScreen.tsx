@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { QuoteItemListData, QuoteItemRow } from '@/types';
+import { getInitialQuoteItems } from '@/utils/quoteDataTransformers';
 
 interface QuoteItemListScreenProps {
     onBack: () => void;
@@ -10,23 +11,40 @@ interface QuoteItemListScreenProps {
 }
 
 const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData, quoteType = 'standalone', materialCost }) => {
-    // Initialize items: use previous data if available, otherwise use defaults or material cost for project quotes
-    const getInitialItems = (): QuoteItemRow[] => {
+    const [listType, setListType] = useState<'dimension' | 'material'>(
+        previousData?.itemList?.listType || 'dimension'
+    );
+
+    // Initialize items: use previous data if available, otherwise use project data or defaults
+    const getInitialItems = (currentListType: 'dimension' | 'material'): QuoteItemRow[] => {
         if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
             return previousData.itemList.items;
         }
         
-        // For project quotes, initialize with material cost as a single item
-        if (quoteType === 'from_project' && materialCost !== undefined && materialCost > 0) {
-            return [
-                {
-                    id: '1',
-                    description: 'Material Cost',
-                    quantity: 1,
-                    unitPrice: materialCost,
-                    total: materialCost
-                }
-            ];
+        // For project quotes, try to populate from project data
+        if (quoteType === 'from_project' && previousData?.projectData) {
+            const projectItems = getInitialQuoteItems(
+                currentListType,
+                previousData.projectData.projectMeasurement,
+                previousData.projectData.calculationResult
+            );
+            
+            if (projectItems.length > 0) {
+                return projectItems;
+            }
+            
+            // Fallback to material cost if no project items
+            if (materialCost !== undefined && materialCost > 0) {
+                return [
+                    {
+                        id: '1',
+                        description: 'Material Cost',
+                        quantity: 1,
+                        unitPrice: materialCost,
+                        total: materialCost
+                    }
+                ];
+            }
         }
         
         // Default items for standalone quotes
@@ -36,12 +54,26 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
         ];
     };
 
-    const initialItems = getInitialItems();
-    const [listType, setListType] = useState<'dimension' | 'material'>(
-        previousData?.itemList?.listType || 'dimension'
-    );
-    const [items, setItems] = useState<QuoteItemRow[]>(initialItems);
-    const [showWarning, setShowWarning] = useState(!initialItems || initialItems.length === 0);
+    const [items, setItems] = useState<QuoteItemRow[]>(() => getInitialItems(listType));
+    const [showWarning, setShowWarning] = useState(!items || items.length === 0);
+
+    // Update items when list type changes for project quotes
+    useEffect(() => {
+        if (quoteType === 'from_project' && previousData?.projectData) {
+            const projectItems = getInitialQuoteItems(
+                listType,
+                previousData.projectData.projectMeasurement,
+                previousData.projectData.calculationResult
+            );
+            
+            if (projectItems.length > 0) {
+                setItems(projectItems);
+                setShowWarning(false);
+            } else {
+                setShowWarning(true);
+            }
+        }
+    }, [listType, quoteType, previousData]);
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
     const [editFormData, setEditFormData] = useState<QuoteItemRow | null>(null);
 

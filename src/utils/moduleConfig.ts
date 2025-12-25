@@ -45,62 +45,40 @@ export interface ModuleCategoryConfig {
  * Disabled modules are completely hidden from users.
  */
 export const MODULE_CONFIG: Record<GlazingCategory, ModuleCategoryConfig> = {
-  // Window Category - Partially implemented
-  // Note: SelectProjectScreen uses generic values, but ProjectMeasurementScreen uses specific type names
-  // This config tracks the measurement screen types which are the actual implementation
+  // Window Category - Fully implemented
   Window: {
     enabled: true,
     name: 'Window',
     types: [
-      // Implemented window types (values match ProjectMeasurementScreen dropdown)
       {
         enabled: true,
         moduleId: 'M1_Casement_DCurve',
-        label: 'Casement (D/curve)',
-        value: 'Casement (D/curve)', // Used in ProjectMeasurementScreen
-      },
-      {
-        enabled: true,
-        moduleId: 'M1_Casement_DCurve',
-        label: 'Casement (EBM)',
-        value: 'Casement (EBM)', // Used in ProjectMeasurementScreen
+        label: 'Casement Window (D/Curve)',
+        value: 'Casement Window (D/Curve)',
       },
       {
         enabled: true,
         moduleId: 'M2_Sliding_2Sash',
-        label: 'Sliding (Normal)',
-        value: 'Sliding (Normal)', // Used in ProjectMeasurementScreen
+        label: 'Sliding Window (Standard 2-Sash)',
+        value: 'Sliding Window (Standard 2-Sash)',
       },
       {
         enabled: true,
-        moduleId: 'M2_Sliding_2Sash',
-        label: 'Sliding (EBM)',
-        value: 'Sliding (EBM)', // Used in ProjectMeasurementScreen
+        moduleId: 'M3_Sliding_2Sash_Net',
+        label: 'Sliding Window (2-Sash + Fixed Net)',
+        value: 'Sliding Window (2-Sash + Fixed Net)',
       },
       {
         enabled: true,
-        moduleId: 'M2_Sliding_2Sash',
-        label: 'Sliding (Ghana)',
-        value: 'Sliding (Ghana)', // Used in ProjectMeasurementScreen
-      },
-      // Unmapped types - disabled until backend support is added
-      {
-        enabled: false,
-        moduleId: null,
-        label: 'Fixed Window',
-        value: 'Fixed Window',
+        moduleId: 'M4_Sliding_3Track',
+        label: 'Sliding Window (3-Track, 2 Glass + 1 Net)',
+        value: 'Sliding Window (3-Track, 2 Glass + 1 Net)',
       },
       {
-        enabled: false,
-        moduleId: null,
-        label: 'Awning Window',
-        value: 'Awning Window',
-      },
-      {
-        enabled: false,
-        moduleId: null,
-        label: 'Louvre Window',
-        value: 'Louvre Window',
+        enabled: true,
+        moduleId: 'M5_Sliding_3Sash',
+        label: 'Sliding Window (3-Sash, All-Glass)',
+        value: 'Sliding Window (3-Sash, All-Glass)',
       },
     ],
   },
@@ -151,14 +129,20 @@ export const MODULE_CONFIG: Record<GlazingCategory, ModuleCategoryConfig> = {
       {
         enabled: true,
         moduleId: 'M6_Net_1125_26',
-        label: 'Fixed Net',
-        value: 'fixed-skylight',
+        label: '1125/26 Net (1132-panel)',
+        value: '1125/26 Net (1132-panel)',
       },
       {
         enabled: true,
         moduleId: 'M7_EBM_Net_1125_26',
-        label: 'Vented Net',
-        value: 'vented-skylight',
+        label: 'EBM-net (1125/26 Frame)',
+        value: 'EBM-net (1125/26 Frame)',
+      },
+      {
+        enabled: true,
+        moduleId: 'M8_EBM_Net_UChannel',
+        label: 'EBM-Net (U-Channel)',
+        value: 'EBM-Net (U-Channel)',
       },
     ],
   },
@@ -166,19 +150,13 @@ export const MODULE_CONFIG: Record<GlazingCategory, ModuleCategoryConfig> = {
   // Curtain Wall Category - Fully implemented
   'Curtain Wall': {
     enabled: true,
-    name: 'Curtain wall',
+    name: 'Curtain Wall',
     types: [
       {
         enabled: true,
         moduleId: 'M9_Curtain_Wall_Grid',
-        label: 'Structural Glass',
-        value: 'structural-glass',
-      },
-      {
-        enabled: true,
-        moduleId: 'M9_Curtain_Wall_Grid',
-        label: 'Curtain Wall',
-        value: 'curtain-wall',
+        label: 'Curtain Wall Window (Advanced Grid)',
+        value: 'Curtain Wall Window (Advanced Grid)',
       },
     ],
   },

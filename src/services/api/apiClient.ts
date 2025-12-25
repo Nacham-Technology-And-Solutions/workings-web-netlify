@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import logger from '@/utils/logger';
 
 // Base URL from environment or default to localhost
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://10.20.218.5:5000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://10.140.21.6:5000';
 // const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 // Mutex to prevent concurrent token refresh attempts

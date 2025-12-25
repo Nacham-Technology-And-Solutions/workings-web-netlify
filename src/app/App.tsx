@@ -58,7 +58,7 @@ import { getApiResponseData, normalizeApiResponse, isApiResponseSuccess } from '
 import { transformQuoteDataToBackend, transformBackendQuoteToPreview, transformStandaloneQuoteToBackend } from '../utils/dataTransformers';
 
 // Import types and constants
-import type { FloorPlan, Tool, EstimateCategory } from '../types';
+import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
 import { sampleFloorPlan, initialEstimates, sampleFullQuotes, sampleFullMaterialLists } from '../constants';
 
 const PIXELS_PER_FOOT = 10; // 10 pixels = 1 foot
@@ -254,6 +254,87 @@ const App: React.FC = () => {
     setSelectedProjectId(null);
     setRefreshProjects(prev => prev + 1);
     navigate('projects');
+  };
+
+  const handleEditCalculationSettings = async (projectId: string) => {
+    try {
+      const projectIdNum = parseInt(projectId, 10);
+      if (isNaN(projectIdNum)) {
+        console.error('Invalid project ID for editing calculation settings:', projectId);
+        return;
+      }
+
+      const response = await projectsService.getById(projectIdNum);
+      const normalizedResponse = normalizeApiResponse(response);
+
+      if (normalizedResponse.success && normalizedResponse.response) {
+        const projectData = normalizedResponse.response as any;
+        
+        // Load project data into flow state
+        setProjectDescriptionData({
+          projectName: projectData.projectName,
+          customerName: projectData.customer?.name || '',
+          siteAddress: projectData.siteAddress,
+          description: projectData.description,
+        });
+
+        // Reconstruct selectProjectData from glazingDimensions
+        const newSelectProjectData: SelectProjectData = {
+          windows: [],
+          doors: [],
+          skylights: [],
+          glassPanels: [],
+        };
+
+        projectData.glazingDimensions.forEach((dim: GlazingDimension) => {
+          if (dim.glazingCategory === 'Window' && !newSelectProjectData.windows.includes(dim.glazingType)) {
+            newSelectProjectData.windows.push(dim.glazingType);
+          } else if (dim.glazingCategory === 'Door' && !newSelectProjectData.doors.includes(dim.glazingType)) {
+            newSelectProjectData.doors.push(dim.glazingType);
+          } else if (dim.glazingCategory === 'Net' && !newSelectProjectData.skylights.includes(dim.glazingType)) {
+            newSelectProjectData.skylights.push(dim.glazingType);
+          } else if (dim.glazingCategory === 'Curtain Wall' && !newSelectProjectData.glassPanels.includes(dim.glazingType)) {
+            newSelectProjectData.glassPanels.push(dim.glazingType);
+          }
+        });
+        setSelectProjectData(newSelectProjectData);
+
+        // Reconstruct projectMeasurementData
+        const newMeasurementData: ProjectMeasurementData = {
+          dimensions: projectData.glazingDimensions.map((dim: GlazingDimension, index: number) => ({
+            id: `dim-${index}`,
+            type: dim.glazingType,
+            width: dim.parameters.W?.toString() || '',
+            height: dim.parameters.H?.toString() || '',
+            quantity: dim.parameters.qty?.toString() || '',
+            panel: dim.parameters.N?.toString() || dim.parameters.O?.toString() || '1',
+          })),
+          unit: 'mm',
+        };
+        setProjectMeasurementData(newMeasurementData);
+
+        // Store calculation settings for editing (they can be modified in the flow)
+        // The calculation settings will be used when recalculating
+        
+        // Set draftProjectId
+        setDraftProjectId(projectIdNum);
+
+        // Show warning and navigate to project solution where they can edit settings
+        const confirmed = window.confirm(
+          'You are about to edit calculation settings and recalculate the project. ' +
+          'This will update the project with new calculation results. Continue?'
+        );
+        
+        if (confirmed) {
+          // Navigate to project solution - they can modify settings there before recalculating
+          navigate('projectSolution');
+        }
+      } else {
+        console.error('Failed to load project for editing calculation settings:', normalizedResponse.message);
+      }
+    } catch (error) {
+      console.error('Error loading project for editing calculation settings:', error);
+    }
   };
 
   const handleProjectCalculate = async (projectId: string) => {
@@ -457,11 +538,15 @@ const App: React.FC = () => {
   };
 
   const handleProjectSolutionGenerate = (materialCost: number) => {
-    // Navigate to create new quote page
-    navigate('newProject');
+    // Use unified quote flow - same as handleCreateQuoteFromSolution
+    handleCreateQuoteFromSolution(materialCost);
   };
 
-  const handleCreateQuoteFromSolution = (materialCost?: number) => {
+  const handleCreateQuoteFromSolution = (
+    materialCost?: number,
+    calculationResult?: any,
+    projectMeasurement?: ProjectMeasurementData
+  ) => {
     // Store material cost for quote configuration
     if (materialCost !== undefined) {
       setMaterialCostFromStep4(materialCost);
@@ -477,11 +562,16 @@ const App: React.FC = () => {
       paymentTerms: '',
     };
     
-    // Initialize the standalone quote data structure with project overview
+    // Initialize the standalone quote data structure with project overview and project data
     setStandaloneQuoteData({
       overview: projectOverviewData,
       itemList: undefined,
       extrasNotes: undefined,
+      // Store project data for quote item list population
+      projectData: {
+        calculationResult,
+        projectMeasurement,
+      },
     });
     
     // Navigate to unified quote overview screen (same as standalone flow)
@@ -923,7 +1013,16 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'quotePreview' && generatedQuote) {
-    return <QuotePreviewScreen quote={generatedQuote} onBack={() => navigate('quotes')} onEdit={() => navigate('newProject')} />;
+    return <QuotePreviewScreen quote={generatedQuote} onBack={() => navigate('quotes')} onEdit={() => {
+      // Use unified quote flow for editing
+      // If we're already editing a quote, navigate back to quote overview
+      if (editingQuoteId) {
+        navigate('quoteOverview');
+      } else {
+        // Start new quote in unified flow (since we don't have backend ID in preview)
+        handleNewQuote();
+      }
+    }} />;
   }
 
   if (currentView === 'quoteDetail' && selectedQuoteId) {
@@ -1166,6 +1265,7 @@ const App: React.FC = () => {
               onEdit={handleProjectEdit}
               onDelete={handleProjectDeleted}
               onCalculate={handleProjectCalculate}
+              onEditCalculationSettings={handleEditCalculationSettings}
             />
           </div>
         </div>

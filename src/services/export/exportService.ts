@@ -198,6 +198,128 @@ export const exportCuttingListToExcel = (
   XLSX.writeFile(wb, `Cutting-List-${projectName.replace(/\s+/g, '-')}.xlsx`);
 };
 
+interface GlassCuttingLayout {
+  sheetNumber: number;
+  sheetType: string;
+  sheetWidth: number;
+  sheetHeight: number;
+  cuts: Array<{
+    w: number;
+    h: number;
+    qty: number;
+  }>;
+  totalCuts: number;
+}
+
+export const exportGlassCuttingListToPDF = (
+  layouts: GlassCuttingLayout[],
+  projectName: string
+) => {
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Glass Cutting List', 14, 20);
+
+  // Project Info
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Project: ${projectName}`, 14, 30);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 36);
+  doc.text(`Total Sheets: ${layouts.length}`, 14, 42);
+
+  let startY = 50;
+  
+  layouts.forEach((layout, index) => {
+    // Check if we need a new page
+    if (startY > 250) {
+      doc.addPage();
+      startY = 20;
+    }
+
+    // Sheet Header
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Sheet ${layout.sheetNumber}`, 14, startY);
+    
+    startY += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Sheet Type: ${layout.sheetType}`, 14, startY);
+    startY += 6;
+    doc.text(`Dimensions: ${layout.sheetWidth}mm x ${layout.sheetHeight}mm`, 14, startY);
+    startY += 6;
+    doc.text(`Total Cuts: ${layout.totalCuts}`, 14, startY);
+    startY += 10;
+
+    // Cuts Table
+    const tableData = layout.cuts.map((cut) => [
+      `${cut.w}mm`,
+      `${cut.h}mm`,
+      cut.qty
+    ]);
+
+    autoTable(doc, {
+      startY: startY,
+      head: [['Width', 'Height', 'Quantity']],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' }
+    });
+
+    startY = (doc as any).lastAutoTable.finalY + 10;
+  });
+
+  // Save
+  doc.save(`Glass-Cutting-List-${projectName.replace(/\s+/g, '-')}.pdf`);
+};
+
+export const exportGlassCuttingListToExcel = (
+  layouts: GlassCuttingLayout[],
+  projectName: string
+) => {
+  // Create worksheet data
+  const wsData = [
+    ['Glass Cutting List'],
+    [],
+    ['Project:', projectName],
+    ['Date:', new Date().toLocaleDateString()],
+    ['Total Sheets:', layouts.length],
+    [],
+  ];
+
+  // Add data for each sheet
+  layouts.forEach((layout) => {
+    wsData.push([]);
+    wsData.push([`Sheet ${layout.sheetNumber}`]);
+    wsData.push([`Sheet Type: ${layout.sheetType}`]);
+    wsData.push([`Dimensions: ${layout.sheetWidth}mm x ${layout.sheetHeight}mm`]);
+    wsData.push([`Total Cuts: ${layout.totalCuts}`]);
+    wsData.push([]);
+    wsData.push(['Width (mm)', 'Height (mm)', 'Quantity']);
+    layout.cuts.forEach((cut) => {
+      wsData.push([cut.w, cut.h, cut.qty]);
+    });
+  });
+
+  // Create workbook
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  ws['!cols'] = [
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 12 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Glass Cutting List');
+
+  // Save file
+  XLSX.writeFile(wb, `Glass-Cutting-List-${projectName.replace(/\s+/g, '-')}.xlsx`);
+};
+
 export const shareData = async (
   type: 'material' | 'cutting',
   data: any,

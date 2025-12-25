@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { QuotePreviewData, Quote, QuoteOverviewData, QuoteItemListData, QuoteExtrasNotesData } from '@/types/quote';
+import type { ProjectMeasurementData } from '@/types/project';
+import type { CalculationResult } from '@/types/calculations';
 
 interface QuoteState {
   // Generated quote (from project solution)
@@ -14,6 +16,10 @@ interface QuoteState {
     overview?: QuoteOverviewData;
     itemList?: QuoteItemListData;
     extrasNotes?: QuoteExtrasNotesData;
+    projectData?: {
+      calculationResult?: CalculationResult;
+      projectMeasurement?: ProjectMeasurementData;
+    };
   } | null;
   
   // Editing quote ID (for edit flow)

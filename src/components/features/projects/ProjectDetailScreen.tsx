@@ -12,6 +12,7 @@ interface ProjectDetailScreenProps {
   onEdit?: (projectId: string) => void;
   onDelete?: () => void;
   onCalculate?: (projectId: string) => void;
+  onEditCalculationSettings?: (projectId: string) => void;
 }
 
 const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
@@ -20,6 +21,7 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
   onEdit,
   onDelete,
   onCalculate,
+  onEditCalculationSettings,
 }) => {
   const [project, setProject] = useState<ApiProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -203,6 +205,14 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
                 className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
               >
                 Calculate
+              </button>
+            )}
+            {onEditCalculationSettings && project?.calculationSettings && (
+              <button
+                onClick={() => onEditCalculationSettings(projectId)}
+                className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+              >
+                Edit Calculation Settings
               </button>
             )}
             {onEdit && (

@@ -10,7 +10,7 @@ export type GlazingCategory = 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain
 
 /**
  * Maps glazing type string and category to module ID
- * @param type - Frontend glazing type string (e.g., "Casement (D/curve)")
+ * @param type - Frontend glazing type string (e.g., "Casement Window (D/Curve)")
  * @param category - Glazing category (e.g., "Window")
  * @returns Module ID (e.g., "M1_Casement_DCurve")
  */
@@ -19,46 +19,41 @@ export function mapGlazingTypeToModuleId(type: string, category: GlazingCategory
 
   // Window modules
   if (category === 'Window') {
-    if (normalizedType.includes('casement') && normalizedType.includes('d/curve')) {
+    if (normalizedType.includes('casement') && (normalizedType.includes('d/curve') || normalizedType.includes('d-curve'))) {
       return 'M1_Casement_DCurve';
     }
-    if (normalizedType.includes('casement') && normalizedType.includes('ebm')) {
-      return 'M1_Casement_DCurve'; // EBM Casement uses same module (or separate if different)
-    }
-    if (normalizedType.includes('sliding') && normalizedType.includes('normal')) {
+    if (normalizedType.includes('sliding') && normalizedType.includes('standard 2-sash')) {
       return 'M2_Sliding_2Sash';
     }
-    if (normalizedType.includes('sliding') && normalizedType.includes('ebm')) {
-      return 'M2_Sliding_2Sash'; // EBM Sliding uses same module (or separate if different)
+    if (normalizedType.includes('sliding') && normalizedType.includes('2-sash') && normalizedType.includes('fixed net')) {
+      return 'M3_Sliding_2Sash_Net';
     }
-    if (normalizedType.includes('sliding') && normalizedType.includes('ghana')) {
-      return 'M2_Sliding_2Sash'; // Ghana Sliding uses same module (or separate if different)
+    if (normalizedType.includes('sliding') && normalizedType.includes('3-track')) {
+      return 'M4_Sliding_3Track';
     }
-    // Add more window type mappings as needed
+    if (normalizedType.includes('sliding') && normalizedType.includes('3-sash') && normalizedType.includes('all-glass')) {
+      return 'M5_Sliding_3Sash';
+    }
   }
 
   // Net modules
   if (category === 'Net') {
-    if (normalizedType.includes('1125/26') || normalizedType.includes('1132')) {
+    if (normalizedType.includes('1125/26') && normalizedType.includes('1132')) {
       return 'M6_Net_1125_26';
     }
-    if (normalizedType.includes('ebm') && normalizedType.includes('1125/26')) {
+    if (normalizedType.includes('ebm-net') && normalizedType.includes('1125/26')) {
       return 'M7_EBM_Net_1125_26';
     }
-    if (normalizedType.includes('ebm') && normalizedType.includes('u-channel')) {
+    if (normalizedType.includes('ebm-net') && normalizedType.includes('u-channel')) {
       return 'M8_EBM_Net_UChannel';
-    }
-    if (normalizedType.includes('fixed')) {
-      return 'M6_Net_1125_26'; // Default to 1125/26 for fixed nets
     }
   }
 
   // Curtain Wall modules
   if (category === 'Curtain Wall') {
-    if (normalizedType.includes('grid') || normalizedType.includes('advanced')) {
+    if (normalizedType.includes('curtain wall') && normalizedType.includes('advanced grid')) {
       return 'M9_Curtain_Wall_Grid';
     }
-    // Add more curtain wall type mappings as needed
   }
 
   // Door modules (Uncompleted Modules - placeholders)
@@ -95,25 +90,10 @@ export function getCategoryFromKey(key: string): GlazingCategory {
 
 /**
  * Gets the standard glazing type name from frontend type string
- * Converts "Casement (D/curve)" to "Casement Window (D/Curve)"
+ * Returns the type as-is since we now use standardized names
  */
 export function normalizeGlazingType(type: string, category: GlazingCategory): string {
-  const normalized = type.trim();
-
-  // Add category suffix if not present
-  if (category === 'Window' && !normalized.toLowerCase().includes('window')) {
-    return `${normalized} Window`;
-  }
-  if (category === 'Door' && !normalized.toLowerCase().includes('door')) {
-    return `${normalized} Door`;
-  }
-  if (category === 'Net' && !normalized.toLowerCase().includes('net')) {
-    return `${normalized} Net`;
-  }
-  if (category === 'Curtain Wall' && !normalized.toLowerCase().includes('curtain')) {
-    return `${normalized} Curtain Wall`;
-  }
-
-  return normalized;
+  // Types are already standardized, return as-is
+  return type.trim();
 }
 
