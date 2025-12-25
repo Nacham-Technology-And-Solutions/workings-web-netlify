@@ -13,28 +13,52 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
     onDownloadPDF,
     previousData
 }) => {
-    // Sample data - should come from previousData
-    const quoteData = {
+    // Use previousData (generatedQuote) instead of hardcoded sample data
+    // Transform the data structure to match what the component expects
+    const quoteData = previousData ? {
+        quoteId: previousData.quoteId || '#000045',
+        issueDate: previousData.issueDate || new Date().toLocaleDateString('en-GB', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+        }),
+        billedTo: previousData.customerName || '',
+        email: previousData.customerEmail || '',
+        project: previousData.projectName || '',
+        location: previousData.siteAddress || '',
+        items: previousData.items?.map((item: any) => ({
+            description: item.description,
+            qty: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.total
+        })) || [],
+        subtotal: previousData.summary?.subtotal || 0,
+        charges: previousData.summary?.charges || [],
+        grandTotal: previousData.summary?.grandTotal || 0,
+        paymentInfo: previousData.paymentInfo || {
+            accountName: '',
+            accountNumber: '',
+            bankName: ''
+        }
+    } : {
         quoteId: '#000045',
-        issueDate: '19th June, 2025',
-        billedTo: 'Olumide Adewale',
+        issueDate: new Date().toLocaleDateString('en-GB', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+        }),
+        billedTo: '',
         email: '',
-        project: 'Olumide Residence Renovation',
-        location: 'Lagos Island Apartment Refurbishment',
-        items: [
-            { description: '1200 x 1200', qty: 10, unitPrice: 10000, total: 1000000 },
-            { description: '600 x 700', qty: 4, unitPrice: 10000, total: 140000 },
-        ],
-        subtotal: 1140000,
-        charges: [
-            { label: 'Labor Charge', amount: 250000 },
-            { label: 'Transport Charge', amount: 70000 }
-        ],
-        grandTotal: 1460000,
+        project: '',
+        location: '',
+        items: [],
+        subtotal: 0,
+        charges: [],
+        grandTotal: 0,
         paymentInfo: {
-            accountName: 'Olumide Adewale',
-            accountNumber: '10-4030-011094',
-            bankName: 'Zenith Bank'
+            accountName: '',
+            accountNumber: '',
+            bankName: ''
         }
     };
 
@@ -179,24 +203,12 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                                         <span className="text-sm text-gray-600">Subtotal</span>
                                         <span className="text-sm font-medium text-gray-900">₦{quoteData.subtotal.toLocaleString()}</span>
                                     </div>
-                                    {quoteData.charges && quoteData.charges.map((charge, index) => (
+                                    {quoteData.charges && quoteData.charges.length > 0 && quoteData.charges.map((charge, index) => (
                                         <div key={index} className="flex justify-between items-center">
                                             <span className="text-sm text-gray-600">{charge.label}</span>
                                             <span className="text-sm font-medium text-gray-900">₦{charge.amount.toLocaleString()}</span>
                                         </div>
                                     ))}
-                                    {!quoteData.charges && (
-                                        <>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Labor Charge</span>
-                                                <span className="text-sm font-medium text-gray-900">₦{((quoteData as any).laborCharge || 0).toLocaleString()}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Transport Charge</span>
-                                                <span className="text-sm font-medium text-gray-900">₦{((quoteData as any).transportCharge || 0).toLocaleString()}</span>
-                                            </div>
-                                        </>
-                                    )}
                                     <div className="pt-3 border-t border-gray-200">
                                         <div className="flex justify-between items-center">
                                             <span className="text-base font-semibold text-gray-900">Grand Total</span>
@@ -211,18 +223,24 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                                 <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">Payment Information</h3>
 
                                 <div className="space-y-3">
-                                    <div>
-                                        <p className="text-xs text-gray-500 mb-1">Account Name:</p>
-                                        <p className="text-sm font-medium text-gray-900">{quoteData.paymentInfo.accountName}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 mb-1">Account Number:</p>
-                                        <p className="text-sm font-medium text-gray-900">{quoteData.paymentInfo.accountNumber}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 mb-1">Bank Name:</p>
-                                        <p className="text-sm font-medium text-gray-900">{quoteData.paymentInfo.bankName}</p>
-                                    </div>
+                                    {quoteData.paymentInfo.accountName ? (
+                                        <>
+                                            <div>
+                                                <p className="text-xs text-gray-500 mb-1">Account Name:</p>
+                                                <p className="text-sm font-medium text-gray-900">{quoteData.paymentInfo.accountName}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 mb-1">Account Number:</p>
+                                                <p className="text-sm font-medium text-gray-900">{quoteData.paymentInfo.accountNumber}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 mb-1">Bank Name:</p>
+                                                <p className="text-sm font-medium text-gray-900">{quoteData.paymentInfo.bankName}</p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <p className="text-sm text-gray-500 italic">No payment information provided</p>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -11,6 +11,8 @@ import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '
 interface QuotesScreenProps {
     onNewQuote: () => void;
     onViewQuote: (quoteId: string) => void;
+    onEditQuote?: (quoteId: string) => void;
+    onDeleteQuote?: (quoteId: string) => void;
     onBack?: () => void;
     refreshTrigger?: number; // Optional prop to trigger refresh
 }
@@ -19,7 +21,7 @@ type Tab = 'All' | 'Draft' | 'Paid' | 'Unpaid';
 
 const tabs: Tab[] = ['All', 'Draft', 'Paid', 'Unpaid'];
 
-const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, onBack, refreshTrigger }) => {
+const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, onEditQuote, onDeleteQuote, onBack, refreshTrigger }) => {
   const [activeTab, setActiveTab] = useState<Tab>('All');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -139,6 +141,44 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
   
   const { title, message } = getEmptyStateContent();
 
+  const handleEditQuote = (quote: Quote) => {
+    if (onEditQuote) {
+      onEditQuote(quote.id);
+    }
+  };
+
+  const handleDeleteQuote = async (quote: Quote) => {
+    if (!onDeleteQuote) return;
+    
+    if (!window.confirm(`Are you sure you want to delete quote "${quote.quoteNumber}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const quoteIdNum = parseInt(quote.id, 10);
+      if (isNaN(quoteIdNum)) {
+        setError('Invalid quote ID');
+        return;
+      }
+
+      const response = await quotesService.delete(quoteIdNum);
+      
+      const normalizedResponse = normalizeApiResponse(response);
+      
+      if (normalizedResponse.success || isApiResponseSuccess(response)) {
+        // Refresh quotes list
+        fetchQuotes();
+        // Also call the callback if provided
+        onDeleteQuote(quote.id);
+      } else {
+        setError(normalizedResponse.message || 'Failed to delete quote');
+      }
+    } catch (err: any) {
+      console.error('Error deleting quote:', err);
+      setError('Failed to delete quote. Please try again.');
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#FAFAFA]">
         <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
@@ -203,7 +243,14 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
                     /* Multi-column grid */
                     <div className="space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0">
                     {filteredQuotes.map(quote => (
-                        <QuoteCard key={quote.id} quote={quote} activeTab={activeTab} onViewQuote={() => onViewQuote(quote.id)} />
+                        <QuoteCard 
+                            key={quote.id} 
+                            quote={quote} 
+                            activeTab={activeTab} 
+                            onViewQuote={() => onViewQuote(quote.id)}
+                            onEdit={onEditQuote ? () => handleEditQuote(quote) : undefined}
+                            onDelete={onDeleteQuote ? () => handleDeleteQuote(quote) : undefined}
+                        />
                     ))}
                 </div>
             ) : (

@@ -108,12 +108,36 @@ export function getInitialQuoteItems(
   projectMeasurement?: ProjectMeasurementData,
   calculationResult?: CalculationResult
 ): QuoteItemRow[] {
-  if (listType === 'dimension' && projectMeasurement?.dimensions) {
-    return convertDimensionsToQuoteItems(projectMeasurement.dimensions);
+  if (listType === 'dimension') {
+    if (projectMeasurement?.dimensions && Array.isArray(projectMeasurement.dimensions) && projectMeasurement.dimensions.length > 0) {
+      return convertDimensionsToQuoteItems(projectMeasurement.dimensions);
+    }
+    // Log for debugging
+    if (import.meta.env.DEV) {
+      console.log('[getInitialQuoteItems] Dimension list requested but no dimensions found:', {
+        hasProjectMeasurement: !!projectMeasurement,
+        hasDimensions: !!projectMeasurement?.dimensions,
+        dimensionsLength: projectMeasurement?.dimensions?.length || 0
+      });
+    }
   }
 
-  if (listType === 'material' && calculationResult) {
-    return convertMaterialListToQuoteItems(calculationResult);
+  if (listType === 'material') {
+    if (calculationResult) {
+      const items = convertMaterialListToQuoteItems(calculationResult);
+      if (items.length > 0) {
+        return items;
+      }
+    }
+    // Log for debugging
+    if (import.meta.env.DEV) {
+      console.log('[getInitialQuoteItems] Material list requested but no material items found:', {
+        hasCalculationResult: !!calculationResult,
+        hasMaterialList: !!calculationResult?.materialList,
+        hasAccessoryTotals: !!calculationResult?.accessoryTotals,
+        hasRubberTotals: !!calculationResult?.rubberTotals
+      });
+    }
   }
 
   return [];

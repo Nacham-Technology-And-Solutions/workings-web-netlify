@@ -12,6 +12,7 @@ interface QuoteDetailScreenProps {
   quoteId: string;
   onBack: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 
@@ -23,7 +24,7 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 );
 
 
-const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, onEdit }) => {
+const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, onEdit, onDelete }) => {
   const [quote, setQuote] = useState<QuotePreviewData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +138,29 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
     }
   };
 
+  const handleDeleteQuote = async () => {
+    if (!onDelete) return;
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to delete quote ${quote?.quoteId}? This action cannot be undone.`
+    );
+    
+    if (confirmed) {
+      try {
+        const response = await quotesService.delete(parseInt(quoteId));
+        if (isApiResponseSuccess(response)) {
+          // Call the onDelete callback to handle navigation and refresh
+          onDelete();
+        } else {
+          alert('Failed to delete quote. Please try again.');
+        }
+      } catch (error: any) {
+        console.error('[QuoteDetailScreen] Error deleting quote:', error);
+        alert('An error occurred while deleting the quote. Please try again.');
+      }
+    }
+  };
+
   const date = new Date(quote.issueDate);
   const day = date.getDate();
   const month = date.toLocaleString('en-GB', { month: 'long' });
@@ -203,8 +227,8 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
                 </button>
                 <button
                   onClick={() => {
-                    // TODO: Implement delete quote
                     setShowMoreMenu(false);
+                    handleDeleteQuote();
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                 >

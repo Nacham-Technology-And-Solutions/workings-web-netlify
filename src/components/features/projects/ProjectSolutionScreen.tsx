@@ -573,7 +573,27 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             {!isLoading && !error && calculationResult && (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => onCreateQuote?.(grandTotal, calculationResult, previousData?.projectMeasurement) || onGenerate(grandTotal)}
+                  onClick={() => {
+                    // Debug logging
+                    if (import.meta.env.DEV) {
+                      console.log('[ProjectSolutionScreen] Generate Quote clicked:', {
+                        hasOnCreateQuote: !!onCreateQuote,
+                        hasCalculationResult: !!calculationResult,
+                        hasProjectMeasurement: !!previousData?.projectMeasurement,
+                        calculationResultType: typeof calculationResult,
+                        projectMeasurementType: typeof previousData?.projectMeasurement,
+                        calculationResultKeys: calculationResult ? Object.keys(calculationResult) : [],
+                        projectMeasurementKeys: previousData?.projectMeasurement ? Object.keys(previousData.projectMeasurement) : [],
+                        grandTotal
+                      });
+                    }
+                    
+                    if (onCreateQuote) {
+                      onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
+                    } else {
+                      onGenerate(grandTotal);
+                    }
+                  }}
                   disabled={isSaving}
                   className="px-6 py-3 font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1091,8 +1111,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         </div>
                       </div>
 
-                      {/* Layouts Grid */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Layouts Grid - Always 2 columns per row (left-to-right flow) */}
+                      <div className="grid grid-cols-2 gap-6">
                         {layouts.map((layout, layoutIndex) => {
                           const layoutLetter = String.fromCharCode(65 + layoutIndex); // A, B, C, etc.
                           const totalCutsWidth = layout.cuts.reduce((sum, cut) => sum + (cut.length / layout.stockLength * 100), 0);

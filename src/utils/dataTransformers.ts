@@ -192,6 +192,12 @@ export function transformBackendQuoteToPreview(
     quoteName?: string;
     siteAddress?: string;
     customerContact?: string;
+  },
+  extrasNotesData?: {
+    accountName?: string;
+    accountNumber?: string;
+    bankName?: string;
+    addedCharges?: Array<{ description: string; amount: number }>;
   }
 ): {
   projectName: string;
@@ -229,8 +235,19 @@ export function transformBackendQuoteToPreview(
     type: 'material' as const, // All items from backend are material type
   }));
 
-  // Build charges array (tax and any other charges)
+  // Build charges array from extra charges and tax
   const charges: Array<{ label: string; amount: number }> = [];
+  
+  // Add extra charges from extrasNotesData if available
+  if (extrasNotesData?.addedCharges && extrasNotesData.addedCharges.length > 0) {
+    extrasNotesData.addedCharges.forEach((charge) => {
+      if (charge.description && charge.amount > 0) {
+        charges.push({ label: charge.description, amount: charge.amount });
+      }
+    });
+  }
+  
+  // Add tax if it exists
   if (backendQuote.tax > 0) {
     charges.push({ label: 'Tax (VAT)', amount: backendQuote.tax });
   }
@@ -239,11 +256,11 @@ export function transformBackendQuoteToPreview(
   const projectName = backendQuote.project?.projectName || quoteConfig?.quoteName || 'Project';
   const siteAddress = backendQuote.project?.siteAddress || backendQuote.customerAddress || quoteConfig?.siteAddress || '';
 
-  // Default payment info (should come from settings or be configurable)
+  // Use account details from extrasNotesData if provided, otherwise use empty strings (user must provide)
   const paymentInfo = {
-    accountName: 'Leads Glazing LTD',
-    accountNumber: '10-4030-011094',
-    bankName: 'Zenith Bank',
+    accountName: extrasNotesData?.accountName || '',
+    accountNumber: extrasNotesData?.accountNumber || '',
+    bankName: extrasNotesData?.bankName || '',
   };
 
   return {

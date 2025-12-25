@@ -2,22 +2,25 @@ import React, { useState, useEffect } from 'react';
 import type { QuoteExtrasNotesData } from '@/types';
 import { userService } from '@/services/api';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
-import { useAuthStore } from '@/stores';
+import { useAuthStore, useTemplateStore } from '@/stores';
 
 interface QuoteExtrasNotesScreenProps {
     onBack: () => void;
     onPreview: (data: QuoteExtrasNotesData) => void;
     onSaveDraft: (data: QuoteExtrasNotesData) => void;
     previousData?: any;
+    onNavigate?: (view: string) => void;
 }
 
 const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
     onBack,
     onPreview,
     onSaveDraft,
-    previousData
+    previousData,
+    onNavigate
 }) => {
     const { user } = useAuthStore();
+    const { paymentMethods: templatePaymentMethods, getDefaultPaymentMethod } = useTemplateStore();
     const [extraCharges, setExtraCharges] = useState(previousData?.extrasNotes?.extraCharges || '');
     const [amount, setAmount] = useState(previousData?.extrasNotes?.amount || 0);
     const [additionalNotes, setAdditionalNotes] = useState(previousData?.extrasNotes?.additionalNotes || '');
@@ -33,63 +36,72 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
     const subtotal = previousData?.itemList?.subtotal || 140000;
     const total = subtotal + amount + addedCharges.reduce((sum, charge) => sum + charge.amount, 0);
 
-    // Fetch user payment methods on mount
+    // Load payment methods from template store and user profile
     useEffect(() => {
-        const fetchPaymentMethods = async () => {
-            if (!user?.id) return;
-            
+        const loadPaymentMethods = async () => {
             setIsLoadingPaymentMethods(true);
+            
             try {
-                const response = await userService.getProfile(user.id);
-                if (isApiResponseSuccess(response)) {
-                    const responseData = getApiResponseData(response) as any;
-                    const userProfile = responseData?.user || responseData;
-                    
-                    // Add user's bank details to payment methods if available
-                    if (userProfile.bankDetails) {
-                        const methods = [{
-                            accountName: userProfile.bankDetails.accountName,
-                            accountNumber: userProfile.bankDetails.accountNumber,
-                            bankName: userProfile.bankDetails.bankName,
-                        }];
-                        setPaymentMethods(methods);
-                        
-                        // Set as default if no previous data
-                        if (!previousData?.extrasNotes?.accountName) {
-                            setAccountName(userProfile.bankDetails.accountName);
-                            setAccountNumber(userProfile.bankDetails.accountNumber);
-                            setBankName(userProfile.bankDetails.bankName);
-                            setSelectedPaymentMethod('default');
-                        } else {
-                            // Use previous data if available
-                            setAccountName(previousData.extrasNotes.accountName);
-                            setAccountNumber(previousData.extrasNotes.accountNumber);
-                            setBankName(previousData.extrasNotes.bankName);
+                // First, try to get payment methods from template store
+                const templateMethods = templatePaymentMethods.map((pm) => ({
+                    accountName: pm.accountName,
+                    accountNumber: pm.accountNumber,
+                    bankName: pm.bankName,
+                }));
+
+                // Also try to get from user profile as fallback
+                let userProfileMethods: Array<{ accountName: string; accountNumber: string; bankName: string }> = [];
+                if (user?.id) {
+                    try {
+                        const response = await userService.getProfile(user.id);
+                        if (isApiResponseSuccess(response)) {
+                            const responseData = getApiResponseData(response) as any;
+                            const userProfile = responseData?.user || responseData;
+                            if (userProfile.bankDetails) {
+                                userProfileMethods = [{
+                                    accountName: userProfile.bankDetails.accountName,
+                                    accountNumber: userProfile.bankDetails.accountNumber,
+                                    bankName: userProfile.bankDetails.bankName,
+                                }];
+                            }
                         }
-                    } else {
-                        // Use previous data if available, otherwise show configure message
-                        if (previousData?.extrasNotes?.accountName) {
-                            setAccountName(previousData.extrasNotes.accountName);
-                            setAccountNumber(previousData.extrasNotes.accountNumber);
-                            setBankName(previousData.extrasNotes.bankName);
-                        }
+                    } catch (error) {
+                        console.error('[QuoteExtrasNotesScreen] Error fetching user profile:', error);
                     }
                 }
-            } catch (error: any) {
-                console.error('[QuoteExtrasNotesScreen] Error fetching payment methods:', error);
-                // Use previous data or defaults if fetch fails
-                if (previousData?.extrasNotes?.accountName) {
+
+                // Combine template methods and user profile methods (template methods take priority)
+                const allMethods = [...templateMethods, ...userProfileMethods];
+                setPaymentMethods(allMethods);
+
+                // Auto-populate default payment method from template store if available
+                const defaultMethod = getDefaultPaymentMethod();
+                if (defaultMethod && !previousData?.extrasNotes?.accountName) {
+                    setAccountName(defaultMethod.accountName);
+                    setAccountNumber(defaultMethod.accountNumber);
+                    setBankName(defaultMethod.bankName);
+                    setSelectedPaymentMethod('default');
+                } else if (previousData?.extrasNotes?.accountName) {
+                    // Use previous data if available
                     setAccountName(previousData.extrasNotes.accountName);
                     setAccountNumber(previousData.extrasNotes.accountNumber);
                     setBankName(previousData.extrasNotes.bankName);
+                } else if (allMethods.length > 0 && !defaultMethod) {
+                    // If no default but methods exist, use first one
+                    setAccountName(allMethods[0].accountName);
+                    setAccountNumber(allMethods[0].accountNumber);
+                    setBankName(allMethods[0].bankName);
+                    setSelectedPaymentMethod('default');
                 }
+            } catch (error: any) {
+                console.error('[QuoteExtrasNotesScreen] Error loading payment methods:', error);
             } finally {
                 setIsLoadingPaymentMethods(false);
             }
         };
 
-        fetchPaymentMethods();
-    }, [user?.id, previousData]);
+        loadPaymentMethods();
+    }, [user?.id, previousData, templatePaymentMethods, getDefaultPaymentMethod]);
 
     // Handle payment method selection
     const handlePaymentMethodChange = (method: { accountName: string; accountNumber: string; bankName: string }) => {
@@ -111,6 +123,12 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
     };
 
     const handlePreview = () => {
+        // Validate that account details are provided
+        if (!accountName || !accountNumber || !bankName) {
+            alert('Please provide account details (Account Name, Account Number, and Bank Name) before proceeding to preview.');
+            return;
+        }
+
         const data: QuoteExtrasNotesData = {
             extraCharges: addedCharges.map(c => c.description).join(', '),
             amount: addedCharges.reduce((sum, c) => sum + c.amount, 0),
@@ -345,8 +363,9 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                             </p>
                                             <button
                                                 onClick={() => {
-                                                    // Navigate to settings - this will be handled by parent
-                                                    window.location.href = '#settings';
+                                                    if (onNavigate) {
+                                                        onNavigate('templates');
+                                                    }
                                                 }}
                                                 className="text-sm text-yellow-900 font-semibold underline hover:text-yellow-700"
                                             >
@@ -425,7 +444,12 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                             <div className="space-y-3 pt-4">
                                 <button
                                     onClick={handlePreview}
-                                    className="w-full py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800 cursor-pointer"
+                                    disabled={!accountName || !accountNumber || !bankName}
+                                    className={`w-full py-3 font-semibold rounded-lg transition-colors ${
+                                        accountName && accountNumber && bankName
+                                            ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
+                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    }`}
                                 >
                                     Proceed to preview
                                 </button>

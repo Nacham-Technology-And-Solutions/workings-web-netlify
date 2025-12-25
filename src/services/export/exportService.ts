@@ -1,6 +1,52 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { useTemplateStore } from '@/stores/templateStore';
+
+// Helper function to get page size dimensions
+const getPageSize = (pageSize: string, customSize?: { width: number; height: number; unit: 'mm' | 'in' }) => {
+  if (pageSize === 'Custom' && customSize) {
+    return customSize.unit === 'mm' 
+      ? [customSize.width, customSize.height] as [number, number]
+      : [customSize.width * 25.4, customSize.height * 25.4] as [number, number];
+  }
+  
+  const sizes: Record<string, [number, number]> = {
+    'A4': [210, 297],
+    'Letter': [216, 279],
+    'Legal': [216, 356],
+    'A3': [297, 420],
+  };
+  
+  return sizes[pageSize] || sizes['A4'];
+};
+
+// Helper function to generate filename from pattern
+const generateFileName = (pattern: string, quote: QuoteData, dateFormat: string = 'YYYY-MM-DD'): string => {
+  const date = new Date();
+  let dateStr = '';
+  
+  switch (dateFormat) {
+    case 'DD-MM-YYYY':
+      dateStr = date.toLocaleDateString('en-GB').replace(/\//g, '-');
+      break;
+    case 'MM/DD/YYYY':
+      dateStr = date.toLocaleDateString('en-US');
+      break;
+    case 'YYYY/MM/DD':
+      dateStr = date.toISOString().split('T')[0].replace(/-/g, '/');
+      break;
+    default:
+      dateStr = date.toISOString().split('T')[0];
+  }
+  
+  return pattern
+    .replace('{quoteId}', quote.quoteId.replace(/#/g, ''))
+    .replace('{projectName}', quote.projectName.replace(/\s+/g, '-'))
+    .replace('{customerName}', quote.customerName.replace(/\s+/g, '-'))
+    .replace('{quoteNumber}', quote.quoteId.replace(/#/g, ''))
+    .replace('{date}', dateStr);
+};
 
 interface MaterialItem {
   id: string;
@@ -389,28 +435,82 @@ interface QuoteData {
  * Export quote to PDF
  */
 export const exportQuoteToPDF = (quote: QuoteData) => {
-  const doc = new jsPDF();
+  // Get PDF export configuration from template store
+  const pdfConfig = useTemplateStore.getState().pdfExport.quote;
+  const fileNamingConfig = useTemplateStore.getState().pdfExport.fileNaming;
+  const paymentMethodConfig = useTemplateStore.getState().paymentMethodConfig;
 
-  // Header
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('QUOTE', 14, 20);
+  // Get page size
+  const pageSize = getPageSize(pdfConfig.pageSize, pdfConfig.customSize);
+  
+  // Create PDF document with configured page size and orientation
+  const doc = new jsPDF({
+    orientation: pdfConfig.orientation,
+    unit: 'mm',
+    format: pageSize,
+  });
+
+  let currentY = pdfConfig.header.enabled ? pdfConfig.header.height : 20;
+
+  // Header section (if enabled)
+  if (pdfConfig.header.enabled) {
+    // Logo (if enabled and available from quote format config)
+    const quoteFormat = useTemplateStore.getState().quoteFormat;
+    if (pdfConfig.logo.enabled && quoteFormat.header.logoUrl) {
+      // Note: jsPDF doesn't directly support base64 images easily, 
+      // but we can add it if needed with addImage
+      // For now, we'll skip logo in PDF as it requires additional handling
+    }
+    
+    // Company name and tagline
+    if (quoteFormat.header.companyName) {
+      doc.setFontSize(pdfConfig.fonts.headingSize);
+      doc.setFont(pdfConfig.fonts.family as any, 'bold');
+      doc.setTextColor(pdfConfig.fonts.headingColor);
+      doc.text(quoteFormat.header.companyName, 14, 20);
+      currentY = 30;
+      
+      if (quoteFormat.header.tagline) {
+        doc.setFontSize(pdfConfig.fonts.bodySize);
+        doc.setFont(pdfConfig.fonts.family as any, 'normal');
+        doc.text(quoteFormat.header.tagline, 14, currentY);
+        currentY += 10;
+      }
+    } else {
+      // Default header
+      doc.setFontSize(pdfConfig.fonts.headingSize);
+      doc.setFont(pdfConfig.fonts.family as any, 'bold');
+      doc.setTextColor(pdfConfig.fonts.headingColor);
+      doc.text('QUOTE', 14, currentY);
+      currentY += 10;
+    }
+  } else {
+    currentY = 20;
+  }
 
   // Quote Info
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Quote ID: ${quote.quoteId}`, 14, 30);
-  doc.text(`Issue Date: ${quote.issueDate}`, 14, 36);
+  doc.setFontSize(pdfConfig.fonts.bodySize);
+  doc.setFont(pdfConfig.fonts.family as any, 'normal');
+  doc.setTextColor(pdfConfig.fonts.bodyColor);
+  doc.text(`Quote ID: ${quote.quoteId}`, 14, currentY);
+  currentY += 6;
+  doc.text(`Issue Date: ${quote.issueDate}`, 14, currentY);
+  currentY += 10;
 
   // Project Info
-  doc.text(`Project: ${quote.projectName}`, 14, 45);
-  doc.text(`Site Address: ${quote.siteAddress}`, 14, 51);
+  doc.text(`Project: ${quote.projectName}`, 14, currentY);
+  currentY += 6;
+  doc.text(`Site Address: ${quote.siteAddress}`, 14, currentY);
+  currentY += 10;
 
   // Customer Info
-  doc.text(`Customer: ${quote.customerName}`, 14, 60);
+  doc.text(`Customer: ${quote.customerName}`, 14, currentY);
+  currentY += 6;
   if (quote.customerEmail) {
-    doc.text(`Email: ${quote.customerEmail}`, 14, 66);
+    doc.text(`Email: ${quote.customerEmail}`, 14, currentY);
+    currentY += 6;
   }
+  currentY += 4;
 
   // Items Table
   const tableData = quote.items.map((item, index) => [
@@ -422,20 +522,29 @@ export const exportQuoteToPDF = (quote: QuoteData) => {
   ]);
 
   autoTable(doc, {
-    startY: 75,
+    startY: currentY,
     head: [['S/N', 'Description', 'Qty', 'Unit Price', 'Total']],
     body: tableData,
     theme: 'grid',
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' }
+    styles: { 
+      fontSize: pdfConfig.fonts.tableSize,
+      font: pdfConfig.fonts.family as any,
+      textColor: pdfConfig.fonts.bodyColor,
+    },
+    headStyles: { 
+      fillColor: [55, 65, 81], 
+      fontStyle: 'bold',
+      textColor: [255, 255, 255],
+    }
   });
 
   // Summary
-  const finalY = (doc as any).lastAutoTable.finalY || 75;
-  let currentY = finalY + 10;
+  const finalY = (doc as any).lastAutoTable.finalY || currentY;
+  currentY = finalY + 10;
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(pdfConfig.fonts.bodySize);
+  doc.setFont(pdfConfig.fonts.family as any, 'normal');
+  doc.setTextColor(pdfConfig.fonts.bodyColor);
   doc.text(`Subtotal: ₦${quote.summary.subtotal.toLocaleString()}`, 14, currentY);
   currentY += 6;
 
@@ -447,25 +556,52 @@ export const exportQuoteToPDF = (quote: QuoteData) => {
 
   // Grand Total
   currentY += 3;
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(pdfConfig.fonts.headingSize);
+  doc.setFont(pdfConfig.fonts.family as any, 'bold');
+  doc.setTextColor(pdfConfig.fonts.headingColor);
   doc.text(`Grand Total: ₦${quote.summary.grandTotal.toLocaleString()}`, 14, currentY);
   currentY += 10;
 
-  // Payment Information
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Payment Information', 14, currentY);
-  currentY += 6;
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Account Name: ${quote.paymentInfo.accountName}`, 14, currentY);
-  currentY += 6;
-  doc.text(`Account Number: ${quote.paymentInfo.accountNumber}`, 14, currentY);
-  currentY += 6;
-  doc.text(`Bank: ${quote.paymentInfo.bankName}`, 14, currentY);
+  // Payment Information (only if enabled in config and payment info exists)
+  if (paymentMethodConfig.displayOptions.showInPDF && quote.paymentInfo.accountName) {
+    doc.setFontSize(pdfConfig.fonts.bodySize);
+    doc.setFont(pdfConfig.fonts.family as any, 'bold');
+    doc.setTextColor(pdfConfig.fonts.headingColor);
+    doc.text('Payment Information', 14, currentY);
+    currentY += 6;
+    doc.setFont(pdfConfig.fonts.family as any, 'normal');
+    doc.setTextColor(pdfConfig.fonts.bodyColor);
+    doc.text(`Account Name: ${quote.paymentInfo.accountName}`, 14, currentY);
+    currentY += 6;
+    doc.text(`Account Number: ${quote.paymentInfo.accountNumber}`, 14, currentY);
+    currentY += 6;
+    doc.text(`Bank: ${quote.paymentInfo.bankName}`, 14, currentY);
+    currentY += 6;
+    
+    // Custom payment instructions if available
+    if (paymentMethodConfig.displayOptions.customInstructions) {
+      currentY += 3;
+      doc.text(paymentMethodConfig.displayOptions.customInstructions, 14, currentY);
+    }
+  }
 
-  // Save
-  const fileName = `Quote-${quote.quoteId.replace(/#/g, '')}-${quote.projectName.replace(/\s+/g, '-')}.pdf`;
+  // Footer (if enabled)
+  if (pdfConfig.footer.enabled) {
+    const quoteFormat = useTemplateStore.getState().quoteFormat;
+    if (quoteFormat.footer.visible && quoteFormat.footer.content) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const footerY = pageHeight - pdfConfig.footer.height;
+      doc.setFontSize(pdfConfig.fonts.bodySize - 1);
+      doc.setFont(pdfConfig.fonts.family as any, 'normal');
+      doc.setTextColor(pdfConfig.fonts.bodyColor);
+      doc.text(quoteFormat.footer.content, 14, footerY, {
+        align: quoteFormat.footer.alignment as any,
+      });
+    }
+  }
+
+  // Generate filename from pattern
+  const fileName = generateFileName(fileNamingConfig.pattern, quote, fileNamingConfig.dateFormat) + '.pdf';
   doc.save(fileName);
 };
 
@@ -524,8 +660,9 @@ export const exportQuoteToExcel = (quote: QuoteData) => {
 
   XLSX.utils.book_append_sheet(wb, ws, 'Quote');
 
-  // Save file
-  const fileName = `Quote-${quote.quoteId.replace(/#/g, '')}-${quote.projectName.replace(/\s+/g, '-')}.xlsx`;
+  // Generate filename from pattern
+  const fileNamingConfig = useTemplateStore.getState().pdfExport.fileNaming;
+  const fileName = generateFileName(fileNamingConfig.pattern, quote, fileNamingConfig.dateFormat) + '.xlsx';
   XLSX.writeFile(wb, fileName);
 };
 

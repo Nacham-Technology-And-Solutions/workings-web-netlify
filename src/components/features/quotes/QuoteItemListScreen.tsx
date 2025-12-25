@@ -11,17 +11,26 @@ interface QuoteItemListScreenProps {
 }
 
 const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData, quoteType = 'standalone', materialCost }) => {
+    // Debug logging
+    if (import.meta.env.DEV) {
+        console.log('[QuoteItemListScreen] Component mounted with:', {
+            quoteType,
+            hasPreviousData: !!previousData,
+            hasProjectData: !!previousData?.projectData,
+            hasProjectMeasurement: !!previousData?.projectData?.projectMeasurement,
+            hasCalculationResult: !!previousData?.projectData?.calculationResult,
+            projectData: previousData?.projectData,
+            previousDataKeys: previousData ? Object.keys(previousData) : []
+        });
+    }
+
     const [listType, setListType] = useState<'dimension' | 'material'>(
         previousData?.itemList?.listType || 'dimension'
     );
 
-    // Initialize items: use previous data if available, otherwise use project data or defaults
+    // Initialize items: prioritize project data for project quotes, otherwise use previous data or defaults
     const getInitialItems = (currentListType: 'dimension' | 'material'): QuoteItemRow[] => {
-        if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
-            return previousData.itemList.items;
-        }
-        
-        // For project quotes, try to populate from project data
+        // For project quotes, prioritize project data over saved itemList
         if (quoteType === 'from_project' && previousData?.projectData) {
             const projectItems = getInitialQuoteItems(
                 currentListType,
@@ -47,33 +56,87 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
             }
         }
         
-        // Default items for standalone quotes
-        return [
-            { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
-            { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
-        ];
+        // Use saved itemList if it exists and has items (for editing existing quotes)
+        if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
+            return previousData.itemList.items;
+        }
+        
+        // Default items for standalone quotes (only if not from project)
+        if (quoteType === 'standalone') {
+            return [
+                { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
+                { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
+            ];
+        }
+        
+        // Empty array for project quotes with no data
+        return [];
     };
 
     const [items, setItems] = useState<QuoteItemRow[]>(() => getInitialItems(listType));
-    const [showWarning, setShowWarning] = useState(!items || items.length === 0);
+    const [showWarning, setShowWarning] = useState(() => {
+        // Only show warning if we're from project and have no items
+        if (quoteType === 'from_project') {
+            const initialItems = getInitialItems(listType);
+            return initialItems.length === 0;
+        }
+        return false;
+    });
 
-    // Update items when list type changes for project quotes
+    // Update items when list type changes for project quotes, or when project data becomes available
     useEffect(() => {
         if (quoteType === 'from_project' && previousData?.projectData) {
+            // Debug logging
+            if (import.meta.env.DEV) {
+                console.log('[QuoteItemListScreen] useEffect triggered:', {
+                    listType,
+                    hasProjectData: !!previousData.projectData,
+                    hasProjectMeasurement: !!previousData.projectData.projectMeasurement,
+                    hasCalculationResult: !!previousData.projectData.calculationResult,
+                    projectMeasurementType: typeof previousData.projectData.projectMeasurement,
+                    calculationResultType: typeof previousData.projectData.calculationResult,
+                    projectDataKeys: Object.keys(previousData.projectData || {}),
+                    projectData: previousData.projectData
+                });
+            }
+            
             const projectItems = getInitialQuoteItems(
                 listType,
                 previousData.projectData.projectMeasurement,
                 previousData.projectData.calculationResult
             );
             
+            if (import.meta.env.DEV) {
+                console.log('[QuoteItemListScreen] getInitialQuoteItems returned:', {
+                    itemCount: projectItems.length,
+                    items: projectItems.slice(0, 3) // Log first 3 items to avoid console spam
+                });
+            }
+            
             if (projectItems.length > 0) {
                 setItems(projectItems);
                 setShowWarning(false);
             } else {
-                setShowWarning(true);
+                // Check if we have material cost as fallback
+                if (materialCost !== undefined && materialCost > 0 && listType === 'material') {
+                    setItems([{
+                        id: '1',
+                        description: 'Material Cost',
+                        quantity: 1,
+                        unitPrice: materialCost,
+                        total: materialCost
+                    }]);
+                    setShowWarning(false);
+                } else {
+                    setItems([]);
+                    setShowWarning(true);
+                }
             }
+        } else if (quoteType === 'from_project' && !previousData?.projectData) {
+            // Project data not available yet, show warning
+            setShowWarning(true);
         }
-    }, [listType, quoteType, previousData]);
+    }, [listType, quoteType, previousData, materialCost]);
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
     const [editFormData, setEditFormData] = useState<QuoteItemRow | null>(null);
 

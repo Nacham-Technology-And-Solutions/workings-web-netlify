@@ -7,4 +7,5 @@ export * from './projects.service';
 export * from './quotes.service';
 export * from './subscriptions.service';
 export * from './materialLists.service';
+export * from './templates.service';
 

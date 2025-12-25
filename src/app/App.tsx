@@ -38,6 +38,7 @@ import MaterialListDetailScreen from '../components/features/material-lists/Mate
 import CreateMaterialListScreen from '../components/features/material-lists/CreateMaterialListScreen';
 import MaterialListPreviewScreen from '../components/features/material-lists/MaterialListPreviewScreen';
 import EditMaterialListScreen from '../components/features/material-lists/EditMaterialListScreen';
+import PreBuiltTemplatesScreen from '../components/features/PreBuiltTemplatesScreen';
 import LogViewer from '../components/common/LogViewer';
 
 // Import stores
@@ -59,6 +60,8 @@ import { transformQuoteDataToBackend, transformBackendQuoteToPreview, transformS
 
 // Import types and constants
 import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
+import type { SelectProjectData } from '../types/project';
+import type { GlazingDimension } from '../types/project';
 import { sampleFloorPlan, initialEstimates, sampleFullQuotes, sampleFullMaterialLists } from '../constants';
 
 const PIXELS_PER_FOOT = 10; // 10 pixels = 1 foot
@@ -139,6 +142,7 @@ const App: React.FC = () => {
   const [estimates, setEstimates] = useState<EstimateCategory[]>(initialEstimates);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [refreshProjects, setRefreshProjects] = useState(0);
+  const [refreshQuotes, setRefreshQuotes] = useState(0);
   const [showLogViewer, setShowLogViewer] = useState(false);
   const [draftProjectId, setDraftProjectId] = useState<number | null>(null);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
@@ -268,7 +272,9 @@ const App: React.FC = () => {
       const normalizedResponse = normalizeApiResponse(response);
 
       if (normalizedResponse.success && normalizedResponse.response) {
-        const projectData = normalizedResponse.response as any;
+        // Extract project data from response (handle both response.project and direct response)
+        const responseData = normalizedResponse.response as any;
+        const projectData = responseData.project || responseData;
         
         // Load project data into flow state
         setProjectDescriptionData({
@@ -286,29 +292,34 @@ const App: React.FC = () => {
           glassPanels: [],
         };
 
-        projectData.glazingDimensions.forEach((dim: GlazingDimension) => {
-          if (dim.glazingCategory === 'Window' && !newSelectProjectData.windows.includes(dim.glazingType)) {
-            newSelectProjectData.windows.push(dim.glazingType);
-          } else if (dim.glazingCategory === 'Door' && !newSelectProjectData.doors.includes(dim.glazingType)) {
-            newSelectProjectData.doors.push(dim.glazingType);
-          } else if (dim.glazingCategory === 'Net' && !newSelectProjectData.skylights.includes(dim.glazingType)) {
-            newSelectProjectData.skylights.push(dim.glazingType);
-          } else if (dim.glazingCategory === 'Curtain Wall' && !newSelectProjectData.glassPanels.includes(dim.glazingType)) {
-            newSelectProjectData.glassPanels.push(dim.glazingType);
-          }
-        });
+        // Safely handle glazingDimensions - check if it exists and is an array
+        if (projectData.glazingDimensions && Array.isArray(projectData.glazingDimensions)) {
+          projectData.glazingDimensions.forEach((dim: GlazingDimension) => {
+            if (dim.glazingCategory === 'Window' && !newSelectProjectData.windows.includes(dim.glazingType)) {
+              newSelectProjectData.windows.push(dim.glazingType);
+            } else if (dim.glazingCategory === 'Door' && !newSelectProjectData.doors.includes(dim.glazingType)) {
+              newSelectProjectData.doors.push(dim.glazingType);
+            } else if (dim.glazingCategory === 'Net' && !newSelectProjectData.skylights.includes(dim.glazingType)) {
+              newSelectProjectData.skylights.push(dim.glazingType);
+            } else if (dim.glazingCategory === 'Curtain Wall' && !newSelectProjectData.glassPanels.includes(dim.glazingType)) {
+              newSelectProjectData.glassPanels.push(dim.glazingType);
+            }
+          });
+        }
         setSelectProjectData(newSelectProjectData);
 
         // Reconstruct projectMeasurementData
         const newMeasurementData: ProjectMeasurementData = {
-          dimensions: projectData.glazingDimensions.map((dim: GlazingDimension, index: number) => ({
-            id: `dim-${index}`,
-            type: dim.glazingType,
-            width: dim.parameters.W?.toString() || '',
-            height: dim.parameters.H?.toString() || '',
-            quantity: dim.parameters.qty?.toString() || '',
-            panel: dim.parameters.N?.toString() || dim.parameters.O?.toString() || '1',
-          })),
+          dimensions: (projectData.glazingDimensions && Array.isArray(projectData.glazingDimensions))
+            ? projectData.glazingDimensions.map((dim: GlazingDimension, index: number) => ({
+                id: `dim-${index}`,
+                type: dim.glazingType,
+                width: dim.parameters.W?.toString() || '',
+                height: dim.parameters.H?.toString() || '',
+                quantity: dim.parameters.qty?.toString() || '',
+                panel: dim.parameters.N?.toString() || dim.parameters.O?.toString() || '1',
+              }))
+            : [],
           unit: 'mm',
         };
         setProjectMeasurementData(newMeasurementData);
@@ -547,6 +558,18 @@ const App: React.FC = () => {
     calculationResult?: any,
     projectMeasurement?: ProjectMeasurementData
   ) => {
+    // Debug logging
+    if (import.meta.env.DEV) {
+      console.log('[App] handleCreateQuoteFromSolution called with:', {
+        materialCost,
+        hasCalculationResult: !!calculationResult,
+        hasProjectMeasurement: !!projectMeasurement,
+        calculationResultKeys: calculationResult ? Object.keys(calculationResult) : [],
+        projectMeasurementKeys: projectMeasurement ? Object.keys(projectMeasurement) : [],
+        dimensionsCount: projectMeasurement?.dimensions?.length || 0
+      });
+    }
+
     // Store material cost for quote configuration
     if (materialCost !== undefined) {
       setMaterialCostFromStep4(materialCost);
@@ -563,7 +586,7 @@ const App: React.FC = () => {
     };
     
     // Initialize the standalone quote data structure with project overview and project data
-    setStandaloneQuoteData({
+    const quoteData = {
       overview: projectOverviewData,
       itemList: undefined,
       extrasNotes: undefined,
@@ -572,7 +595,40 @@ const App: React.FC = () => {
         calculationResult,
         projectMeasurement,
       },
-    });
+    };
+
+    if (import.meta.env.DEV) {
+      console.log('[App] Setting standaloneQuoteData:', {
+        hasOverview: !!quoteData.overview,
+        hasProjectData: !!quoteData.projectData,
+        hasCalculationResult: !!quoteData.projectData.calculationResult,
+        hasProjectMeasurement: !!quoteData.projectData.projectMeasurement,
+        calculationResultType: typeof quoteData.projectData.calculationResult,
+        projectMeasurementType: typeof quoteData.projectData.projectMeasurement,
+        calculationResultKeys: quoteData.projectData.calculationResult ? Object.keys(quoteData.projectData.calculationResult) : [],
+        projectMeasurementKeys: quoteData.projectData.projectMeasurement ? Object.keys(quoteData.projectData.projectMeasurement) : [],
+        quoteData
+      });
+    }
+    
+    setStandaloneQuoteData(quoteData);
+    
+    // Verify data was set correctly by reading it back immediately
+    if (import.meta.env.DEV) {
+      // Use setTimeout to allow Zustand to process the update
+      setTimeout(() => {
+        const stored = useQuoteStore.getState().standaloneQuoteData;
+        console.log('[App] Verifying stored data after setStandaloneQuoteData:', {
+          hasStoredData: !!stored,
+          hasProjectData: !!stored?.projectData,
+          hasCalculationResult: !!stored?.projectData?.calculationResult,
+          hasProjectMeasurement: !!stored?.projectData?.projectMeasurement,
+          calculationResultType: typeof stored?.projectData?.calculationResult,
+          projectMeasurementType: typeof stored?.projectData?.projectMeasurement,
+          storedProjectData: stored?.projectData
+        });
+      }, 100);
+    }
     
     // Navigate to unified quote overview screen (same as standalone flow)
     navigate('quoteOverview');
@@ -599,7 +655,7 @@ const App: React.FC = () => {
         
         // Transform backend quote response to preview format
         if (quote) {
-          const previewData = transformBackendQuoteToPreview(quote, quoteData);
+          const previewData = transformBackendQuoteToPreview(quote, quoteData, undefined);
           setGeneratedQuote(previewData);
           console.log('[App] Quote transformed for preview:', previewData);
         }
@@ -674,9 +730,9 @@ const App: React.FC = () => {
           extraCharges: '',
           amount: backendQuote.tax || 0,
           additionalNotes: '',
-          accountName: 'Olumide Adewale', // Default, should come from settings
-          accountNumber: '10-4030-011094',
-          bankName: 'Zenith Bank',
+          accountName: backendQuote.paymentInfo?.accountName || '',
+          accountNumber: backendQuote.paymentInfo?.accountNumber || '',
+          bankName: backendQuote.paymentInfo?.bankName || '',
           total: backendQuote.total,
         };
 
@@ -694,6 +750,12 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error('[App] Error loading quote for edit:', error);
     }
+  };
+
+  const handleDeleteQuote = () => {
+    setSelectedQuoteId(null);
+    setRefreshQuotes(prev => prev + 1);
+    navigate('quotes');
   };
 
   // Standalone quote flow handlers
@@ -730,8 +792,34 @@ const App: React.FC = () => {
       
       let response;
       if (editingQuoteId) {
-        // Update existing quote
-        response = await quotesService.update(parseInt(editingQuoteId), backendQuoteData);
+        try {
+          // Try to update existing quote
+          response = await quotesService.update(parseInt(editingQuoteId), backendQuoteData);
+          
+          // Check if update was successful
+          if (!isApiResponseSuccess(response)) {
+            // If update failed, check if it's a 404 (quote doesn't exist)
+            const error = response as any;
+            if (error?.response?.status === 404 || error?.status === 404) {
+              console.warn('[App] Quote not found (404), creating new quote instead');
+              // Clear editingQuoteId and create new quote
+              setEditingQuoteId(null);
+              response = await quotesService.create(backendQuoteData);
+            } else {
+              throw new Error('Failed to update quote');
+            }
+          }
+        } catch (updateError: any) {
+          // If update fails with 404 or other error, fallback to create
+          if (updateError?.response?.status === 404 || updateError?.status === 404) {
+            console.warn('[App] Quote not found (404), creating new quote instead');
+            setEditingQuoteId(null);
+            response = await quotesService.create(backendQuoteData);
+          } else {
+            // Re-throw other errors
+            throw updateError;
+          }
+        }
       } else {
         // Create new quote
         response = await quotesService.create(backendQuoteData);
@@ -743,10 +831,14 @@ const App: React.FC = () => {
         setEditingQuoteId(null);
         navigate('quotes');
       } else {
-        console.error('[App] Failed to save quote as draft');
+        const errorMessage = (response as any)?.message || 'Failed to save quote as draft';
+        console.error('[App] Failed to save quote as draft:', errorMessage);
+        alert(`Failed to save quote as draft: ${errorMessage}. Please try again.`);
       }
     } catch (error: any) {
       console.error('[App] Error saving quote as draft:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'An unexpected error occurred';
+      alert(`Error saving quote as draft: ${errorMessage}. Please try again.`);
     }
   };
 
@@ -778,8 +870,34 @@ const App: React.FC = () => {
       
       let response;
       if (editingQuoteId) {
-        // Update existing quote
-        response = await quotesService.update(parseInt(editingQuoteId), backendQuoteData);
+        try {
+          // Try to update existing quote
+          response = await quotesService.update(parseInt(editingQuoteId), backendQuoteData);
+          
+          // Check if update was successful
+          if (!isApiResponseSuccess(response)) {
+            // If update failed, check if it's a 404 (quote doesn't exist)
+            const error = response as any;
+            if (error?.response?.status === 404 || error?.status === 404) {
+              console.warn('[App] Quote not found (404), creating new quote instead');
+              // Clear editingQuoteId and create new quote
+              setEditingQuoteId(null);
+              response = await quotesService.create(backendQuoteData);
+            } else {
+              throw new Error('Failed to update quote');
+            }
+          }
+        } catch (updateError: any) {
+          // If update fails with 404 or other error, fallback to create
+          if (updateError?.response?.status === 404 || updateError?.status === 404) {
+            console.warn('[App] Quote not found (404), creating new quote instead');
+            setEditingQuoteId(null);
+            response = await quotesService.create(backendQuoteData);
+          } else {
+            // Re-throw other errors
+            throw updateError;
+          }
+        }
       } else {
         // Create new quote
         response = await quotesService.create(backendQuoteData);
@@ -792,12 +910,17 @@ const App: React.FC = () => {
         console.log('[App] Quote saved successfully:', quote);
         
         // Transform backend quote response to preview format
+        // Pass extrasNotesData to include account details and extra charges
         if (quote) {
-          const previewData = transformBackendQuoteToPreview(quote, {
-            quoteName: overviewData.projectName,
-            siteAddress: overviewData.siteAddress,
-            customerContact: '',
-          });
+          const previewData = transformBackendQuoteToPreview(
+            quote,
+            {
+              quoteName: overviewData.projectName,
+              siteAddress: overviewData.siteAddress,
+              customerContact: '',
+            },
+            data // Pass extrasNotesData to include account details and charges
+          );
           setGeneratedQuote(previewData);
         }
         
@@ -805,6 +928,8 @@ const App: React.FC = () => {
         if (draftProjectId) {
           setDraftProjectId(null);
           console.log('[App] Draft project ID cleared after successful quote creation');
+          // Refresh projects list to update status after quote creation
+          setRefreshProjects(prev => prev + 1);
         }
         
         clearStandaloneQuoteData();
@@ -813,11 +938,15 @@ const App: React.FC = () => {
         // Don't clear generatedQuote - preserve it for navigation
         navigate('quoteFinalPreview');
       } else {
-        console.error('[App] Quote save failed');
+        const errorMessage = (response as any)?.message || 'Failed to save quote';
+        console.error('[App] Quote save failed:', errorMessage);
+        alert(`Failed to save quote: ${errorMessage}. Please try again.`);
         setIsSavingQuote(false);
       }
     } catch (error: any) {
       console.error('[App] Error saving quote:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'An unexpected error occurred';
+      alert(`Error saving quote: ${errorMessage}. Please try again.`);
       setIsSavingQuote(false);
     }
   };
@@ -1005,7 +1134,14 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <QuotesScreen onNewQuote={handleNewQuote} onViewQuote={handleViewQuote} onBack={() => navigate('home')} />
+            <QuotesScreen 
+              onNewQuote={handleNewQuote} 
+              onViewQuote={handleViewQuote} 
+              onEditQuote={handleEditQuote}
+              onDeleteQuote={handleDeleteQuote}
+              onBack={() => navigate('home')} 
+              refreshTrigger={refreshQuotes} 
+            />
           </div>
         </div>
       </>
@@ -1041,6 +1177,7 @@ const App: React.FC = () => {
               quoteId={selectedQuoteId}
               onBack={() => navigate('quotes')}
               onEdit={() => handleEditQuote(selectedQuoteId)}
+              onDelete={handleDeleteQuote}
             />
           </div>
         </div>
@@ -1106,6 +1243,25 @@ const App: React.FC = () => {
               onNavigate={handleNavigate}
               initialSection={targetSection}
             />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (currentView === 'templates') {
+    return (
+      <>
+        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className="flex h-screen bg-[#FAFAFA]">
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+          />
+          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+            <PreBuiltTemplatesScreen onBack={() => navigate('home')} />
           </div>
         </div>
       </>
@@ -1403,6 +1559,8 @@ const App: React.FC = () => {
                 // Don't clear draftProjectId here - we need it for quote creation
                 // It will be cleared after quote is successfully created
                 console.log('[App] Project saved successfully, keeping draftProjectId for quote creation');
+                // Refresh projects list to update status from 'draft' to 'calculated'
+                setRefreshProjects(prev => prev + 1);
               }}
             />
           </div>
@@ -1495,6 +1653,7 @@ const App: React.FC = () => {
               onPreview={handleQuoteExtrasNotesPreview}
               onSaveDraft={handleQuoteExtrasNotesSaveDraft}
               previousData={standaloneQuoteData}
+              onNavigate={handleNavigate}
             />
           </div>
         </div>
