@@ -7,13 +7,15 @@ import type { ProjectDescriptionData } from '@/types';
 interface ProjectDescriptionScreenProps {
   onBack: () => void;
   onNext: (data: ProjectDescriptionData) => void;
+  previousData?: ProjectDescriptionData;
+  onNavigateToStep?: (step: string) => void;
 }
 
-const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onBack, onNext }) => {
-  const [projectName, setProjectName] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [siteAddress, setSiteAddress] = useState('');
-  const [description, setDescription] = useState('');
+const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onBack, onNext, previousData, onNavigateToStep }) => {
+  const [projectName, setProjectName] = useState(previousData?.projectName || '');
+  const [customerName, setCustomerName] = useState(previousData?.customerName || '');
+  const [siteAddress, setSiteAddress] = useState(previousData?.siteAddress || '');
+  const [description, setDescription] = useState(previousData?.description || '');
 
   const handleNext = () => {
     if (projectName && customerName && siteAddress) {
@@ -34,7 +36,7 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-            <span className="cursor-pointer hover:text-gray-600" onClick={onBack}>Projects</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Projects</span>
             <span>/</span>
             <span className="text-gray-900 font-medium">Project-description</span>
           </div>

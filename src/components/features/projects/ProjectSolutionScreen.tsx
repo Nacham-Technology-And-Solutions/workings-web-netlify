@@ -46,6 +46,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [projectSaved, setProjectSaved] = useState(false);
+  const [pointsDeducted, setPointsDeducted] = useState<number | null>(null);
+  const [balanceAfter, setBalanceAfter] = useState<number | null>(null);
+  const [responseMessage, setResponseMessage] = useState<string | null>(null);
   
   // Refs to prevent duplicate calculations and saves (especially with React StrictMode)
   const calculationInProgressRef = useRef(false);
@@ -145,8 +148,19 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         // Extract the result object which contains the calculation data
         const calculationData = responseData?.result;
         
+        // Extract points information
+        const points = responseData?.pointsDeducted ?? null;
+        const balance = responseData?.balanceAfter ?? null;
+        const message = getApiResponseMessage(response) || null;
+        
+        setPointsDeducted(points);
+        setBalanceAfter(balance);
+        setResponseMessage(message);
+        
         // Debug: Log the raw calculation data structure
         console.log('Calculation result data:', calculationData);
+        console.log('Points deducted:', points);
+        console.log('Balance after:', balance);
         
         // Validate calculation data structure
         if (!calculationData) {
@@ -437,6 +451,37 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           </div>
         </div>
       </div>
+
+      {/* API Response Info - Points and Balance */}
+      {(pointsDeducted !== null || balanceAfter !== null || responseMessage) && (
+        <div className="px-8 pt-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  {responseMessage && (
+                    <p className="text-blue-800 font-medium mb-2">{responseMessage}</p>
+                  )}
+                  <div className="flex items-center gap-6 text-sm">
+                    {pointsDeducted !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600 font-medium">Points Deducted:</span>
+                        <span className="text-blue-900 font-semibold">{pointsDeducted}</span>
+                      </div>
+                    )}
+                    {balanceAfter !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600 font-medium">Balance After:</span>
+                        <span className="text-blue-900 font-semibold">{balanceAfter}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save Status Messages */}
       {(projectSaved || saveError) && (

@@ -13,6 +13,8 @@ import type {
 } from '@/types/project';
 import type { ProjectCartItem, CalculationSettings } from '@/types/calculations';
 import { mapGlazingTypeToModuleId, getCategoryFromKey, normalizeGlazingType } from './moduleMapping';
+import { MODULE_CONFIG } from './moduleConfig';
+import type { GlazingCategory } from './moduleMapping';
 
 /**
  * Converts DimensionItem to GlazingDimension format
@@ -61,8 +63,31 @@ export function convertDimensionItemToGlazingDimension(
 }
 
 /**
+ * Finds the category for a given dimension type by looking it up in MODULE_CONFIG
+ * @param type - The dimension type value (e.g., "Casement (D/curve)")
+ * @returns The category name or null if not found
+ */
+function findCategoryForType(type: string): GlazingCategory | null {
+  // Search through all categories in MODULE_CONFIG
+  const categories: GlazingCategory[] = ['Window', 'Door', 'Net', 'Partition', 'Curtain Wall'];
+  
+  for (const category of categories) {
+    const categoryConfig = MODULE_CONFIG[category];
+    if (categoryConfig && categoryConfig.types) {
+      // Check if this type exists in this category
+      const typeConfig = categoryConfig.types.find(t => t.value === type);
+      if (typeConfig) {
+        return category;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Converts ProjectMeasurementData to array of GlazingDimensions
- * Uses SelectProjectData to determine categories
+ * Determines categories by looking up dimension types in MODULE_CONFIG
  */
 export function convertToGlazingDimensions(
   measurementData: ProjectMeasurementData,
@@ -70,22 +95,22 @@ export function convertToGlazingDimensions(
 ): GlazingDimension[] {
   const glazingDimensions: GlazingDimension[] = [];
 
-  // Map each dimension item to its category based on SelectProjectData
+  // Map each dimension item to its category by looking up the type in MODULE_CONFIG
   measurementData.dimensions.forEach((dimension) => {
-    // Determine category by checking which array in selectData contains this type
-    // This is a simplified approach - in practice, you might need more sophisticated matching
-    let category: 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain Wall' = 'Window';
+    // Find the category by looking up the dimension type in MODULE_CONFIG
+    let category: GlazingCategory = findCategoryForType(dimension.type) || 'Window';
 
-    // Check which category this dimension belongs to
-    // This assumes the dimension type matches one of the selected types
-    if (selectData.windows.some((w) => dimension.type.toLowerCase().includes(w.toLowerCase()))) {
-      category = 'Window';
-    } else if (selectData.doors.some((d) => dimension.type.toLowerCase().includes(d.toLowerCase()))) {
-      category = 'Door';
-    } else if (selectData.skylights.some((s) => dimension.type.toLowerCase().includes(s.toLowerCase()))) {
-      category = 'Net';
-    } else if (selectData.glassPanels.some((g) => dimension.type.toLowerCase().includes(g.toLowerCase()))) {
-      category = 'Curtain Wall';
+    // If we couldn't find it in MODULE_CONFIG, fall back to checking SelectProjectData
+    // This is a fallback for edge cases
+    if (category === 'Window' && !MODULE_CONFIG.Window.types.some(t => t.value === dimension.type)) {
+      // Try to infer from SelectProjectData as last resort
+      if (selectData.doors.length > 0 && selectData.doors.some(d => dimension.type.toLowerCase().includes(d.toLowerCase()))) {
+        category = 'Door';
+      } else if (selectData.skylights.length > 0 && selectData.skylights.some(s => dimension.type.toLowerCase().includes(s.toLowerCase()))) {
+        category = 'Net';
+      } else if (selectData.glassPanels.length > 0 && selectData.glassPanels.some(g => dimension.type.toLowerCase().includes(g.toLowerCase()))) {
+        category = 'Curtain Wall';
+      }
     }
 
     const glazingDimension = convertDimensionItemToGlazingDimension(dimension, category);

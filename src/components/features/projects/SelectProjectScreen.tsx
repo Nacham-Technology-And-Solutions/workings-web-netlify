@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { SelectProjectData } from '@/types';
+import { isCategoryEnabled, getEnabledTypesForCategory, MODULE_CONFIG } from '@/utils/moduleConfig';
+import type { GlazingCategory } from '@/utils/moduleMapping';
 
 interface SelectProjectScreenProps {
   onBack: () => void;
@@ -21,80 +23,111 @@ interface GlazingCategory {
 }
 
 const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNext, previousData }) => {
-  const [selectedValues, setSelectedValues] = useState<SelectProjectData>({
-    windows: [],
-    doors: [],
-    skylights: [],
-    glassPanels: [],
+  // Initialize with previousData if available (to preserve existing selections)
+  // Ensure all properties exist and are arrays to prevent undefined errors
+  const [selectedValues, setSelectedValues] = useState<SelectProjectData>(() => {
+    if (previousData) {
+      return {
+        windows: Array.isArray(previousData.windows) ? previousData.windows : [],
+        doors: Array.isArray(previousData.doors) ? previousData.doors : [],
+        skylights: Array.isArray(previousData.skylights) ? previousData.skylights : [],
+        glassPanels: Array.isArray(previousData.glassPanels) ? previousData.glassPanels : [],
+      };
+    }
+    return {
+      windows: [],
+      doors: [],
+      skylights: [],
+      glassPanels: [],
+    };
   });
 
-  const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
-    windows: false,
-    doors: false,
-    skylights: false,
-    glassPanels: false,
-  });
-
-  const glazingCategories: GlazingCategory[] = [
-    {
-      id: 'windows',
-      name: 'Window',
-      options: [
-        { value: 'single-pane', label: 'Single Pane' },
-        { value: 'double-pane', label: 'Double Pane' },
-        { value: 'triple-pane', label: 'Triple Pane' },
-        { value: 'tempered', label: 'Tempered Glass' },
-        { value: 'laminated', label: 'Laminated Glass' },
-      ],
-    },
-    {
-      id: 'doors',
-      name: 'Door',
-      options: [
-        { value: 'sliding-door', label: 'Sliding Door' },
-        { value: 'french-door', label: 'French Door' },
-        { value: 'patio-door', label: 'Patio Door' },
-        { value: 'security-door', label: 'Security Door' },
-        { value: 'entrance-door', label: 'Entrance Door' },
-      ],
-    },
-    {
-      id: 'skylights',
-      name: 'Net',
-      options: [
-        { value: 'fixed-skylight', label: 'Fixed Net' },
-        { value: 'vented-skylight', label: 'Vented Net' },
-      ],
-    },
-    {
-      id: 'glassPanels',
-      name: 'Curtain wall',
-      options: [
-        { value: 'structural-glass', label: 'Structural Glass' },
-        { value: 'curtain-wall', label: 'Curtain Wall' },
-      ],
-    },
-  ];
-
-  // Added Partition category manually as it wasn't in the original interface but is in the design
-  const partitionCategory = {
-    id: 'partition' as any, // casting to any to bypass strict typing for now
-    name: 'Partition',
-    options: [
-      { value: 'glass-partition', label: 'Glass Partition' },
-      { value: 'office-partition', label: 'Office Partition' },
-    ]
+  // Map SelectProjectData keys to moduleConfig category names
+  const categoryMap: Record<keyof SelectProjectData, GlazingCategory> = {
+    windows: 'Window',
+    doors: 'Door',
+    skylights: 'Net',
+    glassPanels: 'Curtain Wall',
   };
 
-  const allCategories = [...glazingCategories, partitionCategory];
+  // All possible categories with their options - dynamically loaded from MODULE_CONFIG
+  // Filter to show only enabled categories based on module config
+  const allCategories = useMemo(() => {
+    const allPossibleCategories: GlazingCategory[] = [
+      {
+        id: 'windows',
+        name: 'Window',
+        options: getEnabledTypesForCategory('Window').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+      {
+        id: 'doors',
+        name: 'Door',
+        options: getEnabledTypesForCategory('Door').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+      {
+        id: 'skylights',
+        name: 'Net',
+        options: getEnabledTypesForCategory('Net').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+      {
+        id: 'glassPanels',
+        name: 'Curtain wall',
+        options: getEnabledTypesForCategory('Curtain Wall').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+    ];
+
+    // Filter to only show enabled categories
+    return allPossibleCategories.filter((category) => {
+      const moduleCategory = categoryMap[category.id];
+      return moduleCategory ? isCategoryEnabled(moduleCategory) : false;
+    });
+  }, []);
+
+  const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    allCategories.forEach((cat) => {
+      initial[cat.id] = false;
+    });
+    return initial;
+  });
 
   const isFormValid = (Object.values(selectedValues) as string[][]).some(arr => arr.length > 0);
 
   const toggleAccordion = (categoryId: string) => {
-    setOpenAccordions(prev => ({
-      ...prev,
-      [categoryId]: !prev[categoryId]
-    }));
+    setOpenAccordions(prev => {
+      const isCurrentlyOpen = prev[categoryId];
+      // If clicking the same accordion that's open, close it
+      // Otherwise, close all and open the clicked one
+      if (isCurrentlyOpen) {
+        // Close the clicked accordion
+        return {
+          ...prev,
+          [categoryId]: false
+        };
+      } else {
+        // Close all accordions first, then open the clicked one
+        const closed = Object.keys(prev).reduce((acc, key) => {
+          acc[key] = false;
+          return acc;
+        }, {} as Record<string, boolean>);
+        return {
+          ...closed,
+          [categoryId]: true
+        };
+      }
+    });
   };
 
   const handleSelect = (categoryId: keyof SelectProjectData, value: string) => {
@@ -123,7 +156,9 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-            <span className="cursor-pointer hover:text-gray-600" onClick={onBack}>Projects</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Projects</span>
+            <span>/</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Project-description</span>
             <span>/</span>
             <span className="text-gray-900 font-medium">Glazing-Type</span>
           </div>
@@ -158,7 +193,7 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
               </div>
 
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Select Glazing Type</h1>
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">Select Glazing Category</h1>
                 <p className="text-gray-500 text-sm">What type of project are your measurements?</p>
               </div>
             </div>
@@ -184,18 +219,18 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
           {/* Selected Items as Chips */}
           {isFormValid && (
             <div className="mb-6 flex flex-wrap gap-2">
-              {(Object.keys(selectedValues) as Array<keyof SelectProjectData>).map(categoryId => {
-                const category = allCategories.find(cat => cat.id === categoryId);
-                return selectedValues[categoryId].map(value => {
-                  const option = category?.options.find(opt => opt.value === value);
+              {allCategories.map(category => {
+                const categoryValues = selectedValues[category.id] || [];
+                return categoryValues.map(value => {
+                  const option = category.options.find(opt => opt.value === value);
                   return (
                     <div
-                      key={`${categoryId}-${value}`}
+                      key={`${category.id}-${value}`}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-700 rounded-full border border-teal-200"
                     >
                       <span className="text-sm font-medium">{option?.label || value}</span>
                       <button
-                        onClick={() => handleSelect(categoryId, value)}
+                        onClick={() => handleSelect(category.id, value)}
                         className="text-teal-600 hover:text-teal-800"
                         aria-label={`Remove ${option?.label || value}`}
                       >

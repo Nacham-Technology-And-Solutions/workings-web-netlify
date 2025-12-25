@@ -106,6 +106,7 @@ const App: React.FC = () => {
     setActiveTool,
     setMaterialCostFromStep4,
     getCombinedProjectData,
+    clearProjectFlow,
   } = useProjectStore();
 
   const {
@@ -238,6 +239,9 @@ const App: React.FC = () => {
   };
 
   const handleNewProject = () => {
+    // Clear all project data when starting a new project
+    clearProjectFlow();
+    setDraftProjectId(null);
     navigate('projectDescription');
   };
 
@@ -252,11 +256,104 @@ const App: React.FC = () => {
     navigate('projects');
   };
 
-  const handleProjectCalculate = (projectId: string) => {
-    // Navigate to project solution with project data
-    // For now, just show a message - can be enhanced later
-    console.log('Calculate project:', projectId);
-    // TODO: Load project data and navigate to solution screen
+  const handleProjectCalculate = async (projectId: string) => {
+    try {
+      const projectIdNum = parseInt(projectId, 10);
+      if (isNaN(projectIdNum)) {
+        console.error('Invalid project ID:', projectId);
+        return;
+      }
+
+      // Load project data from API
+      const response = await projectsService.getById(projectIdNum);
+      const normalizedResponse = normalizeApiResponse(response);
+      
+      if (!normalizedResponse.success || !normalizedResponse.response) {
+        console.error('Failed to load project:', normalizedResponse.message);
+        return;
+      }
+
+      // Extract project data from response
+      const responseData = normalizedResponse.response as any;
+      const apiProject = responseData.project || responseData;
+
+      // Transform API project data back to frontend format
+      // 1. ProjectDescriptionData
+      const projectDescription: any = {
+        projectName: apiProject.projectName || '',
+        customerName: apiProject.customer?.name || '',
+        siteAddress: apiProject.siteAddress || '',
+        description: apiProject.description || '',
+      };
+      setProjectDescriptionData(projectDescription);
+
+      // 2. Reconstruct SelectProjectData from glazingDimensions
+      const selectProject: any = {
+        windows: [],
+        doors: [],
+        skylights: [],
+        glassPanels: [],
+      };
+
+      // 3. Convert GlazingDimension[] back to DimensionItem[]
+      const dimensions: any[] = [];
+      
+      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
+        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
+          // Determine category and add to selectProject
+          const category = glazingDim.glazingCategory;
+          if (category === 'Window') {
+            // Try to infer the type from glazingType or moduleId
+            const typeValue = glazingDim.glazingType || '';
+            if (!selectProject.windows.includes(typeValue)) {
+              // Map common types - this is a best-effort reconstruction
+              if (typeValue.toLowerCase().includes('casement')) {
+                selectProject.windows.push('single-pane'); // Default mapping
+              } else if (typeValue.toLowerCase().includes('sliding')) {
+                selectProject.windows.push('double-pane'); // Default mapping
+              } else {
+                selectProject.windows.push('single-pane'); // Fallback
+              }
+            }
+          } else if (category === 'Door') {
+            selectProject.doors.push('sliding-door'); // Default
+          } else if (category === 'Net') {
+            selectProject.skylights.push('fixed-skylight'); // Default
+          } else if (category === 'Curtain Wall') {
+            selectProject.glassPanels.push('structural-glass'); // Default
+          }
+
+          // Convert GlazingDimension to DimensionItem
+          const dimensionItem: any = {
+            id: `dim-${Date.now()}-${index}`,
+            type: glazingDim.glazingType || glazingDim.moduleId || '',
+            width: String(glazingDim.parameters?.W || glazingDim.parameters?.in_to_in_width || ''),
+            height: String(glazingDim.parameters?.H || glazingDim.parameters?.in_to_in_height || ''),
+            quantity: String(glazingDim.parameters?.qty || 1),
+            panel: String(glazingDim.parameters?.N || glazingDim.parameters?.O || 1),
+          };
+          dimensions.push(dimensionItem);
+        });
+      }
+
+      const projectMeasurement: any = {
+        dimensions,
+        unit: 'mm', // Default unit
+      };
+
+      setSelectProjectData(selectProject);
+      setProjectMeasurementData(projectMeasurement);
+
+      // Store draft project ID if available
+      if (apiProject.id) {
+        setDraftProjectId(apiProject.id);
+      }
+
+      // Navigate to solution screen
+      navigate('projectSolution');
+    } catch (error) {
+      console.error('Error loading project for calculation:', error);
+    }
   };
 
 
@@ -1122,7 +1219,26 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'selectProject') {
-    return <SelectProjectScreen onBack={() => navigate('projects')} onNext={handleSelectProjectNext} previousData={projectDescriptionData} />;
+    return (
+      <>
+        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className="flex h-screen bg-[#FAFAFA]">
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+          />
+          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+            <SelectProjectScreen 
+              onBack={() => navigate('projectDescription')} 
+              onNext={handleSelectProjectNext} 
+              previousData={selectProjectData}
+            />
+          </div>
+        </div>
+      </>
+    );
   }
 
   if (currentView === 'projectMeasurement') {
@@ -1137,7 +1253,27 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <ProjectMeasurementScreen onBack={() => navigate('selectProject')} onNext={handleProjectMeasurementNext} previousData={selectProjectData} />
+            <ProjectMeasurementScreen 
+              onBack={() => navigate('selectProject')}
+              onNext={(data) => {
+                // Merge new dimensions with existing ones to preserve all dimensions
+                const existingData = projectMeasurementData;
+                if (existingData && existingData.dimensions) {
+                  // Combine dimensions, avoiding duplicates by ID
+                  const existingIds = new Set(existingData.dimensions.map(d => d.id));
+                  const newDimensions = data.dimensions.filter(d => !existingIds.has(d.id));
+                  const mergedDimensions = [...existingData.dimensions, ...newDimensions];
+                  handleProjectMeasurementNext({
+                    ...data,
+                    dimensions: mergedDimensions,
+                  });
+                } else {
+                  handleProjectMeasurementNext(data);
+                }
+              }}
+              previousData={selectProjectData}
+              onNavigateToStep={(step) => navigate(step as any)}
+            />
           </div>
         </div>
       </>

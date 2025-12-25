@@ -1,15 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
-import type { ProjectMeasurementData, DimensionItem } from '@/types';
+import type { ProjectMeasurementData, DimensionItem, SelectProjectData } from '@/types';
+import { getEnabledTypesForCategory, MODULE_CONFIG } from '@/utils/moduleConfig';
+import type { GlazingCategory } from '@/utils/moduleMapping';
 
 interface ProjectMeasurementScreenProps {
   onBack: () => void;
   onNext: (data: ProjectMeasurementData) => void;
-  previousData?: any;
+  previousData?: SelectProjectData;
+  onNavigateToStep?: (step: string) => void;
 }
 
-const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onBack, onNext, previousData }) => {
+const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onBack, onNext, previousData, onNavigateToStep }) => {
+  // Extract selected project data
+  const selectProjectData = previousData || {
+    windows: [],
+    doors: [],
+    skylights: [],
+    glassPanels: [],
+  };
+
+  // Map SelectProjectData keys to moduleConfig category names
+  const categoryMap: Record<keyof SelectProjectData, GlazingCategory> = {
+    windows: 'Window',
+    doors: 'Door',
+    skylights: 'Net',
+    glassPanels: 'Curtain Wall',
+  };
+
+  // Map to get display labels for selected items
+  // Dynamically loaded from MODULE_CONFIG to match SelectProjectScreen
+  const categoryLabels: Record<keyof SelectProjectData, { name: string; options: { value: string; label: string }[] }> = useMemo(() => {
+    return {
+      windows: {
+        name: MODULE_CONFIG.Window.name,
+        options: getEnabledTypesForCategory('Window').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+      doors: {
+        name: MODULE_CONFIG.Door.name,
+        options: getEnabledTypesForCategory('Door').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+      skylights: {
+        name: MODULE_CONFIG.Net.name,
+        options: getEnabledTypesForCategory('Net').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+      glassPanels: {
+        name: MODULE_CONFIG['Curtain Wall'].name,
+        options: getEnabledTypesForCategory('Curtain Wall').map(type => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+    };
+  }, []);
+
+  // Build selected items for display
+  const selectedItemsForDisplay = useMemo(() => {
+    const items: Array<{ category: string; label: string; value: string }> = [];
+    
+    (Object.keys(selectProjectData) as Array<keyof SelectProjectData>).forEach((categoryId) => {
+      const categoryData = categoryLabels[categoryId];
+      const selectedValues = selectProjectData[categoryId] || [];
+      
+      selectedValues.forEach((value) => {
+        const option = categoryData.options.find(opt => opt.value === value);
+        if (option) {
+          items.push({
+            category: categoryData.name,
+            label: option.label,
+            value: value,
+          });
+        }
+      });
+    });
+    
+    return items;
+  }, [selectProjectData]);
   const [unit, setUnit] = useState<string>('mm');
   const [type, setType] = useState<string>('');
   const [width, setWidth] = useState<string>('');
@@ -18,18 +94,66 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   const [panel, setPanel] = useState<string>('');
   const [dimensions, setDimensions] = useState<DimensionItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
 
-  const glazingTypes = [
-    'Casement (D/curve)',
-    'Casement (EBM)',
-    'Sliding (Normal)',
-    'Sliding (EBM)',
-    'Sliding (Ghana)',
-    'Fixed Window',
-    'Awning Window',
-    'Louvre Window'
-  ];
+  // Get enabled categories from selected project data
+  const enabledCategories = useMemo(() => {
+    const categories: Array<{ key: keyof SelectProjectData; name: string; moduleCategory: 'Window' | 'Door' | 'Net' | 'Curtain Wall' }> = [];
+    
+    (Object.keys(selectProjectData) as Array<keyof SelectProjectData>).forEach((key) => {
+      if (selectProjectData[key] && selectProjectData[key].length > 0) {
+        const moduleCategory = categoryMap[key];
+        const categoryData = categoryLabels[key];
+        if (moduleCategory && categoryData) {
+          categories.push({
+            key,
+            name: categoryData.name,
+            moduleCategory,
+          });
+        }
+      }
+    });
+    
+    return categories;
+  }, [selectProjectData]);
 
+  // Get enabled glazing types from all selected categories
+  const glazingTypes = useMemo(() => {
+    const allTypes: Array<{ value: string; label: string; category: string }> = [];
+    
+    enabledCategories.forEach((cat) => {
+      const enabledTypes = getEnabledTypesForCategory(cat.moduleCategory);
+      enabledTypes.forEach((type) => {
+        allTypes.push({
+          value: type.value,
+          label: type.label,
+          category: cat.name,
+        });
+      });
+    });
+    
+    return allTypes;
+  }, [enabledCategories]);
+
+  // Filter types by selected category
+  const filteredGlazingTypes = useMemo(() => {
+    if (!selectedCategory) {
+      return glazingTypes;
+    }
+    return glazingTypes.filter(t => t.category === selectedCategory);
+  }, [glazingTypes, selectedCategory]);
+
+  // Auto-select first category if none selected
+  useEffect(() => {
+    if (!selectedCategory && enabledCategories.length > 0) {
+      setSelectedCategory(enabledCategories[0].name);
+    }
+  }, [enabledCategories, selectedCategory]);
+
+  // Form validation - all fields are required for all glazing types
+  // Note: Panel is required for all types (defaults to 1 in data transformer if not applicable)
+  // Width, Height, Quantity are always required
+  // Type must be selected
   const isFormValid = type !== '' && width !== '' && height !== '' && quantity !== '' && panel !== '';
 
   const handleEditDimension = (dimension: DimensionItem) => {
@@ -98,9 +222,13 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-            <span className="cursor-pointer hover:text-gray-600" onClick={onBack}>Projects</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={() => onNavigateToStep?.('projects') || onBack()}>Projects</span>
             <span>/</span>
-            <span className="text-gray-900 font-medium">Glazing-Type</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={() => onNavigateToStep?.('projectDescription') || onBack()}>Project-description</span>
+            <span>/</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Glazing-Type</span>
+            <span>/</span>
+            <span className="text-gray-900 font-medium">Measurement</span>
           </div>
 
           <div className="flex items-start justify-between">
@@ -144,6 +272,50 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       {/* Main Content - Two Column Layout */}
       <main className="flex-1 overflow-y-auto px-8 py-8">
         <div className="max-w-7xl mx-auto">
+          {/* Selected Glazing Types Display */}
+          {selectedItemsForDisplay.length > 0 && (
+            <div className="mb-6 flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Selected Glazing Types</h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedItemsForDisplay.map((item, index) => (
+                    <div
+                      key={`${item.category}-${item.value}-${index}`}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-700 rounded-full border border-teal-200"
+                    >
+                      <span className="text-xs font-medium text-teal-600">{item.category}:</span>
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  // Save current dimensions to preserve them when navigating back
+                  // This ensures dimensions are not lost when adding more categories/types
+                  if (dimensions.length > 0) {
+                    const currentMeasurementData: ProjectMeasurementData = {
+                      dimensions,
+                      unit
+                    };
+                    // Call onNext to save current state before navigating
+                    // This will preserve dimensions in the parent component's state
+                    onNext(currentMeasurementData);
+                  }
+                  // Navigate back to SelectProjectScreen
+                  if (onNavigateToStep) {
+                    onNavigateToStep('selectProject');
+                  } else {
+                    onBack();
+                  }
+                }}
+                className="ml-4 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                + Add Category/Type
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Column - Canvas */}
             <div className="flex flex-col gap-4">
@@ -389,6 +561,28 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
 
                 <div className="h-px bg-gray-200 mb-6"></div>
 
+                {/* Category Dropdown - Only show if multiple categories */}
+                {enabledCategories.length > 1 && (
+                  <div className="mb-6">
+                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
+                    <select
+                      id="category"
+                      value={selectedCategory}
+                      onChange={(e) => {
+                        setSelectedCategory(e.target.value);
+                        setType(''); // Clear type when category changes
+                      }}
+                      className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    >
+                      {enabledCategories.map((cat) => (
+                        <option key={cat.key} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Type Dropdown */}
                 <div className="mb-6">
                   <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-2">
@@ -399,10 +593,11 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                     value={type}
                     onChange={(e) => setType(e.target.value)}
                     className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    disabled={filteredGlazingTypes.length === 0}
                   >
                     <option value="">Select type</option>
-                    {glazingTypes.map((glazingType) => (
-                      <option key={glazingType} value={glazingType}>{glazingType}</option>
+                    {filteredGlazingTypes.map((glazingType) => (
+                      <option key={glazingType.value} value={glazingType.value}>{glazingType.label}</option>
                     ))}
                   </select>
                 </div>
@@ -520,10 +715,18 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                         </tr>
                       </thead>
                       <tbody>
-                        {dimensions.map((dim, index) => (
+                        {dimensions.map((dim, index) => {
+                          // Determine category for this dimension type
+                          const dimensionCategory = glazingTypes.find(t => t.value === dim.type)?.category || 'Unknown';
+                          return (
                           <tr key={dim.id} className="border-b border-gray-100 last:border-b-0">
                             <td className="py-3 px-3 text-gray-900 text-xs">{index + 1}.</td>
                             <td className="py-3 px-3 text-gray-900 text-xs">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                                  {dimensionCategory}
+                                </span>
+                              </div>
                               <div className="font-medium">{dim.width} x {dim.height}</div>
                               <div className="text-gray-500 text-[10px] mt-0.5">({dim.type})</div>
                             </td>
@@ -541,7 +744,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                               </button>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

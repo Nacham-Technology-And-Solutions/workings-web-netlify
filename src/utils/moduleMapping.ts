@@ -1,6 +1,9 @@
 /**
  * Module Mapping Utility
  * Maps frontend glazing type strings to backend module IDs
+ * 
+ * NOTE: This file handles the mapping logic. For module availability/visibility,
+ * see moduleConfig.ts which controls which modules appear in the UI.
  */
 
 export type GlazingCategory = 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain Wall';
