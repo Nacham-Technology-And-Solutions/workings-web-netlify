@@ -68,6 +68,10 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
                 error = 'This field is required.';
             } else if (value.length < 8) {
                 error = 'Must be at least 8 characters.';
+            } else if (!/[A-Z]/.test(value)) {
+                error = 'Must contain at least one uppercase letter.';
+            } else if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
+                error = 'Must contain at least one special character.';
             }
             break;
         case 'confirmPassword':
@@ -90,11 +94,15 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
   };
   
   const isFormValid = useMemo(() => {
+    const hasUppercase = /[A-Z]/.test(formData.password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password);
     return (
       formData.name.trim() !== '' &&
       /\S+@\S+\.\S+/.test(formData.email) &&
       formData.company.trim() !== '' &&
       formData.password.length >= 8 &&
+      hasUppercase &&
+      hasSpecialChar &&
       formData.password === formData.confirmPassword
     );
   }, [formData]);

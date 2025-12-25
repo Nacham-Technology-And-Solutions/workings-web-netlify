@@ -360,8 +360,8 @@ const App: React.FC = () => {
   };
 
   const handleProjectSolutionGenerate = (materialCost: number) => {
-    // Create quote from project solution with material cost
-    handleCreateQuoteFromSolution(materialCost);
+    // Navigate to create new quote page
+    navigate('newProject');
   };
 
   const handleCreateQuoteFromSolution = (materialCost?: number) => {
@@ -791,20 +791,18 @@ const App: React.FC = () => {
 
   if (currentView === 'newProject') {
     return (
-      <>
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
-          <Sidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            currentView={currentView}
-            onNavigate={handleNavigate}
-          />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <NewProjectScreen onBack={goBack} onGenerateQuote={handleGenerateQuote} />
-          </div>
+      <div className="flex h-screen bg-white">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+        />
+        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-20">
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+          <NewProjectScreen onBack={goBack} onGenerateQuote={handleGenerateQuote} />
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1124,22 +1122,7 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'selectProject') {
-    return (
-      <>
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
-          <Sidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            currentView={currentView}
-            onNavigate={handleNavigate}
-          />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <SelectProjectScreen onBack={() => navigate('projectDescription')} onNext={handleSelectProjectNext} previousData={projectDescriptionData} />
-          </div>
-        </div>
-      </>
-    );
+    return <SelectProjectScreen onBack={() => navigate('projects')} onNext={handleSelectProjectNext} previousData={projectDescriptionData} />;
   }
 
   if (currentView === 'projectMeasurement') {

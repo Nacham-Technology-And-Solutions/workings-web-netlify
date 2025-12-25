@@ -22,16 +22,17 @@ interface NewProjectScreenProps {
 
 
 const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQuote }) => {
-    const [quoteTab, setQuoteTab] = useState<'Overview' | 'Item-List' | 'Extras & Notes'>('Overview');
+    const [quoteTab, setQuoteTab] = useState<'Overview' | 'Item List' | 'Extras & Notes'>('Overview');
     const [itemView, setItemView] = useState<'edit' | 'review'>('edit');
 
     // Form State
-    const [customerName, setCustomerName] = useState('Samantha Green');
+    const [customerName, setCustomerName] = useState('Olumide Adewale');
     const [customerEmail, setCustomerEmail] = useState('samanthagreen@example.com');
-    const [projectName, setProjectName] = useState('Kitchen Window Refurbishment');
-    const [siteAddress, setSiteAddress] = useState('123 Banana Street, Lagos, Nigeria');
+    const [projectName, setProjectName] = useState('Olumide Residence Renovation');
+    const [siteAddress, setSiteAddress] = useState('Lagos Island Apartment Refurbishment');
     const [issueDate, setIssueDate] = useState<Date | null>(new Date(Date.UTC(2025, 5, 18))); // June is 5 (0-indexed)
     const [quoteId] = useState('#000047'); // From image, read-only
+    const [paymentTerms, setPaymentTerms] = useState('');
     const [items, setItems] = useState<Omit<QuoteItem, 'total'>[]>(
         [{ id: `item-${Date.now()}`, description: 'Cement Bag', quantity: 20, unitPrice: 5000 }]
     );
@@ -100,8 +101,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
         return `${getDayWithSuffix(day)} ${month}, ${year}.`;
     };
 
-    const handleTabChange = (tab: 'Overview' | 'Item-List' | 'Extras & Notes') => {
-        if (quoteTab === 'Item-List' && tab !== 'Item-List') {
+    const handleTabChange = (tab: 'Overview' | 'Item List' | 'Extras & Notes') => {
+        if (quoteTab === 'Item List' && tab !== 'Item List') {
             setItemView('edit');
         }
         setQuoteTab(tab);
@@ -194,65 +195,115 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     };
 
     const renderOverview = () => (
-        <div className="pt-6 space-y-8">
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">CUSTOMERS' INFORMATION</h3>
-                <div className="border-b-2 border-dashed border-gray-300 mb-4"></div>
-                <div className="space-y-4">
-                    <Input
-                        id="quoteCustomerName"
-                        label="Customer's name"
-                        placeholder="Select a name"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        rightIcon={<UserIcon className="text-gray-500" />}
-                    />
-                    <Input
-                        id="quoteCustomerEmail"
-                        label="Customer's email address"
-                        type="email"
-                        placeholder="samanthagreen@example.com"
-                        value={customerEmail}
-                        onChange={(e) => setCustomerEmail(e.target.value)}
-                    />
+        <div className="pt-8 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Customer's name */}
+                <div>
+                    <label htmlFor="quoteCustomerName" className="block text-sm font-medium text-gray-700 mb-2">
+                        Customer's name
+                    </label>
+                    <div className="relative">
+                        <input
+                            id="quoteCustomerName"
+                            type="text"
+                            placeholder="Select a name"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            className="w-full px-4 py-3 pr-10 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <UserIcon className="w-5 h-5 text-gray-500" />
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">QUOTE DETAILS</h3>
-                <div className="border-b-2 border-dashed border-gray-300 mb-4"></div>
-                <div className="space-y-4">
-                    <Input
+
+                {/* Project name */}
+                <div>
+                    <label htmlFor="quoteProjectName" className="block text-sm font-medium text-gray-700 mb-2">
+                        Project name
+                    </label>
+                    <input
                         id="quoteProjectName"
-                        label="Project name"
+                        type="text"
                         placeholder="Enter a project name"
                         value={projectName}
                         onChange={(e) => setProjectName(e.target.value)}
+                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                     />
-                    <Input
+                </div>
+
+                {/* Site Address */}
+                <div>
+                    <label htmlFor="quoteSiteAddress" className="block text-sm font-medium text-gray-700 mb-2">
+                        Site Address
+                    </label>
+                    <input
                         id="quoteSiteAddress"
-                        label="Site Address"
-                        placeholder="Enter site address eg- Doom Refurbishments..."
+                        type="text"
+                        placeholder="Enter site address"
                         value={siteAddress}
                         onChange={(e) => setSiteAddress(e.target.value)}
+                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                     />
-                    <div onClick={() => setIsCalendarOpen(true)} className="cursor-pointer">
-                        <Input
+                </div>
+
+                {/* Issue Date */}
+                <div onClick={() => setIsCalendarOpen(true)} className="cursor-pointer">
+                    <label htmlFor="issueDate" className="block text-sm font-medium text-gray-700 mb-2">
+                        Issue Date
+                    </label>
+                    <div className="relative">
+                        <input
                             id="issueDate"
-                            label="Issue Date"
+                            type="text"
                             value={formatDisplayDate(issueDate)}
                             placeholder="Select quote date"
                             readOnly
-                            rightIcon={<CalendarIcon className="text-gray-500" />}
-                            className="pointer-events-none"
+                            className="w-full px-4 py-3 pr-10 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer"
                         />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <CalendarIcon className="w-5 h-5 text-gray-500" />
+                        </div>
                     </div>
-                    <Input
+                </div>
+
+                {/* Quote ID */}
+                <div>
+                    <label htmlFor="quoteId" className="block text-sm font-medium text-gray-700 mb-2">
+                        Quote ID
+                    </label>
+                    <input
                         id="quoteId"
-                        label="Quote ID"
+                        type="text"
                         value={quoteId}
                         readOnly
-                        className="bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed"
+                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
                     />
+                </div>
+
+                {/* Payment Terms */}
+                <div>
+                    <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700 mb-2">
+                        Payment Terms
+                    </label>
+                    <div className="relative">
+                        <select
+                            id="paymentTerms"
+                            value={paymentTerms}
+                            onChange={(e) => setPaymentTerms(e.target.value)}
+                            className="w-full px-4 py-3 pr-10 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 appearance-none"
+                        >
+                            <option value="">Select payment terms</option>
+                            <option value="net-15">Net 15</option>
+                            <option value="net-30">Net 30</option>
+                            <option value="net-45">Net 45</option>
+                            <option value="net-60">Net 60</option>
+                            <option value="due-on-receipt">Due on Receipt</option>
+                        </select>
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -653,36 +704,60 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     );
 
     return (
-        <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
-            <header className="p-4 flex items-center gap-4 sticky top-0 z-40 bg-white border-b border-gray-200">
-                <button onClick={onBack} className="text-gray-600 hover:text-gray-900" aria-label="Go back">
-                    <ChevronLeftIcon />
-                </button>
-                <h1 className="text-2xl font-bold text-gray-800">Create New Quote</h1>
-            </header>
-
-            <div className="border-b border-gray-200 px-6">
-                <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                    {(['Overview', 'Item-List', 'Extras & Notes'] as const).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => handleTabChange(tab)}
-                            className={`whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-base transition-colors ${quoteTab === tab
-                                ? 'border-gray-800 text-gray-800'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
-                </nav>
+        <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+            {/* Breadcrumbs */}
+            <div className="px-8 py-4 bg-white border-b border-gray-200">
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <span className="cursor-pointer hover:text-gray-600">Projects</span>
+                    <span>/</span>
+                    <span className="cursor-pointer hover:text-gray-600">Glazing-Type</span>
+                    <span>/</span>
+                    <span className="cursor-pointer hover:text-gray-600">Create New Quote</span>
+                    <span>/</span>
+                    <span className="text-gray-900 font-medium">{quoteTab}</span>
+                </div>
             </div>
+
+            {/* Header with Title and Tabs */}
+            <header className="px-8 py-6 bg-white border-b border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <button onClick={onBack} className="text-gray-600 hover:text-gray-900" aria-label="Go back">
+                            <ChevronLeftIcon />
+                        </button>
+                        <h1 className="text-2xl font-bold text-gray-900">Create New Quote</h1>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                    <nav className="flex space-x-8" aria-label="Tabs">
+                        {(['Overview', 'Item List', 'Extras & Notes'] as const).map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => handleTabChange(tab)}
+                                className={`whitespace-nowrap pb-3 px-1 border-b-2 font-semibold text-base transition-colors ${quoteTab === tab
+                                    ? 'border-gray-800 text-gray-900'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </nav>
+                    <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Filter
+                    </button>
+                </div>
+            </header>
 
             <main className="flex-1 px-6 overflow-y-auto bg-gray-50">
                 <div className="h-full">
                     {quoteTab === 'Overview' && renderOverview()}
-                    {quoteTab === 'Item-List' && itemView === 'edit' && renderItemListEdit()}
-                    {quoteTab === 'Item-List' && itemView === 'review' && renderItemListReview()}
+                    {quoteTab === 'Item List' && itemView === 'edit' && renderItemListEdit()}
+                    {quoteTab === 'Item List' && itemView === 'review' && renderItemListReview()}
                     {quoteTab === 'Extras & Notes' && renderExtrasAndNotes()}
                 </div>
             </main>
@@ -690,7 +765,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
             {quoteTab === 'Overview' && (
                 <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10">
                     <button
-                        onClick={() => handleTabChange('Item-List')}
+                        onClick={() => handleTabChange('Item List')}
                         className="w-full py-4 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
                     >
                         Next
@@ -698,7 +773,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                 </footer>
             )}
 
-            {quoteTab === 'Item-List' && (
+            {quoteTab === 'Item List' && (
                 <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10 space-y-3 border-t border-gray-200">
                     <button
                         onClick={() => {
