@@ -84,21 +84,21 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
                 Quotes
                 </h1>
             </div>
-            <div className="bg-gray-100 p-1 rounded-full flex space-x-1 overflow-x-auto">
+            <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
                 {tabs.map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                            className={`flex-1 min-w-[70px] text-center px-3 py-1.5 lg:px-6 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 focus:outline-none whitespace-nowrap ${
+                        className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${
                             activeTab === tab 
-                                ? 'bg-gray-800 text-white shadow-sm' 
-                                : 'bg-transparent text-gray-600 hover:bg-white/50'
+                                ? 'bg-gray-800 text-white' 
+                                : 'text-gray-500'
                         }`}
                     >
                         {tab}
                     </button>
                 ))}
-                </div>
+            </div>
             </div>
         </div>
 

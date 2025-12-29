@@ -231,3 +231,135 @@ export const shareData = async (
   }
 };
 
+interface QuoteItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+interface QuoteSummary {
+  subtotal: number;
+  charges: { label: string; amount: number }[];
+  grandTotal: number;
+}
+
+interface PaymentInfo {
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+}
+
+export const exportQuoteToPDF = (
+  quoteId: string,
+  issueDate: string,
+  customerName: string,
+  projectName: string,
+  siteAddress: string,
+  items: QuoteItem[],
+  summary: QuoteSummary,
+  paymentInfo: PaymentInfo
+) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const rightAlignX = pageWidth - margin;
+
+  // Header
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Quote Preview', margin, 20);
+
+  let yPos = 30;
+
+  // Quote Information
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Quote ID: ${quoteId}`, margin, yPos);
+  yPos += 6;
+  doc.text(`Issue Date: ${issueDate}`, margin, yPos);
+  yPos += 6;
+  doc.text(`Billed to: ${customerName}`, margin, yPos);
+  yPos += 6;
+  doc.text(`Project: ${projectName}`, margin, yPos);
+  yPos += 6;
+  doc.text(`Location: ${siteAddress}`, margin, yPos);
+  yPos += 10;
+
+  // Item Lists Table
+  const tableData = items.map((item) => [
+    item.description,
+    item.quantity.toString(),
+    `₦${item.unitPrice.toLocaleString()}`,
+    `₦${item.total.toLocaleString()}`
+  ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Description', 'Qty', 'Unit Price', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold', textColor: [255, 255, 255] },
+    columnStyles: {
+      1: { halign: 'center' },
+      2: { halign: 'right' },
+      3: { halign: 'right' }
+    }
+  });
+
+  // Summary Section
+  const finalY = (doc as any).lastAutoTable.finalY || yPos;
+  yPos = finalY + 15;
+
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SUMMARY', margin, yPos);
+  yPos += 8;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  
+  // Subtotal
+  doc.text('Subtotal', margin, yPos);
+  const subtotalText = `₦${summary.subtotal.toLocaleString()}`;
+  doc.text(subtotalText, rightAlignX - doc.getTextWidth(subtotalText), yPos);
+  yPos += 6;
+
+  // Charges
+  summary.charges.forEach((charge) => {
+    doc.text(charge.label, margin, yPos);
+    const chargeText = `₦${charge.amount.toLocaleString()}`;
+    doc.text(chargeText, rightAlignX - doc.getTextWidth(chargeText), yPos);
+    yPos += 6;
+  });
+
+  // Grand Total
+  yPos += 3;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Grand Total', margin, yPos);
+  const grandTotalText = `₦${summary.grandTotal.toLocaleString()}`;
+  doc.text(grandTotalText, rightAlignX - doc.getTextWidth(grandTotalText), yPos);
+  yPos += 10;
+
+  // Payment Information
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PAYMENT INFORMATION', margin, yPos);
+  yPos += 8;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Account Name: ${paymentInfo.accountName}`, margin, yPos);
+  yPos += 6;
+  doc.text(`Account Number: ${paymentInfo.accountNumber}`, margin, yPos);
+  yPos += 6;
+  doc.text(`Bank Name: ${paymentInfo.bankName}`, margin, yPos);
+
+  // Save
+  const fileName = `Quote-${quoteId.replace('#', '')}-${projectName.replace(/\s+/g, '-')}.pdf`;
+  doc.save(fileName);
+};
+

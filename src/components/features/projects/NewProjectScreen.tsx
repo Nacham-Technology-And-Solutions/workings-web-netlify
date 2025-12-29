@@ -318,160 +318,150 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
             }
         });
 
+        // For material list, show all items in a proper table format
+        const displayItems = selectedList === 'material' 
+            ? filteredItems 
+            : filteredItems;
+
         return (
-            <div className="pt-6 pb-24">
-                {/* Toggle between Material List and Dimension List */}
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">ITEM LISTS</h3>
-                    <div className="bg-gray-100 rounded-full p-1 flex items-center gap-1">
-                        <button
-                            onClick={() => setSelectedList('material')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'material'
-                                ? 'bg-gray-800 text-white'
-                                : 'text-gray-600 hover:text-gray-900'
-                                }`}
-                        >
-                            Material
-                        </button>
-                        <button
-                            onClick={() => setSelectedList('dimension')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${selectedList === 'dimension'
-                                ? 'bg-gray-800 text-white'
-                                : 'text-gray-600 hover:text-gray-900'
-                                }`}
-                        >
-                            Dimension
-                        </button>
+            <div className="pt-6 pb-24 relative">
+                {/* List Type Selection - Radio Buttons */}
+                <div className="mb-6">
+                    <p className="text-sm text-gray-700 mb-3">Select a list to pull items into your quote:</p>
+                    <div className="flex items-center gap-6">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="listType"
+                                value="dimension"
+                                checked={selectedList === 'dimension'}
+                                onChange={() => setSelectedList('dimension')}
+                                className="w-4 h-4 text-gray-900 focus:ring-gray-900"
+                            />
+                            <span className="text-sm text-gray-900">Dimension List</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="listType"
+                                value="material"
+                                checked={selectedList === 'material'}
+                                onChange={() => setSelectedList('material')}
+                                className="w-4 h-4 text-gray-900 focus:ring-gray-900"
+                            />
+                            <span className="text-sm text-gray-900">Material List</span>
+                        </label>
                     </div>
                 </div>
-                <div className="border-b-2 border-dashed border-gray-300 mb-6"></div>
 
-                {/* Item Table */}
-                <div className="w-full">
-                    {selectedList === 'dimension' ? (
-                        <>
-                            {/* Dimension Table Header */}
-                            <div className="grid grid-cols-12 gap-x-2 text-xs font-medium text-gray-500 pb-2 border-b border-gray-200">
-                                <div className="col-span-3">Description</div>
-                                <div className="col-span-2 text-center">Dimension</div>
-                                <div className="col-span-2 text-center">Qty</div>
-                                <div className="col-span-2 text-right">Price(₦)</div>
-                                <div className="col-span-3 text-right">Total(₦)</div>
-                            </div>
-
-                            {/* Dimension Table Body */}
-                            <div className="mt-1">
-                                {filteredItems.map((item, index) => {
-                                    const itemTotal = (item.width || 0) * (item.height || 0) * item.quantity * item.unitPrice / 1000000; // Convert mm² to m²
-                                    return (
-                                        <div key={item.id} className="grid grid-cols-12 gap-x-2 items-center py-3 border-b border-gray-200 group">
-                                            <div className="col-span-3">
-                                                <span className="text-sm text-gray-800 font-medium">{item.description}</span>
-                                            </div>
-                                            <div className="col-span-2 text-center">
-                                                <span className="text-xs text-gray-600">{item.width}×{item.height}</span>
-                                            </div>
-                                            <div className="col-span-2 text-center">
-                                                <span className="text-sm text-gray-600">{item.quantity}</span>
-                                            </div>
-                                            <div className="col-span-2 text-right">
-                                                <span className="text-sm text-gray-600">{item.unitPrice.toLocaleString('en-US')}</span>
-                                            </div>
-                                            <div className="col-span-3 flex items-center justify-end gap-2">
-                                                <span className="text-sm font-semibold text-gray-800 text-right">
-                                                    {itemTotal.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                                                </span>
-                                                <button
-                                                    onClick={() => handleEditDimension(item)}
-                                                    aria-label="Edit dimension"
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-600 hover:text-blue-700"
+                {/* Items Table */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S/N</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DESCRIPTION OF ITEMS</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QUANTITY</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UNIT PRICE (₦)</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TOTAL (₦)</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {displayItems.map((item, index) => {
+                                const actualIndex = items.findIndex(i => i.id === item.id);
+                                
+                                // For display in the quote table, use simple quantity * unitPrice calculation
+                                // (The area-based calculation is used in subtotal but not in individual row display for quote UI)
+                                const itemTotal = item.quantity * item.unitPrice;
+                                
+                                // For dimension items, display description as "width x height" format
+                                // If description exists and contains "x", use it; otherwise format from width/height
+                                let displayDescription = item.description || '';
+                                if (selectedList === 'dimension' && item.width && item.height) {
+                                    if (!item.description || !item.description.includes('x')) {
+                                        displayDescription = `${item.width} x ${item.height}`;
+                                    } else {
+                                        displayDescription = item.description;
+                                    }
+                                }
+                                
+                                return (
+                                    <tr key={item.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-4 text-sm text-gray-900">#{index + 1}</td>
+                                        <td className="px-4 py-4">
+                                            <input
+                                                type="text"
+                                                value={displayDescription}
+                                                onChange={(e) => handleItemChange(actualIndex, 'description', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <input
+                                                type="number"
+                                                value={item.quantity || ''}
+                                                onChange={(e) => handleItemChange(actualIndex, 'quantity', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <input
+                                                type="text"
+                                                value={item.unitPrice ? item.unitPrice.toLocaleString('en-US') : ''}
+                                                onChange={(e) => handleItemChange(actualIndex, 'unitPrice', e.target.value)}
+                                                onBlur={(e) => {
+                                                    const numValue = parseFloat(e.target.value.replace(/,/g, '')) || 0;
+                                                    handleItemChange(actualIndex, 'unitPrice', numValue.toString());
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4 text-sm font-medium text-gray-900">₦ {itemTotal.toLocaleString('en-US')}</td>
+                                        <td className="px-4 py-4 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <button 
+                                                    onClick={() => selectedList === 'dimension' ? handleEditDimension(item) : null}
+                                                    className="text-gray-600 hover:text-blue-600"
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                                     </svg>
                                                 </button>
-                                                <button
-                                                    onClick={() => removeItem(items.indexOf(item))}
-                                                    aria-label="Remove item"
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                <button 
+                                                    onClick={() => removeItem(actualIndex)} 
+                                                    className="text-gray-600 hover:text-red-600"
                                                 >
-                                                    <TrashIcon className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                                                    <TrashIcon className="w-5 h-5" />
                                                 </button>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            {/* Material Table Header */}
-                            <div className="grid grid-cols-12 gap-x-4 text-xs font-medium text-gray-500 pb-2 border-b border-gray-200">
-                                <div className="col-span-5">Description</div>
-                                <div className="col-span-2">Qty</div>
-                                <div className="col-span-2 text-right">Unit Price(₦)</div>
-                                <div className="col-span-3 text-right">Total(₦)</div>
-                            </div>
-
-                            {/* Material Table Body */}
-                            <div className="mt-1">
-                                {filteredItems.map((item, index) => {
-                                    const actualIndex = items.findIndex(i => i.id === item.id);
-                                    return (
-                                        <div key={item.id} className="grid grid-cols-12 gap-x-4 items-center py-2 border-b border-gray-200 group">
-                                            <div className="col-span-5">
-                                                <input
-                                                    type="text"
-                                                    value={item.description}
-                                                    onChange={(e) => handleItemChange(actualIndex, 'description', e.target.value)}
-                                                    placeholder="Item Description"
-                                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-800 font-medium"
-                                                />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <input
-                                                    type="number"
-                                                    value={item.quantity || ''}
-                                                    onChange={(e) => handleItemChange(actualIndex, 'quantity', e.target.value)}
-                                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-600 text-left"
-                                                />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <input
-                                                    type="text"
-                                                    value={item.unitPrice ? item.unitPrice.toLocaleString('en-US') : ''}
-                                                    onChange={(e) => handleItemChange(actualIndex, 'unitPrice', e.target.value)}
-                                                    className="w-full bg-transparent p-0 focus:outline-none text-sm text-gray-600 text-right"
-                                                />
-                                            </div>
-                                            <div className="col-span-3 flex items-center justify-end gap-2">
-                                                <span className="text-sm font-semibold text-gray-800 text-right">
-                                                    {(item.quantity * item.unitPrice).toLocaleString('en-US')}
-                                                </span>
-                                                {filteredItems.length > 1 && (
-                                                    <button onClick={() => removeItem(actualIndex)} aria-label="Remove item" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <TrashIcon className="w-4 h-4 text-gray-400 hover:text-red-500" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </>
-                    )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
 
-                <button onClick={addItem} className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded-lg hover:bg-cyan-50 transition-colors">
-                    <span>{selectedList === 'dimension' ? 'Add a dimension' : 'Add an item'}</span>
-                    <PlusCircleIcon className="text-cyan-600 w-5 h-5" />
-                </button>
+                {/* Add Dimension/Item Button */}
+                <div className="mb-8 border border-gray-300 rounded-lg bg-white">
+                    <button
+                        onClick={addItem}
+                        className="w-full py-3 px-4 text-blue-600 hover:bg-gray-50 transition-colors flex items-center justify-start gap-2"
+                    >
+                        <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="font-medium text-blue-600">
+                            {selectedList === 'dimension' ? 'Add a Dimension' : 'Add an item'}
+                        </span>
+                    </button>
+                </div>
 
-                <div className="mt-8 py-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center text-lg">
-                        <span className="text-gray-800 font-semibold">Subtotal</span>
-                        <span className="text-gray-900 font-bold">{formatNaira(subtotal)}</span>
-                    </div>
+                {/* Subtotal */}
+                <div className="flex justify-between items-center py-4 border-t border-gray-200">
+                    <span className="text-lg font-semibold text-gray-900">Subtotal</span>
+                    <span className="text-2xl font-bold text-gray-900">₦{subtotal.toLocaleString('en-US')}</span>
                 </div>
             </div>
         );
@@ -605,19 +595,16 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     };
 
     const renderExtrasAndNotes = () => (
-        <div className="space-y-8 pt-6 pb-24">
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">EXTRA CHARGES</h3>
-                <div className="border-b-2 border-dashed border-gray-300 mb-4"></div>
-                <div className="space-y-4">
+        <div className="pt-6 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column - Charges & Payment */}
+                <div className="space-y-6">
+                    {/* Extra Charges Dropdown */}
                     <div className="relative" ref={chargesDropdownRef}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Charge Name
-                        </label>
                         <button
                             type="button"
                             onClick={() => setIsChargesDropdownOpen(!isChargesDropdownOpen)}
-                            className="w-full flex justify-between items-center px-4 py-3.5 text-left bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400"
+                            className="w-full flex justify-between items-center px-4 py-3.5 text-left bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
                         >
                             <span className={extraCharge.type ? 'text-gray-900' : 'text-gray-400'}>
                                 {extraCharge.type || 'Select extra charges for project'}
@@ -625,7 +612,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             {isChargesDropdownOpen ? <ChevronUpIcon className="text-gray-500" /> : <ChevronDownIcon className="text-gray-500" />}
                         </button>
                         {isChargesDropdownOpen && (
-                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg">
+                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
                                 <ul className="py-1 max-h-60 overflow-y-auto">
                                     {chargeOptions.map(option => (
                                         <li
@@ -643,6 +630,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             </div>
                         )}
                     </div>
+
+                    {/* Amount Input */}
                     <div>
                         <label htmlFor="extraChargesAmount" className="block text-sm font-medium text-gray-700 mb-1">
                             Amount
@@ -652,53 +641,72 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             <input
                                 id="extraChargesAmount"
                                 type="text"
-                                placeholder="0.00"
-                                value={extraCharge.amount ? parseFloat(extraCharge.amount).toLocaleString('en-US') : ''}
-                                onChange={(e) => setExtraCharge(p => ({ ...p, amount: e.target.value.replace(/[^0-9.]/g, '') }))}
-                                className="w-full pl-8 pr-4 py-3.5 text-gray-900 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400"
+                                value={extraCharge.amount ? parseFloat(extraCharge.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                                    setExtraCharge(p => ({ ...p, amount: value }));
+                                }}
+                                className="w-full pl-8 pr-4 py-3.5 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200"
                             />
                         </div>
                     </div>
+
+                    {/* Payment Method */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">PAYMENT METHOD</h3>
+                        <div className="space-y-3 text-base">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Account Name:</span>
+                                <span className="font-medium text-gray-800">Olumide Adewale</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Account Number:</span>
+                                <span className="font-medium text-gray-800">10-4030-011094</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Bank Name:</span>
+                                <span className="font-medium text-gray-800">Zenith Bank</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Total */}
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                        <span className="text-xl font-bold text-gray-800">Total</span>
+                        <span className="text-xl font-bold text-gray-800">{formatNaira(quoteTotal)}</span>
+                    </div>
                 </div>
-            </div>
 
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">PAYMENT METHOD</h3>
-                <div className="space-y-3 text-base">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Account Name:</span>
-                        <span className="font-medium text-gray-800">Olumide Adewale</span>
+                {/* Right Column - Additional Notes & Action Buttons */}
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">ADDITIONAL NOTES</h3>
+                        <textarea
+                            id="additionalNotes"
+                            rows={10}
+                            value={additionalNotes}
+                            onChange={e => setAdditionalNotes(e.target.value)}
+                            placeholder="Enter some additional notes here......"
+                            className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400"
+                        ></textarea>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Account Number:</span>
-                        <span className="font-medium text-gray-800">10-4030-011094</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Bank Name:</span>
-                        <span className="font-medium text-gray-800">Zenith Bank</span>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
+                        <button
+                            onClick={handleFinalGenerateQuote}
+                            className="w-full py-4 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        >
+                            Proceed to preview
+                        </button>
+                        <button
+                            onClick={() => console.log('Save as Draft')}
+                            className="w-full py-4 bg-white text-gray-800 font-semibold rounded-lg border border-gray-400 hover:bg-gray-100 transition-colors"
+                        >
+                            Save as Draft
+                        </button>
                     </div>
                 </div>
-            </div>
-
-            <hr className="border-t border-gray-200" />
-
-            <div className="flex justify-between items-center py-2">
-                <span className="text-xl font-bold text-gray-800">Total</span>
-                <span className="text-xl font-bold text-gray-800">{formatNaira(quoteTotal)}</span>
-            </div>
-
-            <hr className="border-t border-gray-200" />
-
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">ADDITIONAL NOTES</h3>
-                <textarea
-                    id="additionalNotes"
-                    rows={4}
-                    value={additionalNotes}
-                    onChange={e => setAdditionalNotes(e.target.value)}
-                    placeholder="Enter some additional notes here......"
-                    className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400"
-                ></textarea>
             </div>
         </div>
     );
@@ -774,7 +782,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
             )}
 
             {quoteTab === 'Item List' && (
-                <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10 space-y-3 border-t border-gray-200">
+                <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10 border-t border-gray-200">
                     <button
                         onClick={() => {
                             if (itemView === 'edit') {
@@ -787,25 +795,9 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                     >
                         Next
                     </button>
-                    <button
-                        onClick={() => console.log('Save as Draft')}
-                        className="w-full py-3.5 bg-white text-gray-800 font-semibold rounded-lg border border-gray-400 hover:bg-gray-100 transition-colors"
-                    >
-                        Save as Draft
-                    </button>
                 </footer>
             )}
 
-            {quoteTab === 'Extras & Notes' && (
-                <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10">
-                    <button
-                        onClick={handleFinalGenerateQuote}
-                        className="w-full py-4 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                        Generate Quote
-                    </button>
-                </footer>
-            )}
 
             <CalendarModal
                 isOpen={isCalendarOpen}

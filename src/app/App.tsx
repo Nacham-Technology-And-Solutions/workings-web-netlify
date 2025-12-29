@@ -517,7 +517,14 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'quotePreview' && generatedQuote) {
-    return <QuotePreviewScreen quote={generatedQuote} onBack={() => navigate('quotes')} onEdit={() => navigate('newProject')} />;
+    return (
+      <QuotePreviewScreen 
+        quote={generatedQuote} 
+        onBack={() => navigate('quotes')} 
+        onEdit={() => navigate('newProject')}
+        onAfterDownload={() => navigate('projectSolution')}
+      />
+    );
   }
 
   if (currentView === 'quoteDetail' && selectedQuoteId) {

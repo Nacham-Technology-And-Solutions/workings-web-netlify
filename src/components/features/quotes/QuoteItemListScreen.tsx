@@ -8,7 +8,7 @@ interface QuoteItemListScreenProps {
 }
 
 const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData }) => {
-    const [listType, setListType] = useState<'dimension' | 'material'>('dimension');
+    const [listType, setListType] = useState<'dimension' | 'material' | null>(null);
     const [items, setItems] = useState<QuoteItemRow[]>([
         { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
         { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
@@ -17,6 +17,28 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
 
     const calculateSubtotal = () => {
         return items.reduce((sum, item) => sum + item.total, 0);
+    };
+
+    const formatNumber = (value: number): string => {
+        return value.toLocaleString('en-US');
+    };
+
+    const parseFormattedNumber = (value: string): number => {
+        return Number(value.replace(/,/g, '')) || 0;
+    };
+
+    const updateItem = (id: string, field: keyof QuoteItemRow, value: string | number) => {
+        setItems(items.map(item => {
+            if (item.id === id) {
+                const updatedItem = { ...item, [field]: value };
+                // Auto-calculate total when quantity or unitPrice changes
+                if (field === 'quantity' || field === 'unitPrice') {
+                    updatedItem.total = updatedItem.quantity * updatedItem.unitPrice;
+                }
+                return updatedItem;
+            }
+            return item;
+        }));
     };
 
     const handleAddDimension = () => {
@@ -36,7 +58,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
 
     const handleNext = () => {
         const data: QuoteItemListData = {
-            listType,
+            listType: listType || 'dimension',
             items,
             subtotal: calculateSubtotal()
         };
@@ -74,31 +96,9 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                 </div>
             </div>
 
-            {/* Warning Message */}
-            {showWarning && (
-                <div className="px-8 py-4 bg-yellow-50 border-b border-yellow-100">
-                    <div className="max-w-7xl mx-auto flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                            <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                            <div>
-                                <p className="text-sm font-semibold text-yellow-800">List Selection Required!</p>
-                                <p className="text-sm text-yellow-700">Please select a Dimension or Material List to proceed with your quote.</p>
-                            </div>
-                        </div>
-                        <button onClick={() => setShowWarning(false)} className="text-yellow-600 hover:text-yellow-800">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto px-8 py-8">
-                <div className="max-w-7xl mx-auto">
+                <div className="max-w-7xl mx-auto relative">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
                         <div className="flex items-center gap-8">
@@ -121,14 +121,36 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                             </button>
 
                             {/* Filter Button */}
-                            <button className="ml-auto pb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                                <span className="text-sm">Filter</span>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="ml-auto pb-4 flex items-center gap-2">
+                                <span className="text-sm text-gray-600">Filter</span>
+                                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                                 </svg>
-                            </button>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Warning Message - Top Right */}
+                    {showWarning && (
+                        <div className="absolute top-0 right-0 bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-sm max-w-md z-10">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3 flex-1">
+                                    <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    <div>
+                                        <p className="text-sm font-semibold text-yellow-800">List Selection Required!!</p>
+                                        <p className="text-sm text-yellow-700">Please select a Dimension or Material List to proceed with your quote.</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowWarning(false)} className="text-yellow-600 hover:text-yellow-800 flex-shrink-0">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* List Type Selection */}
                     <div className="mb-6">
@@ -140,7 +162,10 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                     name="listType"
                                     value="dimension"
                                     checked={listType === 'dimension'}
-                                    onChange={() => setListType('dimension')}
+                                    onChange={() => {
+                                        setListType('dimension');
+                                        setShowWarning(false);
+                                    }}
                                     className="w-4 h-4 text-gray-900 focus:ring-gray-900"
                                 />
                                 <span className="text-sm text-gray-900">Dimension List</span>
@@ -151,7 +176,10 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                     name="listType"
                                     value="material"
                                     checked={listType === 'material'}
-                                    onChange={() => setListType('material')}
+                                    onChange={() => {
+                                        setListType('material');
+                                        setShowWarning(false);
+                                    }}
                                     className="w-4 h-4 text-gray-900 focus:ring-gray-900"
                                 />
                                 <span className="text-sm text-gray-900">Material List</span>
@@ -165,7 +193,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S/N</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description of Items</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DESCRIPTION OF ITEMS</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price (₦)</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (₦)</th>
@@ -176,9 +204,37 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                 {items.map((item, index) => (
                                     <tr key={item.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-4 text-sm text-gray-900">#{item.id}</td>
-                                        <td className="px-4 py-4 text-sm text-gray-900">{item.description}</td>
-                                        <td className="px-4 py-4 text-sm text-gray-900">{item.quantity}</td>
-                                        <td className="px-4 py-4 text-sm text-gray-900">{item.unitPrice.toLocaleString()}</td>
+                                        <td className="px-4 py-4">
+                                            <input
+                                                type="text"
+                                                value={item.description}
+                                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <input
+                                                type="number"
+                                                value={item.quantity}
+                                                onChange={(e) => updateItem(item.id, 'quantity', Number(e.target.value) || 0)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <input
+                                                type="text"
+                                                value={formatNumber(item.unitPrice)}
+                                                onChange={(e) => {
+                                                    const numValue = parseFormattedNumber(e.target.value);
+                                                    updateItem(item.id, 'unitPrice', numValue);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const numValue = parseFormattedNumber(e.target.value);
+                                                    updateItem(item.id, 'unitPrice', numValue);
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                            />
+                                        </td>
                                         <td className="px-4 py-4 text-sm font-medium text-gray-900">₦ {item.total.toLocaleString()}</td>
                                         <td className="px-4 py-4 text-sm">
                                             <div className="flex items-center gap-2">
@@ -201,15 +257,17 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                     </div>
 
                     {/* Add Dimension Button */}
-                    <button
-                        onClick={handleAddDimension}
-                        className="w-full py-3 mb-8 border-2 border-dashed border-teal-400 text-teal-600 rounded-lg hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="font-medium">Add a Dimension</span>
-                    </button>
+                    <div className="mb-8 border border-gray-300 rounded-lg bg-white">
+                        <button
+                            onClick={handleAddDimension}
+                            className="w-full py-3 px-4 text-blue-600 hover:bg-gray-50 transition-colors flex items-center justify-start gap-2"
+                        >
+                            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span className="font-medium text-blue-600">Add a Dimension</span>
+                        </button>
+                    </div>
 
                     {/* Subtotal */}
                     <div className="flex justify-between items-center py-4 border-t border-gray-200">
