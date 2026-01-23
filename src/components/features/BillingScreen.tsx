@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores';
-import { userService, subscriptionsService } from '@/services/api';
+import { userService, subscriptionsService, type CurrentSubscription } from '@/services/api';
 import { getUserInitials } from '@/utils/userHelpers';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
 
@@ -12,7 +12,11 @@ interface BillingScreenProps {
 const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
   const { user, updateUser } = useAuthStore();
   const [pointsBalance, setPointsBalance] = useState<number | undefined>(user?.pointsBalance);
+  const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Fetch subscription and points balance
   useEffect(() => {
@@ -25,11 +29,12 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
 
         if (normalizedResponse.success && normalizedResponse.response) {
           const responseData = normalizedResponse.response as any;
-          const subscription = responseData.subscription || responseData;
+          const sub = responseData.subscription || responseData;
+          setSubscription(sub);
           
-          if (subscription.pointsBalance !== undefined) {
-            setPointsBalance(subscription.pointsBalance);
-            updateUser({ pointsBalance: subscription.pointsBalance });
+          if (sub.pointsBalance !== undefined) {
+            setPointsBalance(sub.pointsBalance);
+            updateUser({ pointsBalance: sub.pointsBalance });
           }
         }
       } catch (err) {
@@ -41,6 +46,45 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
 
     fetchData();
   }, [user?.id, updateUser]);
+
+  const handleCancelSubscription = async () => {
+    try {
+      setIsCancelling(true);
+      setCancelError(null);
+
+      const response = await subscriptionsService.cancel();
+      const normalizedResponse = normalizeApiResponse(response);
+
+      if (normalizedResponse.success) {
+        // Refresh subscription data
+        const subscriptionResponse = await subscriptionsService.getCurrent();
+        const subNormalized = normalizeApiResponse(subscriptionResponse);
+        if (subNormalized.success && subNormalized.response) {
+          const responseData = subNormalized.response as any;
+          const sub = responseData.subscription || responseData;
+          setSubscription(sub);
+          if (sub.pointsBalance !== undefined) {
+            setPointsBalance(sub.pointsBalance);
+            updateUser({ pointsBalance: sub.pointsBalance });
+          }
+        }
+        setShowCancelConfirm(false);
+        alert('Subscription cancelled successfully. You have been moved to the free tier.');
+      } else {
+        throw new Error(normalizedResponse.message || 'Failed to cancel subscription');
+      }
+    } catch (err: any) {
+      console.error('Error cancelling subscription:', err);
+      setCancelError(
+        err?.response?.data?.responseMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to cancel subscription. Please try again.'
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-white font-sans text-gray-800 p-6">
@@ -55,29 +99,66 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                 <p className="text-sm font-medium text-gray-700 mb-1">Subscription Plan</p>
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    user?.subscriptionStatus === 'enterprise' 
+                    subscription?.plan === 'enterprise' 
                       ? 'bg-purple-100 text-purple-800'
-                      : user?.subscriptionStatus === 'pro'
+                      : subscription?.plan === 'pro'
                       ? 'bg-blue-100 text-blue-800'
-                      : user?.subscriptionStatus === 'starter'
+                      : subscription?.plan === 'starter'
                       ? 'bg-green-100 text-green-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {user?.subscriptionStatus ? user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1) : 'Free'}
+                    {subscription?.plan ? subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1) : 'Free'}
                   </span>
+                  {subscription?.status && (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      subscription.status === 'active'
+                        ? 'bg-green-100 text-green-800'
+                        : subscription.status === 'expired'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                    </span>
+                  )}
                 </div>
+                {subscription?.billingCycle && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Billed {subscription.billingCycle === 'monthly' ? 'monthly' : 'yearly'}
+                  </p>
+                )}
+                {subscription?.endDate && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {subscription.status === 'active' ? 'Renews' : 'Expires'} on{' '}
+                    {new Date(subscription.endDate).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (onNavigate) {
-                    onNavigate('subscriptionPlans');
-                  }
-                }}
-                className="text-sm font-medium text-blue-600 hover:text-blue-800 underline"
-              >
-                Manage
-              </button>
+              <div className="flex flex-col gap-2 items-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onNavigate) {
+                      onNavigate('subscriptionPlans');
+                    }
+                  }}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-800 underline"
+                >
+                  {subscription?.plan && subscription.plan !== 'free' ? 'Change Plan' : 'Upgrade'}
+                </button>
+                {subscription?.plan && subscription.plan !== 'free' && subscription.status === 'active' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="text-sm font-medium text-red-600 hover:text-red-800 underline"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Points Balance */}
@@ -203,18 +284,30 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-900 mb-1">
-                  {user?.subscriptionStatus === 'free' ? 'No active subscription' : 'Not available'}
+                  {subscription?.plan === 'free' || !subscription?.endDate
+                    ? 'No active subscription'
+                    : subscription.status === 'active'
+                    ? `Next billing: ${new Date(subscription.endDate).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}`
+                    : 'Subscription expired'}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {user?.subscriptionStatus === 'free' 
+                  {subscription?.plan === 'free' || !subscription
                     ? 'Upgrade to a paid plan to enable automatic billing'
-                    : 'Subscription details will appear here'}
+                    : subscription.status === 'active'
+                    ? 'Your subscription will automatically renew'
+                    : 'Your subscription has expired'}
                 </p>
               </div>
-              {user?.subscriptionStatus !== 'free' && (
+              {subscription?.plan && subscription.plan !== 'free' && subscription.status === 'active' && (
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={true}
+                    readOnly
                     className="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-800"
                   />
                   <span className="text-sm text-gray-700">Auto-renewal</span>
@@ -224,6 +317,43 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
           </div>
         </section>
       </div>
+
+      {/* Cancel Subscription Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Subscription</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to cancel your subscription? You will be moved to the free tier immediately.
+              Your points balance will be reset to 50 points.
+            </p>
+            {cancelError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-red-800 text-sm">{cancelError}</p>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowCancelConfirm(false);
+                  setCancelError(null);
+                }}
+                disabled={isCancelling}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              >
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancelSubscription}
+                disabled={isCancelling}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel Subscription'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

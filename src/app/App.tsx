@@ -39,6 +39,7 @@ import CreateMaterialListScreen from '../components/features/material-lists/Crea
 import MaterialListPreviewScreen from '../components/features/material-lists/MaterialListPreviewScreen';
 import EditMaterialListScreen from '../components/features/material-lists/EditMaterialListScreen';
 import PreBuiltTemplatesScreen from '../components/features/PreBuiltTemplatesScreen';
+import PaymentCallbackScreen from '../components/features/PaymentCallbackScreen';
 import LogViewer from '../components/common/LogViewer';
 
 // Import stores
@@ -1246,6 +1247,26 @@ const App: React.FC = () => {
           </div>
         </div>
       </>
+    );
+  }
+
+  // Payment callback handler - check URL params for payment reference
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasPaymentCallback = urlParams.has('reference') || urlParams.has('tx_ref') || localStorage.getItem('paymentReference');
+  
+  if (hasPaymentCallback && (currentView === 'home' || !currentView)) {
+    return (
+      <PaymentCallbackScreen
+        onSuccess={() => {
+          localStorage.removeItem('paymentReference');
+          localStorage.removeItem('paymentProvider');
+          navigate('settings');
+        }}
+        onFailure={(error) => {
+          console.error('Payment callback error:', error);
+          navigate('settings');
+        }}
+      />
     );
   }
 
