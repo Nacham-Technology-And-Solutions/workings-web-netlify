@@ -40,6 +40,7 @@ import MaterialListPreviewScreen from '../components/features/material-lists/Mat
 import EditMaterialListScreen from '../components/features/material-lists/EditMaterialListScreen';
 import PreBuiltTemplatesScreen from '../components/features/PreBuiltTemplatesScreen';
 import PaymentCallbackScreen from '../components/features/PaymentCallbackScreen';
+import SessionExpiredModal from '../components/common/SessionExpiredModal';
 import LogViewer from '../components/common/LogViewer';
 
 // Import stores
@@ -58,6 +59,7 @@ import { projectsService, quotesService, materialListsService } from '../service
 // Import utilities
 import { getApiResponseData, normalizeApiResponse, isApiResponseSuccess } from '../utils/apiResponseHelper';
 import { transformQuoteDataToBackend, transformBackendQuoteToPreview, transformStandaloneQuoteToBackend } from '../utils/dataTransformers';
+import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
 
 // Import types and constants
 import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
@@ -147,6 +149,8 @@ const App: React.FC = () => {
   const [showLogViewer, setShowLogViewer] = useState(false);
   const [draftProjectId, setDraftProjectId] = useState<number | null>(null);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string>('Your session has expired. Please sign in again to continue.');
 
   // Initialize stores on mount
   useEffect(() => {
@@ -163,6 +167,32 @@ const App: React.FC = () => {
       });
     });
   }, [initializeAuth, initializeOnlineStatus]);
+
+  // Listen for session expiration events
+  useEffect(() => {
+    const unsubscribe = onSessionExpired((event) => {
+      console.log('[App] Session expired event received:', event);
+      setSessionExpiredMessage(event.message);
+      setSessionExpired(true);
+      // Clear authentication state
+      setAuthenticated(false);
+      setAuthScreen('login');
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [setAuthenticated, setAuthScreen]);
+
+  // Handle session expired modal confirmation
+  const handleSessionExpiredConfirm = () => {
+    clearAuthData();
+    setSessionExpired(false);
+    setSessionExpiredMessage('Your session has expired. Please sign in again to continue.');
+    setAuthenticated(false);
+    setAuthScreen('login');
+    navigate('home');
+  };
 
   // Keyboard shortcut to open log viewer (Ctrl+Shift+L or Cmd+Shift+L)
   useEffect(() => {
@@ -1770,6 +1800,13 @@ const App: React.FC = () => {
       {import.meta.env.DEV && (
         <LogViewer isOpen={showLogViewer} onClose={() => setShowLogViewer(false)} />
       )}
+
+      {/* Session Expired Modal */}
+      <SessionExpiredModal
+        isOpen={sessionExpired}
+        onConfirm={handleSessionExpiredConfirm}
+        message={sessionExpiredMessage}
+      />
     </>
   );
 };

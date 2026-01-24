@@ -180,7 +180,7 @@ apiClient.interceptors.response.use(
         if (import.meta.env.DEV) {
           console.warn('[API 401] Missing refresh token or email - redirecting to login');
         }
-        clearAuthAndRedirect();
+        clearAuthAndRedirect('Authentication required. Please sign in to continue.');
         const redirectError = new Error('Authentication required');
         (redirectError as any).isAuthError = true;
         (redirectError as any).redirecting = true;
@@ -292,7 +292,7 @@ apiClient.interceptors.response.use(
               status: refreshError.response?.status,
             });
             console.error('[Token Refresh] Refresh token is invalid or expired');
-            clearAuthAndRedirect();
+            clearAuthAndRedirect('Your session has expired. Please sign in again to continue.');
             const authError = new Error('Session expired. Please sign in again.');
             (authError as any).isAuthError = true;
             (authError as any).redirecting = true;
@@ -306,7 +306,7 @@ apiClient.interceptors.response.use(
             data: refreshError.response?.data,
           });
           console.error('[Token Refresh] Token refresh failed:', refreshError);
-          clearAuthAndRedirect();
+          clearAuthAndRedirect('Unable to refresh your session. Please sign in again.');
           const refreshFailedError = new Error('Unable to refresh session. Please sign in again.');
           (refreshFailedError as any).isAuthError = true;
           (refreshFailedError as any).redirecting = true;
@@ -333,8 +333,8 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Helper function to clear auth and redirect to login
-function clearAuthAndRedirect() {
+// Helper function to clear auth and notify about session expiration
+function clearAuthAndRedirect(message?: string) {
   // Prevent multiple redirects
   if (isRedirecting) {
     logger.debug('AUTH', 'Redirect already in progress, skipping');
@@ -353,7 +353,7 @@ function clearAuthAndRedirect() {
   localStorage.removeItem('userId');
   localStorage.removeItem('isAuthenticated');
 
-  logger.info('AUTH', 'Cleared authentication data and redirecting to login');
+  logger.info('AUTH', 'Cleared authentication data');
 
   // Clear auth store if available
   import('@/stores').then(({ useAuthStore }) => {
@@ -362,8 +362,19 @@ function clearAuthAndRedirect() {
     // Store might not be available, continue anyway
   });
 
-  // Redirect to login
-  window.location.href = '/login';
+  // Notify about session expiration using event system
+  import('@/utils/sessionManager').then(({ notifySessionExpired }) => {
+    notifySessionExpired(
+      'SESSION_EXPIRED',
+      message || 'Your session has expired. Please sign in again to continue.'
+    );
+  }).catch((error) => {
+    console.error('[API Client] Failed to notify session expiration:', error);
+    // Fallback to hard redirect if event system fails
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 1000);
+  });
 }
 
 export default apiClient;

@@ -13,6 +13,7 @@ import type {
   MaterialPricesConfig,
   TemplateTab,
 } from '@/types/templates';
+import { templatesService } from '@/services/api/templates.service';
 
 interface TemplateState {
   // Quote Format
@@ -44,10 +45,10 @@ interface TemplateState {
   resetQuoteFormat: () => void;
   
   // Payment Method Actions
-  addPaymentMethod: (method: Omit<PaymentMethod, 'id' | 'createdAt' | 'updatedAt' | 'isDefault'>) => void;
-  updatePaymentMethod: (id: string, method: Partial<PaymentMethod>) => void;
-  deletePaymentMethod: (id: string) => void;
-  setDefaultPaymentMethod: (id: string) => void;
+  addPaymentMethod: (method: Omit<PaymentMethod, 'id' | 'createdAt' | 'updatedAt' | 'isDefault'>) => Promise<void>;
+  updatePaymentMethod: (id: string, method: Partial<PaymentMethod>) => Promise<void>;
+  deletePaymentMethod: (id: string) => Promise<void>;
+  setDefaultPaymentMethod: (id: string) => Promise<void>;
   updatePaymentMethodConfig: (config: Partial<PaymentMethodConfig>) => void;
   getDefaultPaymentMethod: () => PaymentMethod | null;
   
@@ -56,9 +57,9 @@ interface TemplateState {
   resetPDFExport: () => void;
   
   // Material Prices Actions
-  addMaterialPrice: (price: Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateMaterialPrice: (id: string, price: Partial<MaterialPrice>) => void;
-  deleteMaterialPrice: (id: string) => void;
+  addMaterialPrice: (price: Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateMaterialPrice: (id: string, price: Partial<MaterialPrice>) => Promise<void>;
+  deleteMaterialPrice: (id: string) => Promise<void>;
   importMaterialPrices: (prices: MaterialPrice[]) => void;
   updateMaterialPricesConfig: (config: Partial<MaterialPricesConfig>) => void;
   
@@ -175,71 +176,230 @@ export const useTemplateStore = create<TemplateState>()(
       },
       
       // Payment Method Actions
-      addPaymentMethod: (method) => {
-        const newMethod: PaymentMethod = {
-          ...method,
-          id: `pm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          isDefault: get().paymentMethods.length === 0, // First one is default
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        set((state) => ({
-          paymentMethods: [...state.paymentMethods, newMethod],
-          paymentMethodConfig: {
-            ...state.paymentMethodConfig,
-            methods: [...state.paymentMethodConfig.methods, newMethod],
-          },
-          hasUnsavedChanges: true,
-        }));
-      },
-      updatePaymentMethod: (id, method) => {
-        set((state) => {
-          const updatedMethods = state.paymentMethods.map((pm) =>
-            pm.id === id ? { ...pm, ...method, updatedAt: new Date().toISOString() } : pm
-          );
-          return {
-            paymentMethods: updatedMethods,
+      addPaymentMethod: async (method) => {
+        try {
+          // Try to create via API first
+          const createdMethod = await templatesService.createPaymentMethod(method);
+          
+          if (createdMethod) {
+            // API success - use the created method from backend
+            set((state) => ({
+              paymentMethods: [...state.paymentMethods, createdMethod],
+              paymentMethodConfig: {
+                ...state.paymentMethodConfig,
+                methods: [...state.paymentMethodConfig.methods, createdMethod],
+              },
+              hasUnsavedChanges: false, // Saved to API
+            }));
+          } else {
+            // API failed - fallback to local state
+            const newMethod: PaymentMethod = {
+              ...method,
+              id: `pm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              isDefault: get().paymentMethods.length === 0,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            set((state) => ({
+              paymentMethods: [...state.paymentMethods, newMethod],
+              paymentMethodConfig: {
+                ...state.paymentMethodConfig,
+                methods: [...state.paymentMethodConfig.methods, newMethod],
+              },
+              hasUnsavedChanges: true,
+            }));
+          }
+        } catch (error) {
+          console.error('[TemplateStore] Error adding payment method:', error);
+          // Fallback to local state on error
+          const newMethod: PaymentMethod = {
+            ...method,
+            id: `pm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            isDefault: get().paymentMethods.length === 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          set((state) => ({
+            paymentMethods: [...state.paymentMethods, newMethod],
             paymentMethodConfig: {
               ...state.paymentMethodConfig,
-              methods: updatedMethods,
+              methods: [...state.paymentMethodConfig.methods, newMethod],
             },
             hasUnsavedChanges: true,
-          };
-        });
-      },
-      deletePaymentMethod: (id) => {
-        set((state) => {
-          const filtered = state.paymentMethods.filter((pm) => pm.id !== id);
-          // If deleted was default, make first one default
-          const deletedWasDefault = state.paymentMethods.find((pm) => pm.id === id)?.isDefault;
-          const updatedMethods = deletedWasDefault && filtered.length > 0
-            ? filtered.map((pm, index) => ({ ...pm, isDefault: index === 0 }))
-            : filtered;
-          return {
-            paymentMethods: updatedMethods,
-            paymentMethodConfig: {
-              ...state.paymentMethodConfig,
-              methods: updatedMethods,
-            },
-            hasUnsavedChanges: true,
-          };
-        });
-      },
-      setDefaultPaymentMethod: (id) => {
-        set((state) => {
-          const updatedMethods = state.paymentMethods.map((pm) => ({
-            ...pm,
-            isDefault: pm.id === id,
           }));
-          return {
-            paymentMethods: updatedMethods,
-            paymentMethodConfig: {
-              ...state.paymentMethodConfig,
-              methods: updatedMethods,
-            },
-            hasUnsavedChanges: true,
-          };
-        });
+        }
+      },
+      updatePaymentMethod: async (id, method) => {
+        try {
+          // Try to update via API first
+          const updatedMethod = await templatesService.updatePaymentMethod(id, method);
+          
+          if (updatedMethod) {
+            // API success - use the updated method from backend
+            set((state) => {
+              const updatedMethods = state.paymentMethods.map((pm) =>
+                pm.id === id ? updatedMethod : pm
+              );
+              return {
+                paymentMethods: updatedMethods,
+                paymentMethodConfig: {
+                  ...state.paymentMethodConfig,
+                  methods: updatedMethods,
+                },
+                hasUnsavedChanges: false, // Saved to API
+              };
+            });
+          } else {
+            // API failed - fallback to local state
+            set((state) => {
+              const updatedMethods = state.paymentMethods.map((pm) =>
+                pm.id === id ? { ...pm, ...method, updatedAt: new Date().toISOString() } : pm
+              );
+              return {
+                paymentMethods: updatedMethods,
+                paymentMethodConfig: {
+                  ...state.paymentMethodConfig,
+                  methods: updatedMethods,
+                },
+                hasUnsavedChanges: true,
+              };
+            });
+          }
+        } catch (error) {
+          console.error('[TemplateStore] Error updating payment method:', error);
+          // Fallback to local state on error
+          set((state) => {
+            const updatedMethods = state.paymentMethods.map((pm) =>
+              pm.id === id ? { ...pm, ...method, updatedAt: new Date().toISOString() } : pm
+            );
+            return {
+              paymentMethods: updatedMethods,
+              paymentMethodConfig: {
+                ...state.paymentMethodConfig,
+                methods: updatedMethods,
+              },
+              hasUnsavedChanges: true,
+            };
+          });
+        }
+      },
+      deletePaymentMethod: async (id) => {
+        try {
+          // Try to delete via API first
+          const deleted = await templatesService.deletePaymentMethod(id);
+          
+          if (deleted) {
+            // API success - remove from state
+            set((state) => {
+              const filtered = state.paymentMethods.filter((pm) => pm.id !== id);
+              // If deleted was default, make first one default
+              const deletedWasDefault = state.paymentMethods.find((pm) => pm.id === id)?.isDefault;
+              const updatedMethods = deletedWasDefault && filtered.length > 0
+                ? filtered.map((pm, index) => ({ ...pm, isDefault: index === 0 }))
+                : filtered;
+              return {
+                paymentMethods: updatedMethods,
+                paymentMethodConfig: {
+                  ...state.paymentMethodConfig,
+                  methods: updatedMethods,
+                },
+                hasUnsavedChanges: false, // Saved to API
+              };
+            });
+          } else {
+            // API failed - fallback to local state
+            set((state) => {
+              const filtered = state.paymentMethods.filter((pm) => pm.id !== id);
+              const deletedWasDefault = state.paymentMethods.find((pm) => pm.id === id)?.isDefault;
+              const updatedMethods = deletedWasDefault && filtered.length > 0
+                ? filtered.map((pm, index) => ({ ...pm, isDefault: index === 0 }))
+                : filtered;
+              return {
+                paymentMethods: updatedMethods,
+                paymentMethodConfig: {
+                  ...state.paymentMethodConfig,
+                  methods: updatedMethods,
+                },
+                hasUnsavedChanges: true,
+              };
+            });
+          }
+        } catch (error) {
+          console.error('[TemplateStore] Error deleting payment method:', error);
+          // Fallback to local state on error
+          set((state) => {
+            const filtered = state.paymentMethods.filter((pm) => pm.id !== id);
+            const deletedWasDefault = state.paymentMethods.find((pm) => pm.id === id)?.isDefault;
+            const updatedMethods = deletedWasDefault && filtered.length > 0
+              ? filtered.map((pm, index) => ({ ...pm, isDefault: index === 0 }))
+              : filtered;
+            return {
+              paymentMethods: updatedMethods,
+              paymentMethodConfig: {
+                ...state.paymentMethodConfig,
+                methods: updatedMethods,
+              },
+              hasUnsavedChanges: true,
+            };
+          });
+        }
+      },
+      setDefaultPaymentMethod: async (id) => {
+        try {
+          // Update via API
+          const updatedMethod = await templatesService.updatePaymentMethod(id, { isDefault: true });
+          
+          if (updatedMethod) {
+            // API success - update all methods
+            set((state) => {
+              const updatedMethods = state.paymentMethods.map((pm) => ({
+                ...pm,
+                isDefault: pm.id === id,
+              }));
+              return {
+                paymentMethods: updatedMethods,
+                paymentMethodConfig: {
+                  ...state.paymentMethodConfig,
+                  methods: updatedMethods,
+                },
+                hasUnsavedChanges: false, // Saved to API
+              };
+            });
+          } else {
+            // API failed - fallback to local state
+            set((state) => {
+              const updatedMethods = state.paymentMethods.map((pm) => ({
+                ...pm,
+                isDefault: pm.id === id,
+              }));
+              return {
+                paymentMethods: updatedMethods,
+                paymentMethodConfig: {
+                  ...state.paymentMethodConfig,
+                  methods: updatedMethods,
+                },
+                hasUnsavedChanges: true,
+              };
+            });
+          }
+        } catch (error) {
+          console.error('[TemplateStore] Error setting default payment method:', error);
+          // Fallback to local state on error
+          set((state) => {
+            const updatedMethods = state.paymentMethods.map((pm) => ({
+              ...pm,
+              isDefault: pm.id === id,
+            }));
+            return {
+              paymentMethods: updatedMethods,
+              paymentMethodConfig: {
+                ...state.paymentMethodConfig,
+                methods: updatedMethods,
+              },
+              hasUnsavedChanges: true,
+            };
+          });
+        }
       },
       updatePaymentMethodConfig: (config) => {
         set((state) => ({
@@ -264,49 +424,158 @@ export const useTemplateStore = create<TemplateState>()(
       },
       
       // Material Prices Actions
-      addMaterialPrice: (price) => {
-        const newPrice: MaterialPrice = {
-          ...price,
-          id: `mp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        set((state) => ({
-          materialPrices: [...state.materialPrices, newPrice],
-          materialPricesConfig: {
-            ...state.materialPricesConfig,
-            prices: [...state.materialPricesConfig.prices, newPrice],
-          },
-          hasUnsavedChanges: true,
-        }));
-      },
-      updateMaterialPrice: (id, price) => {
-        set((state) => {
-          const updatedPrices = state.materialPrices.map((mp) =>
-            mp.id === id ? { ...mp, ...price, updatedAt: new Date().toISOString() } : mp
-          );
-          return {
-            materialPrices: updatedPrices,
+      addMaterialPrice: async (price) => {
+        try {
+          // Try to create via API first
+          const createdPrice = await templatesService.createMaterialPrice(price);
+          
+          if (createdPrice) {
+            // API success - use the created price from backend
+            set((state) => ({
+              materialPrices: [...state.materialPrices, createdPrice],
+              materialPricesConfig: {
+                ...state.materialPricesConfig,
+                prices: [...state.materialPricesConfig.prices, createdPrice],
+              },
+              hasUnsavedChanges: false, // Saved to API
+            }));
+          } else {
+            // API failed - fallback to local state
+            const newPrice: MaterialPrice = {
+              ...price,
+              id: `mp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            set((state) => ({
+              materialPrices: [...state.materialPrices, newPrice],
+              materialPricesConfig: {
+                ...state.materialPricesConfig,
+                prices: [...state.materialPricesConfig.prices, newPrice],
+              },
+              hasUnsavedChanges: true,
+            }));
+          }
+        } catch (error) {
+          console.error('[TemplateStore] Error adding material price:', error);
+          // Fallback to local state on error
+          const newPrice: MaterialPrice = {
+            ...price,
+            id: `mp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          set((state) => ({
+            materialPrices: [...state.materialPrices, newPrice],
             materialPricesConfig: {
               ...state.materialPricesConfig,
-              prices: updatedPrices,
+              prices: [...state.materialPricesConfig.prices, newPrice],
             },
             hasUnsavedChanges: true,
-          };
-        });
+          }));
+        }
       },
-      deleteMaterialPrice: (id) => {
-        set((state) => {
-          const filtered = state.materialPrices.filter((mp) => mp.id !== id);
-          return {
-            materialPrices: filtered,
-            materialPricesConfig: {
-              ...state.materialPricesConfig,
-              prices: filtered,
-            },
-            hasUnsavedChanges: true,
-          };
-        });
+      updateMaterialPrice: async (id, price) => {
+        try {
+          // Try to update via API first
+          const updatedPrice = await templatesService.updateMaterialPrice(id, price);
+          
+          if (updatedPrice) {
+            // API success - use the updated price from backend
+            set((state) => {
+              const updatedPrices = state.materialPrices.map((mp) =>
+                mp.id === id ? updatedPrice : mp
+              );
+              return {
+                materialPrices: updatedPrices,
+                materialPricesConfig: {
+                  ...state.materialPricesConfig,
+                  prices: updatedPrices,
+                },
+                hasUnsavedChanges: false, // Saved to API
+              };
+            });
+          } else {
+            // API failed - fallback to local state
+            set((state) => {
+              const updatedPrices = state.materialPrices.map((mp) =>
+                mp.id === id ? { ...mp, ...price, updatedAt: new Date().toISOString() } : mp
+              );
+              return {
+                materialPrices: updatedPrices,
+                materialPricesConfig: {
+                  ...state.materialPricesConfig,
+                  prices: updatedPrices,
+                },
+                hasUnsavedChanges: true,
+              };
+            });
+          }
+        } catch (error) {
+          console.error('[TemplateStore] Error updating material price:', error);
+          // Fallback to local state on error
+          set((state) => {
+            const updatedPrices = state.materialPrices.map((mp) =>
+              mp.id === id ? { ...mp, ...price, updatedAt: new Date().toISOString() } : mp
+            );
+            return {
+              materialPrices: updatedPrices,
+              materialPricesConfig: {
+                ...state.materialPricesConfig,
+                prices: updatedPrices,
+              },
+              hasUnsavedChanges: true,
+            };
+          });
+        }
+      },
+      deleteMaterialPrice: async (id) => {
+        try {
+          // Try to delete via API first
+          const deleted = await templatesService.deleteMaterialPrice(id);
+          
+          if (deleted) {
+            // API success - remove from state
+            set((state) => {
+              const filtered = state.materialPrices.filter((mp) => mp.id !== id);
+              return {
+                materialPrices: filtered,
+                materialPricesConfig: {
+                  ...state.materialPricesConfig,
+                  prices: filtered,
+                },
+                hasUnsavedChanges: false, // Saved to API
+              };
+            });
+          } else {
+            // API failed - fallback to local state
+            set((state) => {
+              const filtered = state.materialPrices.filter((mp) => mp.id !== id);
+              return {
+                materialPrices: filtered,
+                materialPricesConfig: {
+                  ...state.materialPricesConfig,
+                  prices: filtered,
+                },
+                hasUnsavedChanges: true,
+              };
+            });
+          }
+        } catch (error) {
+          console.error('[TemplateStore] Error deleting material price:', error);
+          // Fallback to local state on error
+          set((state) => {
+            const filtered = state.materialPrices.filter((mp) => mp.id !== id);
+            return {
+              materialPrices: filtered,
+              materialPricesConfig: {
+                ...state.materialPricesConfig,
+                prices: filtered,
+              },
+              hasUnsavedChanges: true,
+            };
+          });
+        }
       },
       importMaterialPrices: (prices) => {
         set((state) => ({
@@ -329,23 +598,69 @@ export const useTemplateStore = create<TemplateState>()(
       loadTemplates: async () => {
         set({ isLoading: true });
         try {
-          // Load from localStorage (handled by persist middleware)
-          // In future, can load from API here
-          set({ isLoading: false });
+          // Try to load from API first
+          const apiData = await templatesService.getTemplates();
+          
+          if (apiData) {
+            // API success - use data from backend
+            set({
+              quoteFormat: apiData.quoteFormat || defaultQuoteFormat,
+              paymentMethods: apiData.paymentMethods || [],
+              paymentMethodConfig: apiData.paymentMethodConfig || {
+                methods: apiData.paymentMethods || [],
+                displayOptions: {
+                  showInPreview: true,
+                  showInPDF: true,
+                },
+              },
+              pdfExport: apiData.pdfExport || defaultPDFExport,
+              materialPrices: apiData.materialPrices || [],
+              materialPricesConfig: apiData.materialPricesConfig || {
+                prices: apiData.materialPrices || [],
+                defaultMarkup: 0,
+                categoryMarkups: {},
+              },
+              hasUnsavedChanges: false,
+              isLoading: false,
+            });
+          } else {
+            // API failed - data will be loaded from localStorage by persist middleware
+            set({ isLoading: false });
+          }
         } catch (error) {
           console.error('[TemplateStore] Error loading templates:', error);
+          // Data will be loaded from localStorage by persist middleware
           set({ isLoading: false });
         }
       },
       saveTemplates: async () => {
         set({ isSaving: true });
         try {
-          // Save to localStorage (handled by persist middleware)
-          // In future, can save to API here
-          await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
-          set({ isSaving: false, hasUnsavedChanges: false });
+          const state = get();
+          
+          // Prepare template config for API
+          const templateConfig = {
+            quoteFormat: state.quoteFormat,
+            paymentMethods: state.paymentMethods,
+            paymentMethodConfig: state.paymentMethodConfig,
+            pdfExport: state.pdfExport,
+            materialPrices: state.materialPrices,
+            materialPricesConfig: state.materialPricesConfig,
+          };
+          
+          // Try to save to API
+          const saved = await templatesService.saveTemplates(templateConfig);
+          
+          if (saved) {
+            // API success
+            set({ isSaving: false, hasUnsavedChanges: false });
+          } else {
+            // API failed - data will be saved to localStorage by persist middleware
+            set({ isSaving: false, hasUnsavedChanges: false });
+          }
         } catch (error) {
           console.error('[TemplateStore] Error saving templates:', error);
+          // Data will be saved to localStorage by persist middleware
           set({ isSaving: false });
         }
       },

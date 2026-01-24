@@ -37,22 +37,22 @@ const PaymentMethodSection: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this payment method?')) {
-      deletePaymentMethod(id);
+      await deletePaymentMethod(id);
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.accountName || !formData.accountNumber || !formData.bankName) {
       alert('Please fill in all fields');
       return;
     }
 
     if (editingMethod) {
-      updatePaymentMethod(editingMethod.id, formData);
+      await updatePaymentMethod(editingMethod.id, formData);
     } else {
-      addPaymentMethod(formData);
+      await addPaymentMethod(formData);
     }
 
     setShowAddModal(false);
@@ -199,7 +199,7 @@ const PaymentMethodSection: React.FC = () => {
                   <div className="flex items-center gap-2 ml-4">
                     {!method.isDefault && (
                       <button
-                        onClick={() => setDefaultPaymentMethod(method.id)}
+                        onClick={async () => await setDefaultPaymentMethod(method.id)}
                         className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
                       >
                         Set as Default

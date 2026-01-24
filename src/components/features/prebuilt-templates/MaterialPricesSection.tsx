@@ -55,22 +55,22 @@ const MaterialPricesSection: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this material price?')) {
-      deleteMaterialPrice(id);
+      await deleteMaterialPrice(id);
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || formData.unitPrice <= 0) {
       alert('Please fill in all required fields and ensure unit price is greater than 0');
       return;
     }
 
     if (editingPrice) {
-      updateMaterialPrice(editingPrice.id, formData);
+      await updateMaterialPrice(editingPrice.id, formData);
     } else {
-      addMaterialPrice(formData);
+      await addMaterialPrice(formData);
     }
 
     setShowAddModal(false);
