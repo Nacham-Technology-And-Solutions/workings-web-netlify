@@ -12,6 +12,8 @@ import type {
   MaterialPrice,
   MaterialPricesConfig,
   TemplateTab,
+  SavedTemplate,
+  SavedTemplateType,
 } from '@/types/templates';
 import { templatesService } from '@/services/api/templates.service';
 
@@ -67,6 +69,12 @@ interface TemplateState {
   loadTemplates: () => Promise<void>;
   saveTemplates: () => Promise<void>;
   resetToDefaults: () => void;
+
+  // Saved Templates (presets for one-click apply)
+  savedTemplates: SavedTemplate[];
+  addSavedTemplate: (name: string, type: SavedTemplateType) => void;
+  removeSavedTemplate: (id: string) => void;
+  applySavedTemplate: (id: string) => void;
 }
 
 // Default values
@@ -159,7 +167,8 @@ export const useTemplateStore = create<TemplateState>()(
       isSaving: false,
       hasUnsavedChanges: false,
       activeTab: 'quoteFormat',
-      
+      savedTemplates: [],
+
       // UI Actions
       setActiveTab: (tab) => set({ activeTab: tab }),
       setHasUnsavedChanges: (hasChanges) => set({ hasUnsavedChanges: hasChanges }),
@@ -685,6 +694,34 @@ export const useTemplateStore = create<TemplateState>()(
           hasUnsavedChanges: true,
         });
       },
+
+      // Saved Templates
+      addSavedTemplate: (name, type) => {
+        const state = get();
+        const template: SavedTemplate = {
+          id: `st_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name,
+          type,
+          createdAt: new Date().toISOString(),
+        };
+        if (type === 'quoteFormat' || type === 'full') template.quoteFormat = state.quoteFormat;
+        if (type === 'pdfExport' || type === 'full') template.pdfExport = state.pdfExport;
+        set({ savedTemplates: [...state.savedTemplates, template] });
+      },
+      removeSavedTemplate: (id) => {
+        set((state) => ({
+          savedTemplates: state.savedTemplates.filter((t) => t.id !== id),
+        }));
+      },
+      applySavedTemplate: (id) => {
+        const state = get();
+        const template = state.savedTemplates.find((t) => t.id === id);
+        if (!template) return;
+        const updates: Partial<typeof state> = { hasUnsavedChanges: true };
+        if (template.quoteFormat) updates.quoteFormat = template.quoteFormat;
+        if (template.pdfExport) updates.pdfExport = template.pdfExport;
+        set(updates);
+      },
     }),
     {
       name: 'template-storage',
@@ -695,6 +732,7 @@ export const useTemplateStore = create<TemplateState>()(
         pdfExport: state.pdfExport,
         materialPrices: state.materialPrices,
         materialPricesConfig: state.materialPricesConfig,
+        savedTemplates: state.savedTemplates,
       }),
     }
   )

@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   ProfileIcon,
   BillingsIcon,
   SubscriptionPlansIcon,
+  TemplatesIcon,
 } from '@/assets/icons/IconComponents';
 import ProfileScreen from '@/components/features/ProfileScreen';
 import BillingScreen from '@/components/features/BillingScreen';
 import SubscriptionPlansContent from '@/components/features/SubscriptionPlansContent';
+import ExportSettingsSection from '@/components/features/settings/ExportSettingsSection';
 
 interface SettingsScreenProps {
   onNavigate: (view: string) => void;
-  initialSection?: 'profile' | 'billings' | 'subscriptionPlans';
+  initialSection?: 'profile' | 'billings' | 'subscriptionPlans' | 'exportSettings';
 }
 
 interface SettingsNavItemProps {
@@ -54,8 +56,10 @@ const SettingsTabPill: React.FC<SettingsNavItemProps> = ({ icon, label, isActive
   </button>
 );
 
+type SettingsSection = 'profile' | 'billings' | 'subscriptionPlans' | 'exportSettings';
+
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSection = 'profile' }) => {
-  const [activeSection, setActiveSection] = useState<'profile' | 'billings' | 'subscriptionPlans'>(initialSection);
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
 
   useEffect(() => {
     if (initialSection) {
@@ -63,7 +67,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
     }
   }, [initialSection]);
 
-  const handleSectionChange = (section: 'profile' | 'billings' | 'subscriptionPlans') => {
+  const handleSectionChange = (section: SettingsSection) => {
     setActiveSection(section);
   };
 
@@ -96,6 +100,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
             isActive={activeSection === 'subscriptionPlans'}
             onClick={() => handleSectionChange('subscriptionPlans')}
           />
+          <SettingsTabPill
+            icon={<TemplatesIcon />}
+            label="Export settings"
+            isActive={activeSection === 'exportSettings'}
+            onClick={() => handleSectionChange('exportSettings')}
+          />
         </div>
       </div>
 
@@ -122,6 +132,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
               isActive={activeSection === 'subscriptionPlans'}
               onClick={() => handleSectionChange('subscriptionPlans')}
             />
+            <SettingsNavItem
+              icon={<TemplatesIcon />}
+              label="Export settings"
+              isActive={activeSection === 'exportSettings'}
+              onClick={() => handleSectionChange('exportSettings')}
+            />
           </nav>
         </div>
 
@@ -136,6 +152,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
           {activeSection === 'subscriptionPlans' && (
             <div className="p-4 sm:p-6">
               <SubscriptionPlansContent />
+            </div>
+          )}
+          {activeSection === 'exportSettings' && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <ExportSettingsSection onNavigate={onNavigate} />
             </div>
           )}
         </div>

@@ -134,3 +134,15 @@ export interface MaterialPricesConfig {
 
 export type TemplateTab = 'quoteFormat' | 'paymentMethod' | 'pdfExport' | 'materialPrices';
 
+/** Saved template preset: Quote Format, PDF Export, or both (full) */
+export type SavedTemplateType = 'quoteFormat' | 'pdfExport' | 'full';
+
+export interface SavedTemplate {
+  id: string;
+  name: string;
+  type: SavedTemplateType;
+  quoteFormat?: QuoteFormatConfig;
+  pdfExport?: PDFExportConfig;
+  createdAt: string;
+}
+

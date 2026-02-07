@@ -38,7 +38,7 @@ import MaterialListDetailScreen from '../components/features/material-lists/Mate
 import CreateMaterialListScreen from '../components/features/material-lists/CreateMaterialListScreen';
 import MaterialListPreviewScreen from '../components/features/material-lists/MaterialListPreviewScreen';
 import EditMaterialListScreen from '../components/features/material-lists/EditMaterialListScreen';
-import PreBuiltTemplatesScreen from '../components/features/PreBuiltTemplatesScreen';
+import SavedTemplatesScreen from '../components/features/SavedTemplatesScreen';
 import PaymentCallbackScreen from '../components/features/PaymentCallbackScreen';
 import SessionExpiredModal from '../components/common/SessionExpiredModal';
 import LogViewer from '../components/common/LogViewer';
@@ -1255,10 +1255,9 @@ const App: React.FC = () => {
     );
   }
 
-  // Profile and Subscription Plans are now handled within SettingsScreen
-  // Redirect to settings if someone tries to navigate directly to these views
-  if (currentView === 'profile' || currentView === 'subscriptionPlans') {
-    const targetSection = currentView === 'subscriptionPlans' ? 'subscriptionPlans' : 'profile';
+  // Profile, Subscription Plans, and Export settings are now handled within SettingsScreen
+  if (currentView === 'profile' || currentView === 'subscriptionPlans' || currentView === 'exportSettings') {
+    const targetSection = currentView === 'subscriptionPlans' ? 'subscriptionPlans' : currentView === 'exportSettings' ? 'exportSettings' : 'profile';
     return (
       <>
         <Header onMenuClick={() => setSidebarOpen(true)} />
@@ -1312,7 +1311,10 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <PreBuiltTemplatesScreen onBack={() => navigate('home')} />
+            <SavedTemplatesScreen
+              onBack={() => navigate('home')}
+              onNavigate={handleNavigate}
+            />
           </div>
         </div>
       </>
