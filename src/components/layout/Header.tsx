@@ -148,10 +148,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           </div>
         </div>
 
-        {/* Mobile Hamburger Menu (shown only on mobile) */}
+        {/* Hamburger: show whenever sidebar is overlay (below lg), so nav is never inaccessible */}
         <button
           onClick={onMenuClick}
-          className="text-gray-700 hover:text-gray-900 md:hidden ml-auto"
+          className="text-gray-700 hover:text-gray-900 lg:hidden ml-auto flex-shrink-0"
           aria-label="Open menu"
         >
           <HamburgerIcon />

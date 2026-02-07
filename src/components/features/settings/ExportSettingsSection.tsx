@@ -15,6 +15,7 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingTab, setPendingTab] = useState<TemplateTab | null>(null);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  const [isFullPage, setIsFullPage] = useState(false);
 
   useEffect(() => {
     useTemplateStore.getState().loadTemplates();
@@ -70,35 +71,8 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
     { id: 'materialPrices', label: 'Material Prices', comingSoon: true },
   ];
 
-  return (
-    <div className="flex flex-col flex-1 min-h-0 bg-white font-sans text-gray-800">
-      {/* Unsaved Changes Warning Modal */}
-      {showUnsavedWarning && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Unsaved Changes</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              You have unsaved changes. Do you want to save them before switching tabs?
-            </p>
-            <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
-              <button onClick={handleCancelTabChange} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
-                Cancel
-              </button>
-              <button onClick={handleSaveAndSwitchTab} className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800">
-                Save & Continue
-              </button>
-              <button
-                onClick={handleDiscardAndSwitchTab}
-                disabled={isDiscarding}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-              >
-                {isDiscarding ? 'Discarding...' : 'Discard Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+  const content = (
+    <>
       <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <div className="border-b border-gray-200 bg-white flex-shrink-0">
@@ -196,6 +170,88 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
           </div>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 bg-white font-sans text-gray-800">
+      {/* Unsaved Changes Warning Modal */}
+      {showUnsavedWarning && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110] p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Unsaved Changes</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              You have unsaved changes. Do you want to save them before switching tabs?
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
+              <button onClick={handleCancelTabChange} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                Cancel
+              </button>
+              <button onClick={handleSaveAndSwitchTab} className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800">
+                Save & Continue
+              </button>
+              <button
+                onClick={handleDiscardAndSwitchTab}
+                disabled={isDiscarding}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                {isDiscarding ? 'Discarding...' : 'Discard Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-page overlay: full viewport for focused editing */}
+      {isFullPage ? (
+        <div
+          className="fixed inset-0 z-[100] bg-white flex flex-col font-sans text-gray-800"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Export settings (full page)"
+        >
+          {/* Sticky header with Back button */}
+          <header className="flex-shrink-0 flex items-center gap-4 px-4 sm:px-6 py-3 border-b border-gray-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setIsFullPage(false)}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 rounded-lg px-2 py-1.5 -ml-2"
+              aria-label="Back to Settings"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="text-sm sm:text-base">Back to Settings</span>
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900 truncate">Export settings</h1>
+          </header>
+          {/* Full-page content: uses remaining height */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {content}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Inline toolbar: Full page button */}
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-4 sm:px-6 py-2 border-b border-gray-100 bg-gray-50">
+            <span className="text-sm text-gray-500">Expand for a larger editing view</span>
+            <button
+              type="button"
+              onClick={() => setIsFullPage(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
+              aria-label="Open full page view"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              Full page
+            </button>
+          </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {content}
+          </div>
+        </>
+      )}
     </div>
   );
 };

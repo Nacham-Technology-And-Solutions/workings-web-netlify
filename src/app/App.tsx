@@ -33,6 +33,7 @@ import ProfileScreen from '../components/features/ProfileScreen';
 import SubscriptionPlanScreen from '../components/features/SubscriptionPlanScreen';
 import CreditsHistoryScreen from '../components/features/CreditsHistoryScreen';
 import HelpAndTipsScreen from '../components/features/HelpAndTipsScreen';
+import FeedbackContactScreen from '../components/features/FeedbackContactScreen';
 import MaterialListScreen from '../components/features/material-lists/MaterialListScreen';
 import MaterialListDetailScreen from '../components/features/material-lists/MaterialListDetailScreen';
 import CreateMaterialListScreen from '../components/features/material-lists/CreateMaterialListScreen';
@@ -1334,6 +1335,25 @@ const App: React.FC = () => {
           />
           <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
             <HelpAndTipsScreen onBack={goBack} />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (currentView === 'feedback') {
+    return (
+      <>
+        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className="flex h-screen bg-[#FAFAFA]">
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+          />
+          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+            <FeedbackContactScreen onBack={goBack} onNavigate={handleNavigate} />
           </div>
         </div>
       </>
