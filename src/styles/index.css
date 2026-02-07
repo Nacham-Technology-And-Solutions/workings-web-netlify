@@ -46,6 +46,15 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+/* Hide scrollbar but keep scroll (e.g. horizontal tab bar on mobile) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;

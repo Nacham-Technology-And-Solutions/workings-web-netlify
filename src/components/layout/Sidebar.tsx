@@ -12,8 +12,6 @@ import {
 } from '@/assets/icons/IconComponents';
 import { authService } from '@/services/api';
 import { useAuthStore } from '@/stores';
-import { getUserInitials, getDisplayName } from '@/utils/userHelpers';
-
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -48,9 +46,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, isActive = false, onClic
 );
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate }) => {
-  const { user, logout: logoutStore } = useAuthStore();
-  const userName = getDisplayName(user?.name, user?.email);
-  const userInitials = getUserInitials(user?.name);
+  const { logout: logoutStore } = useAuthStore();
   const [isDesktop, setIsDesktop] = useState(() => {
     // Initialize desktop state immediately during SSR-safe check
     if (typeof window !== 'undefined') {
@@ -205,23 +201,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
               />
             </div>
           </nav>
-          
-          {/* Desktop User Info Section at Bottom - Only show when expanded */}
-          {isExpanded && (
-            <div className="hidden lg:block mt-auto pt-6">
-              <div className="py-3 bg-gray-50 rounded-lg transition-opacity duration-300">
-                <div className="flex items-center gap-3 px-3">
-                  <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-700 font-semibold text-sm">{userInitials}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
-                    <p className="text-xs text-gray-500 truncate">{user?.companyName || 'Company'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </aside>
     </>

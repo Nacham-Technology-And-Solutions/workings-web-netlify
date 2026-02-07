@@ -87,15 +87,15 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white font-sans text-gray-800 p-6">
+    <div className="flex flex-col h-full bg-white font-sans text-gray-800 p-4 sm:p-6">
       <div className="flex-1 overflow-y-auto">
         {/* Subscription & Credits Section */}
-        <section className="mb-8">
+        <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Subscription & Credits</h2>
           <div className="bg-gray-50 rounded-lg p-4 space-y-4">
             {/* Subscription Status */}
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-700 mb-1">Subscription Plan</p>
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -137,7 +137,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                   </p>
                 )}
               </div>
-              <div className="flex flex-col gap-2 items-end">
+              <div className="flex flex-col gap-2 items-stretch sm:items-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -162,9 +162,9 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
             </div>
 
             {/* Points Balance */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
               <div 
-                className="cursor-pointer"
+                className="cursor-pointer min-w-0"
                 onClick={() => {
                   if (onNavigate) {
                     onNavigate('creditsHistory');
@@ -181,7 +181,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                 </p>
                 <p className="text-xs text-gray-500 mt-1">Points remaining</p>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <button
                   type="button"
                   onClick={() => {
@@ -217,22 +217,22 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
         </section>
 
         {/* Payment Method Section */}
-        <section className="mb-8">
+        <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Payment Method</h2>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-8 bg-gray-200 rounded flex items-center justify-center">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-8 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
                   <span className="text-xs font-semibold text-gray-600">Card</span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900">No payment method on file</p>
                   <p className="text-xs text-gray-500">Add a payment method to continue your subscription</p>
                 </div>
               </div>
               <button
                 type="button"
-                className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto flex-shrink-0"
               >
                 Add Payment Method
               </button>
@@ -241,10 +241,10 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
         </section>
 
         {/* Billing History Section */}
-        <section className="mb-8">
+        <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Billing History</h2>
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="p-8 text-center">
+            <div className="p-6 sm:p-8 text-center">
               <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
@@ -255,21 +255,21 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
         </section>
 
         {/* Billing Address Section */}
-        <section className="mb-8">
+        <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Billing Address</h2>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900 mb-1">
                   {user?.companyName || 'Company Name'}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 break-words">
                   {user?.email || 'No address on file'}
                 </p>
               </div>
               <button
                 type="button"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 underline"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 underline flex-shrink-0 self-start sm:self-auto"
               >
                 Edit
               </button>
@@ -278,11 +278,11 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
         </section>
 
         {/* Next Billing Date Section */}
-        <section className="mb-8">
+        <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Next Billing Date</h2>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900 mb-1">
                   {subscription?.plan === 'free' || !subscription?.endDate
                     ? 'No active subscription'
@@ -320,8 +320,8 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
 
       {/* Cancel Subscription Confirmation Modal */}
       {showCancelConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full my-auto shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Subscription</h3>
             <p className="text-sm text-gray-600 mb-4">
               Are you sure you want to cancel your subscription? You will be moved to the free tier immediately.
@@ -332,21 +332,21 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                 <p className="text-red-800 text-sm">{cancelError}</p>
               </div>
             )}
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
               <button
                 onClick={() => {
                   setShowCancelConfirm(false);
                   setCancelError(null);
                 }}
                 disabled={isCancelling}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 w-full sm:w-auto"
               >
                 Keep Subscription
               </button>
               <button
                 onClick={handleCancelSubscription}
                 disabled={isCancelling}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                className="px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
               >
                 {isCancelling ? 'Cancelling...' : 'Cancel Subscription'}
               </button>

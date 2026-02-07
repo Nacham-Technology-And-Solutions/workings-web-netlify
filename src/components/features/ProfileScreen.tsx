@@ -298,7 +298,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   };
 
   return (
-    <div className="flex flex-col h-full bg-white font-sans text-gray-800 p-6">
+    <div className="flex flex-col h-full bg-white font-sans text-gray-800 p-4 sm:p-6">
       {isSaving && <LoadingOverlay />}
       
       <div className="flex-1 overflow-y-auto">
@@ -318,10 +318,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
           )}
           
           {/* User Avatar - Right Aligned */}
-          <div className="flex justify-end mb-8">
+          <div className="flex justify-center sm:justify-end mb-6 sm:mb-8">
             <div className="relative">
-              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300">
-                <span className="text-gray-900 font-bold text-3xl">{userInitials}</span>
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300">
+                <span className="text-gray-900 font-bold text-2xl sm:text-3xl">{userInitials}</span>
               </div>
               <button 
                 type="button"
@@ -342,33 +342,35 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Name Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="text"
                     value={editingField === 'name' ? tempValue : formData.name}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'name'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'name' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'name' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('name', formData.name)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'name' ? (
+                      <button 
+                        type="button" 
+                        onClick={handleCancelClick} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <button 
+                        type="button" 
+                        onClick={() => handleEditClick('name', formData.name)} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'name' && (
                   <div className="mt-3">
@@ -386,33 +388,35 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Email Address Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="email"
                     value={editingField === 'email' ? tempValue : formData.email}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'email'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'email' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'email' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('email', formData.email)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'email' ? (
+                      <button 
+                        type="button" 
+                        onClick={handleCancelClick} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <button 
+                        type="button" 
+                        onClick={() => handleEditClick('email', formData.email)} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'email' && (
                   <div className="mt-3">
@@ -498,17 +502,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <input
                       type="text"
                       value="No password yet"
                       disabled
-                      className="flex-1 px-4 py-3 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg"
+                      className="flex-1 min-w-0 px-4 py-3 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg"
                     />
                     <button 
                       type="button" 
                       onClick={handlePasswordEdit} 
-                      className="text-sm font-medium text-gray-700"
+                      className="text-sm font-medium text-gray-700 flex-shrink-0"
                     >
                       Create new
                     </button>
@@ -525,14 +529,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Logo Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Logo Upload</label>
-                <div className="flex items-start gap-4">
-                  <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  <div className="w-full sm:w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors flex-shrink-0">
                     <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <span className="text-xs text-gray-500 text-center px-2">Upload your logo</span>
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-600">This logo will appear on invoices and email notifications</p>
                   </div>
                 </div>
@@ -541,43 +545,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Company Name Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="text"
                     value={editingField === 'companyName' ? tempValue : formData.companyName}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'companyName'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'companyName' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'companyName' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('companyName', formData.companyName)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'companyName' ? (
+                      <button type="button" onClick={handleCancelClick} className="text-sm font-medium text-gray-700">Cancel</button>
+                    ) : (
+                      <button type="button" onClick={() => handleEditClick('companyName', formData.companyName)} className="text-sm font-medium text-gray-700">Edit</button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'companyName' && (
                   <div className="mt-3">
-                    <button 
-                      type="button" 
-                      onClick={() => handleFieldSave('companyName')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      Save
-                    </button>
+                    <button type="button" onClick={() => handleFieldSave('companyName')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors">Save</button>
                   </div>
                 )}
               </div>
@@ -585,43 +573,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Company Address Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="text"
                     value={editingField === 'companyAddress' ? tempValue : formData.companyAddress}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'companyAddress'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'companyAddress' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'companyAddress' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('companyAddress', formData.companyAddress)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'companyAddress' ? (
+                      <button type="button" onClick={handleCancelClick} className="text-sm font-medium text-gray-700">Cancel</button>
+                    ) : (
+                      <button type="button" onClick={() => handleEditClick('companyAddress', formData.companyAddress)} className="text-sm font-medium text-gray-700">Edit</button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'companyAddress' && (
                   <div className="mt-3">
-                    <button 
-                      type="button" 
-                      onClick={() => handleFieldSave('companyAddress')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      Save
-                    </button>
+                    <button type="button" onClick={() => handleFieldSave('companyAddress')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors">Save</button>
                   </div>
                 )}
               </div>
@@ -632,8 +604,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
           <section>
             <h2 className="text-base font-bold mb-4 text-gray-900">Danger Zone</h2>
             <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-red-900 mb-1">Delete Account</p>
                   <p className="text-xs text-red-700">
                     Deleting your account will remove all projects, quotes, and lists permanently.
@@ -642,7 +614,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                 <button
                   type="button"
                   onClick={handleDeleteAccount}
-                  className="px-6 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors ml-4"
+                  className="px-6 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors w-full sm:w-auto flex-shrink-0"
                 >
                   Delete
                 </button>

@@ -7,7 +7,7 @@ interface SubscriptionPlansContentProps {
 }
 
 const BoxIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg width="100" height="100" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 sm:w-14 sm:h-14" {...props}>
     <path d="M50.6667 21.3333H13.3333C11.4924 21.3333 10 22.8257 10 24.6667V48C10 49.8409 11.4924 51.3333 13.3333 51.3333H50.6667C52.5076 51.3333 54 49.8409 54 48V24.6667C54 22.8257 52.5076 21.3333 50.6667 21.3333Z" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M32 51.3333V21.3333" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M54 24.6667L32 12.6667L10 24.6667" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -36,34 +36,34 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, billingCycle, currentPlanId, 
   };
 
   return (
-    <div className="bg-gray-100 border border-gray-200 rounded-2xl p-6 flex flex-col h-full relative">
+    <div className="bg-gray-100 border border-gray-200 rounded-2xl p-4 sm:p-6 flex flex-col h-full relative">
       {/* Icon in top-right corner - aligned with price */}
-      <div className="absolute top-6 right-6">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
         <BoxIcon />
       </div>
 
       {/* Price, Name, Description */}
-      <div className="pr-28 mb-6">
-        <div className="text-4xl font-black text-gray-900 mb-2 leading-tight">
+      <div className="pr-16 sm:pr-28 mb-4 sm:mb-6">
+        <div className="text-2xl sm:text-4xl font-black text-gray-900 mb-2 leading-tight">
           {isFreePlan ? '₦0' : `₦${formatPrice(price)}`}
         </div>
-        <p className="text-lg font-bold text-gray-900 mb-1">{plan.name}</p>
-        <p className="text-sm text-gray-500">
+        <p className="text-base sm:text-lg font-bold text-gray-900 mb-1">{plan.name}</p>
+        <p className="text-xs sm:text-sm text-gray-500">
           {plan.projectsLimit === null ? 'Unlimited projects' : `${plan.projectsLimit} projects/month`}
           {plan.pointsPerMonth > 0 && ` • ${plan.pointsPerMonth} points/month`}
         </p>
       </div>
 
       {/* Dashed Blue Divider */}
-      <div className="border-t-2 border-dashed border-blue-400 mb-6"></div>
+      <div className="border-t-2 border-dashed border-blue-400 mb-4 sm:mb-6"></div>
 
       {/* Features List - flex-grow to take available space */}
-      <div className="flex-grow mb-6">
-        <ul className="space-y-2.5">
+      <div className="flex-grow mb-4 sm:mb-6">
+        <ul className="space-y-2 sm:space-y-2.5">
           {plan.features.map((feature, idx) => (
-            <li key={idx} className="flex items-start gap-2.5">
-              <CheckIcon className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
-              <span className="text-sm text-gray-700">{feature}</span>
+            <li key={idx} className="flex items-start gap-2 sm:gap-2.5">
+              <CheckIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+              <span className="text-xs sm:text-sm text-gray-700">{feature}</span>
             </li>
           ))}
         </ul>
@@ -73,7 +73,7 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, billingCycle, currentPlanId, 
       <button
         onClick={() => !isCurrentPlan && !isLoading && !isFreePlan && onSubscribe(plan.id)}
         disabled={isCurrentPlan || isLoading || isFreePlan}
-        className={`w-full mt-auto py-3 px-4 text-sm font-semibold rounded-full transition-colors text-center ${
+        className={`w-full mt-auto py-2.5 sm:py-3 px-4 text-sm font-semibold rounded-full transition-colors text-center ${
           isCurrentPlan
             ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
             : isFreePlan
@@ -216,7 +216,7 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
   return (
     <div className="w-full font-sans">
       {/* Top Features Heading */}
-      <h2 className="text-xl font-bold text-gray-800 mb-6">Top Features</h2>
+      <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">Top Features</h2>
 
       {/* Error Message */}
       {error && (
@@ -225,12 +225,12 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
         </div>
       )}
 
-      {/* Billing Cycle Toggle - Left Aligned */}
-      <div className="flex justify-start mb-6">
-        <div className="inline-flex bg-gray-100 p-1 rounded-full">
+      {/* Billing Cycle Toggle - Left Aligned, responsive padding */}
+      <div className="flex justify-start mb-4 sm:mb-6 overflow-x-auto">
+        <div className="inline-flex bg-gray-100 p-1 rounded-full flex-shrink-0">
           <button
             onClick={() => setBillingCycle('monthly')}
-            className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
+            className={`px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-semibold transition-colors duration-200 ${
               billingCycle === 'monthly'
                 ? 'bg-gray-800 text-white shadow'
                 : 'text-gray-600 hover:text-gray-900'
@@ -240,7 +240,7 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
           </button>
           <button
             onClick={() => setBillingCycle('yearly')}
-            className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
+            className={`px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-semibold transition-colors duration-200 ${
               billingCycle === 'yearly'
                 ? 'bg-gray-800 text-white shadow'
                 : 'text-gray-600 hover:text-gray-900'
@@ -271,8 +271,8 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
         </div>
       )}
 
-      {/* Plan Cards Grid - Three Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full items-stretch">
+      {/* Plan Cards Grid - Three Columns; single column on mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full items-stretch">
         {plans.map((plan) => (
           <PlanCard
             key={plan.id}
