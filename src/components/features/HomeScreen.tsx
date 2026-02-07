@@ -5,9 +5,10 @@ import { getDisplayName } from '@/utils/userHelpers';
 
 interface HomeScreenProps {
     onNewProject: () => void;
+    onNavigate?: (view: string) => void;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject, onNavigate }) => {
     const [showTemplateCard, setShowTemplateCard] = useState(true);
     const { user } = useAuthStore();
     const userName = getDisplayName(user?.name, user?.email);
@@ -46,21 +47,33 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
                                 <p className="text-gray-700 text-sm lg:text-base leading-relaxed pr-6 mb-4 lg:mb-6">
                             Start your estimate in seconds with a pre-built template—industry-standard dimensions let you focus on costs, not setup.
                         </p>
-                                <button className="px-5 py-2.5 lg:px-6 lg:py-3 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors">
-                            See Templates
-                        </button>
-                                
+                                <button
+                                    onClick={() => onNavigate?.('templates')}
+                                    className="px-5 py-2.5 lg:px-6 lg:py-3 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                                >
+                                    See Templates
+                                </button>
+
                                 {/* Additional Quick Actions */}
                                 <div className="hidden lg:block mt-6 pt-6 border-t border-blue-100">
                                     <h4 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h4>
                                     <div className="space-y-2">
-                                        <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700">
+                                        <button
+                                            onClick={() => onNavigate?.('projects')}
+                                            className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700"
+                                        >
                                             📊 View Recent Projects
                                         </button>
-                                        <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700">
+                                        <button
+                                            onClick={() => onNavigate?.('quotes')}
+                                            className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700"
+                                        >
                                             📝 Draft Quotes
                                         </button>
-                                        <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700">
+                                        <button
+                                            onClick={() => onNavigate?.('material-list')}
+                                            className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700"
+                                        >
                                             📋 Material Lists
                                         </button>
                                     </div>

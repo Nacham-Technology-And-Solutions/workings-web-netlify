@@ -1791,7 +1791,7 @@ const App: React.FC = () => {
         {/* Main Content Area - Starts below header, accounts for sidebar */}
         <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[360px]">
           <div className="flex-1 overflow-y-auto">
-            {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} />}
+            {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} onNavigate={handleNavigate} />}
           </div>
         </div>
       </div>
