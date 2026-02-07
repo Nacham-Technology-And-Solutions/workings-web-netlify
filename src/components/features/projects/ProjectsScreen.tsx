@@ -136,17 +136,18 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
         setError(errorMsg);
       }
     } catch (err: any) {
-      // Don't show 401 errors or auth redirect errors - they trigger redirect to login
-      if (err?.response?.status === 401 || 
-          err?.message?.includes('401') || 
-          err?.isAuthError || 
+      // Don't show 401/403 or auth redirect errors - they trigger refresh or redirect to login
+      if (err?.response?.status === 401 ||
+          err?.response?.status === 403 ||
+          err?.message?.includes('401') ||
+          err?.message?.includes('403') ||
+          err?.isAuthError ||
           err?.redirecting) {
-        // Authentication error - redirect will happen via API interceptor
-        console.log('Authentication required - redirecting to login');
+        // Auth/session error - API interceptor handles refresh or session-expired modal
         setIsLoading(false);
         return;
       }
-      
+
       setErrorMessage(err);
       console.error('Error fetching projects:', err);
     } finally {
