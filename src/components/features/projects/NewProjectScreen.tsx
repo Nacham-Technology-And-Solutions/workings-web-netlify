@@ -462,7 +462,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                     )}
                 </div>
 
-                <button onClick={addItem} className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded-lg hover:bg-cyan-50 transition-colors">
+                <button onClick={addItem} className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded hover:bg-cyan-50 transition-colors">
                     <span>{selectedList === 'dimension' ? 'Add a dimension' : 'Add an item'}</span>
                     <PlusCircleIcon className="text-cyan-600 w-5 h-5" />
                 </button>
@@ -588,7 +588,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
 
                 <button
                     onClick={() => { addItem(); setItemView('edit'); }}
-                    className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded-lg hover:bg-cyan-50 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-3 mt-6 text-cyan-600 font-semibold border border-cyan-500 rounded hover:bg-cyan-50 transition-colors"
                 >
                     <span>{selectedList === 'dimension' ? 'Add a dimension' : 'Add an item'}</span>
                     <PlusCircleIcon className="text-cyan-600 w-5 h-5" />
@@ -744,7 +744,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             </button>
                         ))}
                     </nav>
-                    <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
@@ -766,7 +766,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                 <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10">
                     <button
                         onClick={() => handleTabChange('Item List')}
-                        className="w-full py-4 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        className="w-full py-4 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                         Next
                     </button>
@@ -783,13 +783,13 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                                 handleTabChange('Extras & Notes');
                             }
                         }}
-                        className="w-full py-3.5 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        className="w-full py-3.5 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                         Next
                     </button>
                     <button
                         onClick={() => console.log('Save as Draft')}
-                        className="w-full py-3.5 bg-white text-gray-800 font-semibold rounded-lg border border-gray-400 hover:bg-gray-100 transition-colors"
+                        className="w-full py-3.5 bg-white text-gray-800 font-semibold rounded border border-gray-400 hover:bg-gray-100 transition-colors"
                     >
                         Save as Draft
                     </button>
@@ -800,7 +800,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                 <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10">
                     <button
                         onClick={handleFinalGenerateQuote}
-                        className="w-full py-4 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        className="w-full py-4 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                         Generate Quote
                     </button>

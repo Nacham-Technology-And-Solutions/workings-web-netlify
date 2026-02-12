@@ -447,7 +447,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                     {/* Add Dimension Button */}
                     <button
                         onClick={handleAddDimension}
-                        className="w-full py-3 mb-8 border-2 border-dashed border-teal-400 text-teal-600 rounded-lg hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-3 mb-8 border-2 border-dashed border-teal-400 text-teal-600 rounded hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -468,7 +468,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                 <div className="max-w-7xl mx-auto">
                     <button
                         onClick={handleNext}
-                        className="w-full py-4 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                        className="w-full py-4 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
                     >
                         Next
                     </button>

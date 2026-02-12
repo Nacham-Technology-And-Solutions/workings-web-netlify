@@ -232,7 +232,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
               </div>
               <button
                 type="button"
-                className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto flex-shrink-0"
+                className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors w-full sm:w-auto flex-shrink-0"
               >
                 Add Payment Method
               </button>
@@ -339,14 +339,14 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                   setCancelError(null);
                 }}
                 disabled={isCancelling}
-                className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 w-full sm:w-auto"
+                className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50 w-full sm:w-auto"
               >
                 Keep Subscription
               </button>
               <button
                 onClick={handleCancelSubscription}
                 disabled={isCancelling}
-                className="px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
+                className="px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
               >
                 {isCancelling ? 'Cancelling...' : 'Cancel Subscription'}
               </button>

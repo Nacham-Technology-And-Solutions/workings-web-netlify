@@ -112,20 +112,20 @@ const PreBuiltTemplatesScreen: React.FC<PreBuiltTemplatesScreenProps> = ({ onBac
             <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
               <button
                 onClick={handleCancelTabChange}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveAndSwitchTab}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-800"
               >
                 Save & Continue
               </button>
               <button
                 onClick={handleDiscardAndSwitchTab}
                 disabled={isDiscarding}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 {isDiscarding ? 'Discarding...' : 'Discard Changes'}
               </button>
@@ -228,7 +228,7 @@ const PreBuiltTemplatesScreen: React.FC<PreBuiltTemplatesScreenProps> = ({ onBac
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className={`px-6 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                className={`px-6 py-2 text-sm font-semibold rounded transition-colors ${
                   isSaving
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-gray-900 text-white hover:bg-gray-800'

@@ -340,7 +340,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
               <button
                 type="submit"
                 disabled={!isFormValid || isLoading}
-                className="w-full py-4 text-lg font-semibold text-white bg-gray-900 rounded-xl transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg hover:enabled:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo flex items-center justify-center gap-2"
+                className="w-full py-3 sm:py-3.5 text-base font-semibold text-white bg-gray-900 rounded transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>

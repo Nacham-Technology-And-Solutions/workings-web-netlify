@@ -234,14 +234,14 @@ const MaterialPricesSection: React.FC = () => {
               <div className="relative">
                 <button
                   onClick={() => handleExport('excel')}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
                 >
                   Export Excel
                 </button>
               </div>
               <button
                 onClick={handleAddNew}
-                className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+                className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800"
               >
                 + Add Material
               </button>
@@ -303,7 +303,7 @@ const MaterialPricesSection: React.FC = () => {
               <div className="mt-6">
                 <button
                   onClick={handleAddNew}
-                  className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+                  className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800"
                 >
                   + Add Material
                 </button>
@@ -470,13 +470,13 @@ const MaterialPricesSection: React.FC = () => {
             <div className="flex gap-3 justify-end mt-6">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-800"
               >
                 {editingPrice ? 'Update' : 'Add'} Material
               </button>

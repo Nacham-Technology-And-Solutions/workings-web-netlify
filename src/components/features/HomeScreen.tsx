@@ -58,7 +58,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject, onNavigate }) => 
                         <div className="flex-shrink-0">
                             <button
                                 onClick={() => onNavigate?.('templates')}
-                                className="px-5 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                                className="px-5 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                             >
                                 See Templates
                             </button>
@@ -78,7 +78,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject, onNavigate }) => 
                     </p>
                     <button
                         onClick={onNewProject}
-                        className="mt-6 px-6 py-3 bg-gray-800 text-white text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        className="mt-6 px-6 py-3 bg-gray-800 text-white text-base font-semibold rounded hover:bg-gray-700 transition-colors"
                         aria-label="Create new project"
                     >
                         Create New Project

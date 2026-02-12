@@ -35,7 +35,7 @@ const FeedbackContactScreen: React.FC<FeedbackContactScreenProps> = ({ onBack, o
       <header className="p-4 lg:p-6 flex items-center gap-4 sticky top-0 z-40 bg-white border-b border-gray-200 shrink-0">
         <button
           onClick={onBack}
-          className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors"
+          className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors"
           aria-label="Go back"
         >
           <ChevronLeftIcon />
@@ -112,7 +112,7 @@ const FeedbackContactScreen: React.FC<FeedbackContactScreenProps> = ({ onBack, o
               <button
                 type="submit"
                 disabled={!message.trim()}
-                className="w-full sm:w-auto px-6 py-3 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full sm:w-auto px-6 py-3 bg-gray-800 text-white font-medium rounded hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Open in email to send
               </button>

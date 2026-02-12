@@ -137,7 +137,7 @@ const PaymentMethodSection: React.FC = () => {
           </div>
           <button
             onClick={handleAddNew}
-            className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+            className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors"
           >
             + Add Payment Method
           </button>
@@ -165,7 +165,7 @@ const PaymentMethodSection: React.FC = () => {
             <div className="mt-6">
               <button
                 onClick={handleAddNew}
-                className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+                className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800"
               >
                 + Add Payment Method
               </button>
@@ -273,13 +273,13 @@ const PaymentMethodSection: React.FC = () => {
             <div className="flex gap-3 justify-end mt-6">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors"
               >
                 {editingMethod ? 'Update' : 'Add'} Payment Method
               </button>

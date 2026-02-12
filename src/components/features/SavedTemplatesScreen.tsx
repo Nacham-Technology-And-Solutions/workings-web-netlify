@@ -243,7 +243,7 @@ const SavedTemplatesScreen: React.FC<SavedTemplatesScreenProps> = ({ onBack, onN
                 type="button"
                 onClick={handleSaveCurrent}
                 disabled={!saveName.trim() || isSaving}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? 'Saving...' : 'Save template'}
               </button>

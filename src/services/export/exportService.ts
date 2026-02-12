@@ -61,7 +61,7 @@ export interface CuttingLayout {
   id?: string;
   layout: string;
   repetition: number;
-  cuts: { length: number; unit: string }[];
+  cuts: { length: number; unit: string; elementTitle?: string }[];
   offCut: number;
 }
 
@@ -156,7 +156,7 @@ export const exportCuttingListToPDF = (
     const tableData = section.layouts.map((layout) => [
       layout.layout,
       `${layout.repetition}X`,
-      layout.cuts.map(c => `${c.length}${c.unit}`).join(', '),
+      layout.cuts.map(c => c.elementTitle ? `${c.length}${c.unit} (${c.elementTitle})` : `${c.length}${c.unit}`).join(', '),
       `${layout.offCut}m`
     ]);
 
@@ -244,7 +244,7 @@ export const exportCuttingListToExcel = (
       wsData.push([
         layout.layout,
         `${layout.repetition}X`,
-        layout.cuts.map(c => `${c.length}${c.unit}`).join(', '),
+        layout.cuts.map(c => c.elementTitle ? `${c.length}${c.unit} (${c.elementTitle})` : `${c.length}${c.unit}`).join(', '),
         layout.offCut
       ]);
     });
@@ -274,6 +274,7 @@ interface GlassCuttingLayout {
     w: number;
     h: number;
     qty: number;
+    elementTitle?: string;
   }>;
   totalCuts: number;
 }
@@ -320,16 +321,18 @@ export const exportGlassCuttingListToPDF = (
     doc.text(`Total Cuts: ${layout.totalCuts}`, 14, startY);
     startY += 10;
 
-    // Cuts Table
-    const tableData = layout.cuts.map((cut) => [
-      `${cut.w}mm`,
-      `${cut.h}mm`,
-      cut.qty
-    ]);
+    // Cuts Table (include Element column when any cut has elementTitle)
+    const hasElement = layout.cuts.some((c) => c.elementTitle);
+    const tableData = layout.cuts.map((cut) =>
+      hasElement
+        ? [`${cut.w}mm`, `${cut.h}mm`, cut.qty, cut.elementTitle ?? '']
+        : [`${cut.w}mm`, `${cut.h}mm`, cut.qty]
+    );
+    const tableHead = hasElement ? [['Width', 'Height', 'Quantity', 'Element']] : [['Width', 'Height', 'Quantity']];
 
     autoTable(doc, {
       startY: startY,
-      head: [['Width', 'Height', 'Quantity']],
+      head: tableHead,
       body: tableData,
       theme: 'grid',
       styles: { fontSize: 9 },
@@ -357,6 +360,8 @@ export const exportGlassCuttingListToExcel = (
     [],
   ];
 
+  const hasElement = layouts.some((layout) => layout.cuts.some((c) => c.elementTitle));
+
   // Add data for each sheet
   layouts.forEach((layout) => {
     wsData.push([]);
@@ -365,9 +370,13 @@ export const exportGlassCuttingListToExcel = (
     wsData.push([`Dimensions: ${layout.sheetWidth}mm x ${layout.sheetHeight}mm`]);
     wsData.push([`Total Cuts: ${layout.totalCuts}`]);
     wsData.push([]);
-    wsData.push(['Width (mm)', 'Height (mm)', 'Quantity']);
+    wsData.push(hasElement ? ['Width (mm)', 'Height (mm)', 'Quantity', 'Element'] : ['Width (mm)', 'Height (mm)', 'Quantity']);
     layout.cuts.forEach((cut) => {
-      wsData.push([cut.w, cut.h, cut.qty]);
+      if (hasElement) {
+        wsData.push([cut.w, cut.h, cut.qty, cut.elementTitle ?? '']);
+      } else {
+        wsData.push([cut.w, cut.h, cut.qty]);
+      }
     });
   });
 
@@ -375,11 +384,9 @@ export const exportGlassCuttingListToExcel = (
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  ws['!cols'] = [
-    { wch: 15 },
-    { wch: 15 },
-    { wch: 12 }
-  ];
+  ws['!cols'] = hasElement
+    ? [{ wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 18 }]
+    : [{ wch: 15 }, { wch: 15 }, { wch: 12 }];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Glass Cutting List');
 

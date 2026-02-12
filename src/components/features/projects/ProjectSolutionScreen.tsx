@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData, DimensionItem } from '@/types';
-import type { CalculationResult, MaterialListItem, CuttingListItem, GlassListResult, RubberTotal, AccessoryTotal } from '@/types/calculations';
+import type { CalculationResult, MaterialListItem, CuttingListItem, GlassListResult, RubberTotal, AccessoryTotal, GlazingElement, CuttingPlanPiece } from '@/types/calculations';
 import {
   exportMaterialListToPDF,
   exportCuttingListToPDF,
@@ -16,6 +16,34 @@ import { calculationsService, projectsService } from '@/services/api';
 import { createProjectData, projectDataToProjectCart } from '@/utils/dataTransformers';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
+
+/** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId). */
+function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): Array<{ length: number; label: string; elementId?: string }> {
+  const result: Array<{ length: number; label: string; elementId?: string }> = [];
+  Object.keys(planEntry).forEach((cutKey) => {
+    const raw = planEntry[cutKey];
+    const lengthMatch = cutKey.match(/(\d+)mm/);
+    const lengthMm = lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
+    const lengthMeters = lengthMm / 1000;
+    const label = lengthMeters ? `${lengthMeters.toFixed(1)}m` : cutKey;
+    if (!Array.isArray(raw) || raw.length === 0) return;
+    const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
+    if (isNewFormat) {
+      (raw as CuttingPlanPiece[]).forEach((piece) => {
+        result.push({ length: lengthMeters, label, elementId: piece.elementId });
+      });
+    } else {
+      (raw as string[]).forEach(() => {
+        result.push({ length: lengthMeters, label });
+      });
+    }
+  });
+  return result;
+}
+
+function getMaxRepetition(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): number {
+  return Math.max(0, ...Object.values(planEntry).map((arr) => (Array.isArray(arr) ? arr.length : 0)));
+}
 
 interface ProjectSolutionScreenProps {
   onBack: () => void;
@@ -72,7 +100,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const [materialFilter, setMaterialFilter] = useState<'all' | 'Profile' | 'Accessory_Pair'>('all');
   const [materialSearch, setMaterialSearch] = useState('');
   const [cuttingFilter, setCuttingFilter] = useState<string>('all');
+  const [cuttingElementFilter, setCuttingElementFilter] = useState<string>('all');
   const [glassFilter, setGlassFilter] = useState<string>('all');
+  const [glassElementFilter, setGlassElementFilter] = useState<string>('all');
   
   // Export dropdown states
   const [showExportDropdown, setShowExportDropdown] = useState<'cutting' | 'glass' | null>(null);
@@ -165,6 +195,28 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     }
     return filtered;
   }, [allAccessoriesItems, materialFilter, materialSearch]);
+
+  const elementsMap = useMemo(() => {
+    const map: Record<string, GlazingElement> = {};
+    (calculationResult?.elements || []).forEach((el) => { map[el.id] = el; });
+    return map;
+  }, [calculationResult?.elements]);
+
+  /** True if this cutting item has at least one piece with the given elementId. */
+  const cuttingItemHasElement = useMemo(() => {
+    return (cuttingItem: CuttingListItem, elementId: string): boolean => {
+      for (const planEntry of cuttingItem.plan) {
+        for (const raw of Object.values(planEntry)) {
+          if (!Array.isArray(raw) || raw.length === 0) continue;
+          const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
+          if (isNewFormat) {
+            if ((raw as CuttingPlanPiece[]).some((p) => p.elementId === elementId)) return true;
+          }
+        }
+      }
+      return false;
+    };
+  }, []);
 
   // Load calculation on mount if we have previous data
   useEffect(() => {
@@ -260,6 +312,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         const glassListData = calculationData.glassList || { sheet_type: '', total_sheets: 0, cuts: [] };
         const rubberTotalsData = calculationData.rubberTotals || [];
         const accessoryTotalsData = calculationData.accessoryTotals || [];
+        const elementsData = calculationData.elements || [];
         
         // Debug: Log extracted data
         console.log('Extracted materialList:', materialListData);
@@ -274,6 +327,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           glassList: glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] },
           rubberTotals: Array.isArray(rubberTotalsData) ? rubberTotalsData : [],
           accessoryTotals: Array.isArray(accessoryTotalsData) ? accessoryTotalsData : [],
+          elements: Array.isArray(elementsData) ? elementsData : [],
         };
         
         console.log('Validated calculation data:', validatedData);
@@ -429,40 +483,24 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     if (!calculationResult?.cuttingList || !previousData?.projectDescription) return;
     
     const projectName = previousData.projectDescription.projectName || 'Project';
+    const elMap: Record<string, GlazingElement> = {};
+    (calculationResult.elements || []).forEach((el) => { elMap[el.id] = el; });
     
     const sections = calculationResult.cuttingList.map((cuttingItem) => {
       const stockLengthMeters = cuttingItem.stock_length / 1000;
-      const layouts = cuttingItem.plan.map((planEntry) => {
-        const cutKeys = Object.keys(planEntry);
-        const individualCuts: Array<{ length: number; unit: string }> = [];
-        let totalRepetition = 0;
-        
-        cutKeys.forEach(cutKey => {
-          const cutArray = planEntry[cutKey];
-          const lengthMatch = cutKey.match(/(\d+)mm/);
-          if (lengthMatch) {
-            const lengthMm = parseInt(lengthMatch[1]);
-            const lengthMeters = lengthMm / 1000;
-            const label = `${lengthMeters.toFixed(1)}m`;
-            
-            for (let i = 0; i < cutArray.length; i++) {
-              individualCuts.push({
-                length: lengthMeters,
-                unit: label
-              });
-            }
-            
-            totalRepetition = Math.max(totalRepetition, cutArray.length);
-          }
-        });
-        
+      const layouts = cuttingItem.plan.map((planEntry, planIndex) => {
+        const individualCuts = normalizePlanEntryToCuts(planEntry);
+        const totalRepetition = getMaxRepetition(planEntry);
         const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
         const offcut = stockLengthMeters - totalUsed;
-        
         return {
-          layout: String.fromCharCode(65 + cuttingItem.plan.indexOf(planEntry)),
-          cuts: individualCuts,
-          offcut,
+          layout: String.fromCharCode(65 + planIndex),
+          cuts: individualCuts.map((c) => ({
+            length: c.length,
+            unit: c.label,
+            elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
+          })),
+          offCut: offcut,
           repetition: totalRepetition,
         };
       });
@@ -491,11 +529,21 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     
     const projectName = previousData.projectDescription.projectName || 'Project';
     const glassList = calculationResult.glassList;
+    const elMap: Record<string, GlazingElement> = {};
+    (calculationResult.elements || []).forEach((el) => { elMap[el.id] = el; });
     
     // Parse sheet dimensions
     const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
     const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
     const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
+    
+    const cutsWithTitle = (glassList.cuts || []).map((c) => ({
+      w: c.w,
+      h: c.h,
+      qty: c.qty,
+      elementId: c.elementId,
+      elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
+    }));
     
     // Create layouts for each sheet
     const layouts = Array.from({ length: glassList.total_sheets }).map((_, index) => ({
@@ -503,7 +551,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       sheetType: glassList.sheet_type,
       sheetWidth,
       sheetHeight,
-      cuts: glassList.cuts || [],
+      cuts: cutsWithTitle,
       totalCuts: glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0,
     }));
     
@@ -621,14 +669,14 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                     }
                   }}
                   disabled={isSaving}
-                  className="px-6 py-3 font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 font-semibold rounded transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Generate Quote
                 </button>
                 <div className="relative export-dropdown-container">
                   <button
                     onClick={() => setShowExportDropdown(showExportDropdown === 'cutting' ? null : 'cutting')}
-                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
                   >
                     <span>Export Cutting List</span>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -655,7 +703,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 <div className="relative export-dropdown-container">
                   <button
                     onClick={() => setShowExportDropdown(showExportDropdown === 'glass' ? null : 'glass')}
-                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
                   >
                     <span>Export Glass List</span>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -798,7 +846,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                     <select
                       value={materialFilter}
                       onChange={(e) => setMaterialFilter(e.target.value as 'all' | 'Profile' | 'Accessory_Pair')}
-                      className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
                     >
                       <option value="all">All Types</option>
                       <option value="Profile">Profile</option>
@@ -809,33 +857,61 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                       placeholder="Search materials..."
                       value={materialSearch}
                       onChange={(e) => setMaterialSearch(e.target.value)}
-                      className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 w-48"
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 w-48"
                     />
                   </div>
                 )}
                 {activeTab === 'cutting' && calculationResult?.cuttingList && (
-                  <select
-                    value={cuttingFilter}
-                    onChange={(e) => setCuttingFilter(e.target.value)}
-                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                  >
-                    <option value="all">All Profiles</option>
-                    {calculationResult.cuttingList.map((item, index) => (
-                      <option key={index} value={item.profile_name}>{item.profile_name}</option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={cuttingFilter}
+                      onChange={(e) => setCuttingFilter(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      <option value="all">All Profiles</option>
+                      {calculationResult.cuttingList.map((item, index) => (
+                        <option key={index} value={item.profile_name}>{item.profile_name}</option>
+                      ))}
+                    </select>
+                    {calculationResult.elements && calculationResult.elements.length > 0 && (
+                      <select
+                        value={cuttingElementFilter}
+                        onChange={(e) => setCuttingElementFilter(e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      >
+                        <option value="all">All elements</option>
+                        {calculationResult.elements.map((el) => (
+                          <option key={el.id} value={el.id}>{el.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
                 )}
                 {activeTab === 'glass' && (
-                  <select
-                    value={glassFilter}
-                    onChange={(e) => setGlassFilter(e.target.value)}
-                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                  >
-                    <option value="all">All Sheets</option>
-                    {calculationResult?.glassList && Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => (
-                      <option key={index} value={`sheet${index + 1}`}>Sheet {index + 1}</option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={glassFilter}
+                      onChange={(e) => setGlassFilter(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      <option value="all">All Sheets</option>
+                      {calculationResult?.glassList && Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => (
+                        <option key={index} value={`sheet${index + 1}`}>Sheet {index + 1}</option>
+                      ))}
+                    </select>
+                    {calculationResult?.elements && calculationResult.elements.length > 0 && (
+                      <select
+                        value={glassElementFilter}
+                        onChange={(e) => setGlassElementFilter(e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      >
+                        <option value="all">All elements</option>
+                        {calculationResult.elements.map((el) => (
+                          <option key={el.id} value={el.id}>{el.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1070,42 +1146,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               {calculationResult?.cuttingList && calculationResult.cuttingList.length > 0 ? (
                 calculationResult.cuttingList
                   .filter((item) => cuttingFilter === 'all' || item.profile_name === cuttingFilter)
+                  .filter((item) => cuttingElementFilter === 'all' || cuttingItemHasElement(item, cuttingElementFilter))
                   .map((cuttingItem, profileIndex) => {
                   const stockLengthMeters = cuttingItem.stock_length / 1000; // Convert mm to meters
                   
-                  // Parse cutting plans
-                  const layouts = cuttingItem.plan.map((planEntry, planIndex) => {
-                    // Each plan entry is an object like { "cut_1200mm": ["cut_1200mm", "cut_1200mm", ...] }
-                    const cutKeys = Object.keys(planEntry);
-                    const individualCuts: Array<{ length: number; label: string }> = [];
-                    let totalRepetition = 0;
-                    
-                    // Extract all individual cuts (one segment per cut)
-                    cutKeys.forEach(cutKey => {
-                      const cutArray = planEntry[cutKey];
-                      // Extract length from key like "cut_1200mm" -> 1200
-                      const lengthMatch = cutKey.match(/(\d+)mm/);
-                      if (lengthMatch) {
-                        const lengthMm = parseInt(lengthMatch[1]);
-                        const lengthMeters = lengthMm / 1000;
-                        const label = `${lengthMeters.toFixed(1)}m`;
-                        
-                        // Add one segment for each cut in the array
-                        for (let i = 0; i < cutArray.length; i++) {
-                          individualCuts.push({
-                            length: lengthMeters,
-                            label: label
-                          });
-                        }
-                        
-                        totalRepetition = Math.max(totalRepetition, cutArray.length);
-                      }
-                    });
-                    
-                    // Calculate total used length and offcut
+                  // Parse cutting plans (supports legacy string[] and new CuttingPlanPiece[] with elementId)
+                  const layouts = cuttingItem.plan.map((planEntry) => {
+                    const individualCuts = normalizePlanEntryToCuts(planEntry);
+                    const totalRepetition = getMaxRepetition(planEntry);
                     const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
                     const offcut = stockLengthMeters - totalUsed;
-                    
                     return {
                       cuts: individualCuts,
                       offcut,
@@ -1162,15 +1212,19 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                 {layout.cuts.map((cut, cutIndex) => {
                                   const widthPercent = (cut.length / layout.stockLength) * 100;
                                   const isLastCut = cutIndex === layout.cuts.length - 1;
-                                  
+                                  const element = cut.elementId ? elementsMap[cut.elementId] : undefined;
+                                  const bgColor = element?.color ?? '#6B9EB6';
+                                  const titleAttr = element ? `${cut.label} — ${element.title}` : cut.label;
                                   return (
-                                    <div 
+                                    <div
                                       key={cutIndex}
-                                      className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900"
-                                      style={{ 
+                                      className="h-full flex items-center justify-center text-xs font-medium text-gray-900"
+                                      style={{
                                         width: `${widthPercent}%`,
-                                        borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none'
+                                        backgroundColor: bgColor,
+                                        borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none',
                                       }}
+                                      title={titleAttr}
                                     >
                                       {cut.label}
                                     </div>
@@ -1232,16 +1286,24 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                       const currentSheetIndex = selectedSheet ? parseInt(selectedSheet.replace('sheet', '')) - 1 : 0;
                       const currentSheet = currentSheetIndex + 1;
                       
+                      // Optional filter by glazing element
+                      const rawCuts = glassList.cuts || [];
+                      const cuts = glassElementFilter === 'all'
+                        ? rawCuts
+                        : rawCuts.filter((c) => c.elementId === glassElementFilter);
+                      
                       // Parse sheet dimensions from sheet_type (e.g., "3310x2140mm")
                       const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
                       const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
                       const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
                       
-                      // Calculate layout for cuts
-                      const cuts = glassList.cuts || [];
-                      const totalCuts = cuts.reduce((sum, cut) => sum + cut.qty, 0);
+                      // Flat list of cut instances (one per piece) for color/title by element
+                      const flatCutInstances = cuts.flatMap((c) =>
+                        Array.from({ length: c.qty }, () => ({ w: c.w, h: c.h, elementId: c.elementId }))
+                      );
+                      const totalCuts = flatCutInstances.length;
                       
-                      // Use the first cut type for visualization (API provides cuts with same dimensions)
+                      // Use the first cut type for visualization (grid assumes uniform cell size)
                       const primaryCut = cuts.length > 0 ? cuts[0] : null;
                       
                       if (!primaryCut) {
@@ -1322,17 +1384,22 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                     {Array.from({ length: cutsPerRow }).map((_, colIndex) => {
                                       const cutIndex = rowIndex * cutsPerRow + colIndex;
                                       if (cutIndex >= Math.min(totalCuts, maxCutsPerSheet)) return null;
-                                      
+                                      const instance = flatCutInstances[cutIndex];
+                                      const element = instance?.elementId ? elementsMap[instance.elementId!] : undefined;
+                                      const bgColor = element?.color ?? '#C8DEE5';
+                                      const titleAttr = element ? `${primaryCut.w}×${primaryCut.h} — ${element.title}` : `${primaryCut.w}×${primaryCut.h}`;
                                       return (
                                         <div
                                           key={colIndex}
-                                          className="bg-[#C8DEE5] relative"
+                                          className="relative"
                                           style={{
                                             width: `${(primaryCut.w / usedWidth) * 100}%`,
                                             height: '100%',
                                             marginRight: colIndex < cutsPerRow - 1 ? '2px' : '0',
-                                            border: '1px solid #4B5563' // Border for cut definition
+                                            border: '1px solid #4B5563',
+                                            backgroundColor: bgColor,
                                           }}
+                                          title={titleAttr}
                                         >
                                           <span className="absolute top-1 left-1 text-xs font-medium">{primaryCut.w}</span>
                                           <span className="absolute bottom-1 left-1 text-xs font-medium">{primaryCut.h}</span>

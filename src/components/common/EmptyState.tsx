@@ -33,7 +33,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ title, message, onAction, actio
       ) : (
         <button
           onClick={onAction}
-          className="px-6 py-3 bg-gray-800 text-white text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
+          className="px-6 py-3 bg-gray-800 text-white text-base font-semibold rounded hover:bg-gray-700 transition-colors shadow-sm"
         >
           {actionText}
         </button>

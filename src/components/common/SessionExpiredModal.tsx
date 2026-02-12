@@ -54,7 +54,7 @@ const SessionExpiredModal: React.FC<SessionExpiredModalProps> = ({
         {/* Action Button */}
         <button
           onClick={onConfirm}
-          className="w-full px-4 py-3 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-gray-800 transition-colors"
+          className="w-full px-4 py-3 bg-gray-900 text-white text-sm font-semibold rounded hover:bg-gray-800 transition-colors"
         >
           Sign In Again
         </button>

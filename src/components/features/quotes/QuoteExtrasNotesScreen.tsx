@@ -274,7 +274,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                 <button
                                     onClick={handleAddCharge}
                                     disabled={!extraCharges || amount <= 0}
-                                    className={`w-full py-2.5 px-4 font-semibold rounded-lg transition-colors ${
+                                    className={`w-full py-2.5 px-4 font-semibold rounded transition-colors ${
                                         extraCharges && amount > 0
                                             ? 'bg-gray-900 text-white hover:bg-gray-800'
                                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -445,7 +445,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                 <button
                                     onClick={handlePreview}
                                     disabled={!accountName || !accountNumber || !bankName}
-                                    className={`w-full py-3 font-semibold rounded-lg transition-colors ${
+                                    className={`w-full py-3 font-semibold rounded transition-colors ${
                                         accountName && accountNumber && bankName
                                             ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
                                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -455,7 +455,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                 </button>
                                 <button
                                     onClick={handleSaveDraft}
-                                    className="w-full py-3 font-semibold rounded-lg transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                    className="w-full py-3 font-semibold rounded transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                                 >
                                     Save as Draft
                                 </button>

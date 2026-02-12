@@ -346,7 +346,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
               {onBack && (
                 <button
                   onClick={onBack}
-                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors shrink-0"
+                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors shrink-0"
                   aria-label="Go back"
                 >
                   <ChevronLeftIcon />
@@ -364,7 +364,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
             {onNewProject && (
               <button
                 onClick={onNewProject}
-                className="px-4 py-2 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
+                className="px-4 py-2 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
               >
                 Create New Project
               </button>
@@ -705,7 +705,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 handleSearchSubmit();
                 setShowSearch(false);
               }}
-              className="w-full py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+              className="w-full py-3 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors"
             >
               Apply Search
             </button>

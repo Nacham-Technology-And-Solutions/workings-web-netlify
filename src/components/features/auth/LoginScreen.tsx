@@ -22,7 +22,7 @@ const SocialButton: React.FC<{
 }> = ({ provider, icon, onClick }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-border rounded-lg text-text-secondary font-medium hover:bg-background-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+    className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-border rounded text-text-secondary font-medium hover:bg-background-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
     aria-label={`Sign up with ${provider}`}
   >
     {icon}
@@ -204,7 +204,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 sm:py-4 text-base sm:text-lg font-semibold text-text-inverse bg-primary rounded-lg transition-all duration-200 disabled:bg-text-tertiary disabled:cursor-not-allowed hover:enabled:bg-primary/90 transform hover:enabled:scale-105 font-exo flex items-center justify-center gap-2"
+                className="w-full py-3 sm:py-3.5 text-base font-semibold text-white bg-gray-900 transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed hover:enabled:bg-gray-800 font-exo flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>

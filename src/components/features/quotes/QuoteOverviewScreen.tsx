@@ -95,13 +95,13 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                         <div className="hidden lg:flex items-center gap-3">
                             <button
                                 onClick={handleNext}
-                                className="px-6 py-2.5 text-sm font-semibold rounded-lg transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                className="px-6 py-2.5 text-sm font-semibold rounded transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                             >
                                 Edit
                             </button>
                             <button
                                 onClick={handleNext}
-                                className="px-6 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                                className="px-6 py-2.5 text-sm font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
                             >
                                 Download PDF
                             </button>
@@ -315,7 +315,7 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                     <button
                         onClick={handleNext}
                         disabled={!paymentTerms}
-                        className={`w-full py-4 font-semibold rounded-lg transition-colors ${paymentTerms
+                        className={`w-full py-4 font-semibold rounded transition-colors ${paymentTerms
                                 ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
                                 : 'bg-gray-400 text-white cursor-not-allowed'
                             }`}

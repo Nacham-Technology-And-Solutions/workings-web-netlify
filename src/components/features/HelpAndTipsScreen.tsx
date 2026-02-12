@@ -139,7 +139,7 @@ const HelpAndTipsScreen: React.FC<HelpAndTipsScreenProps> = ({ onBack }) => {
   return (
     <div className="flex flex-col h-screen min-h-0 bg-white font-sans text-gray-800">
       <header className="p-4 lg:p-6 flex items-center gap-4 sticky top-0 z-40 bg-white border-b border-gray-200">
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors" aria-label="Go back">
+        <button onClick={onBack} className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors" aria-label="Go back">
           <ChevronLeftIcon />
         </button>
         <div className="flex-1">

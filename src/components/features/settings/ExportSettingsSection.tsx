@@ -151,7 +151,7 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className={`px-6 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                  className={`px-6 py-2 text-sm font-semibold rounded transition-colors ${
                     isSaving ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-gray-800'
                   }`}
                 >
@@ -184,16 +184,16 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
               You have unsaved changes. Do you want to save them before switching tabs?
             </p>
             <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
-              <button onClick={handleCancelTabChange} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+              <button onClick={handleCancelTabChange} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
                 Cancel
               </button>
-              <button onClick={handleSaveAndSwitchTab} className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800">
+              <button onClick={handleSaveAndSwitchTab} className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-800">
                 Save & Continue
               </button>
               <button
                 onClick={handleDiscardAndSwitchTab}
                 disabled={isDiscarding}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 {isDiscarding ? 'Discarding...' : 'Discard Changes'}
               </button>
@@ -215,7 +215,7 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
             <button
               type="button"
               onClick={() => setIsFullPage(false)}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 rounded-lg px-2 py-1.5 -ml-2"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 rounded px-2 py-1.5 -ml-2"
               aria-label="Back to Settings"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -238,7 +238,7 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
             <button
               type="button"
               onClick={() => setIsFullPage(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
               aria-label="Open full page view"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -262,7 +262,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             />
             {isEditingThisField && (
                 <div className="mt-2">
-                    <button type="button" onClick={() => handleFieldSave(id)} className="px-5 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700">
+                    <button type="button" onClick={() => handleFieldSave(id)} className="px-5 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700">
                         Save
                     </button>
                 </div>
@@ -377,7 +377,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                     <button 
                       type="button" 
                       onClick={() => handleFieldSave('name')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                       Save
                     </button>
@@ -423,7 +423,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                     <button 
                       type="button" 
                       onClick={() => handleFieldSave('email')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                       Save
                     </button>
@@ -495,7 +495,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                       <button 
                         type="button" 
                         onClick={handlePasswordSave} 
-                        className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                       >
                         Save
                       </button>
@@ -565,7 +565,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                 </div>
                 {editingField === 'companyName' && (
                   <div className="mt-3">
-                    <button type="button" onClick={() => handleFieldSave('companyName')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors">Save</button>
+                    <button type="button" onClick={() => handleFieldSave('companyName')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors">Save</button>
                   </div>
                 )}
               </div>
@@ -593,7 +593,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                 </div>
                 {editingField === 'companyAddress' && (
                   <div className="mt-3">
-                    <button type="button" onClick={() => handleFieldSave('companyAddress')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors">Save</button>
+                    <button type="button" onClick={() => handleFieldSave('companyAddress')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors">Save</button>
                   </div>
                 )}
               </div>
@@ -614,7 +614,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                 <button
                   type="button"
                   onClick={handleDeleteAccount}
-                  className="px-6 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors w-full sm:w-auto flex-shrink-0"
+                  className="px-6 py-2.5 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700 transition-colors w-full sm:w-auto flex-shrink-0"
                 >
                   Delete
                 </button>

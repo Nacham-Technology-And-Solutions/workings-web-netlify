@@ -48,6 +48,11 @@ body {
   border: 0;
 }
 
+/* Default button border radius (4px) – overridden by Tailwind rounded-* classes where used */
+button {
+  border-radius: 4px;
+}
+
 /* Focus styles for accessibility */
 button:focus-visible,
 input:focus-visible,

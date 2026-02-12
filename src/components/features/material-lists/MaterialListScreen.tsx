@@ -33,7 +33,7 @@ const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ l
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-start gap-4"
+      className="w-full text-left bg-white border border-gray-200 rounded p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-start gap-4"
     >
       <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-bold text-sm">
         {initials}
@@ -237,7 +237,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
               {onBack && (
                 <button
                   onClick={onBack}
-                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors shrink-0"
+                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors shrink-0"
                   aria-label="Go back"
                 >
                   <ChevronLeftIcon />
@@ -250,7 +250,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
             </div>
             <button
               onClick={onCreateNewList}
-              className="px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
+              className="px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
             >
               Create New List
             </button>
@@ -541,7 +541,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
           <div className="p-4 bg-white border-t border-gray-200 sticky bottom-0">
             <button
               onClick={handleSearchSubmit}
-              className="w-full py-3.5 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+              className="w-full py-3.5 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors"
             >
               Apply Search
             </button>
