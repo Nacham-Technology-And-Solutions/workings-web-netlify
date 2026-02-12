@@ -5,9 +5,12 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
   padding: 0;
+  height: 100%;
+  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -17,9 +20,13 @@ body {
   color: #2d2e2e;
 }
 
+/* Constrain app to viewport; avoid 100vw (can cause horizontal scroll when vertical scrollbar exists) */
 #root {
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Utility classes */

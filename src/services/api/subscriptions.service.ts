@@ -58,6 +58,23 @@ export interface ApiResponse<T> {
   response: T;
 }
 
+export interface VerifyPaymentRequest {
+  reference: string;
+  provider: PaymentProvider;
+  plan?: SubscriptionPlanId;
+  billingCycle?: BillingCycle;
+}
+
+export interface VerifyPaymentResponse {
+  message: string;
+  subscriptionId: number;
+  plan: SubscriptionPlanId;
+  billingCycle: BillingCycle;
+  provider: PaymentProvider;
+  reference: string;
+  amount: number;
+}
+
 // Subscriptions Service
 export const subscriptionsService = {
   /**
@@ -99,6 +116,18 @@ export const subscriptionsService = {
     const response = await apiClient.post<ApiResponse<{ message: string }>>('/api/v1/subscriptions/cancel', {
       reason: reason || undefined,
     });
+    return response.data;
+  },
+
+  /**
+   * Manual verify payment (dev fallback when webhooks are not available).
+   * Backend verifies with payment provider and activates subscription.
+   */
+  verifyPayment: async (data: VerifyPaymentRequest): Promise<ApiResponse<VerifyPaymentResponse>> => {
+    const response = await apiClient.post<ApiResponse<VerifyPaymentResponse>>(
+      '/api/v1/subscriptions/verify-payment',
+      data
+    );
     return response.data;
   },
 };

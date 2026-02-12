@@ -137,6 +137,9 @@ export type TemplateTab = 'quoteFormat' | 'paymentMethod' | 'pdfExport' | 'mater
 /** Saved template preset: Quote Format, PDF Export, or both (full) */
 export type SavedTemplateType = 'quoteFormat' | 'pdfExport' | 'full';
 
+/** Who created the template: app defaults (pre-built) or user */
+export type SavedTemplateSource = 'system' | 'user';
+
 export interface SavedTemplate {
   id: string;
   name: string;
@@ -144,5 +147,7 @@ export interface SavedTemplate {
   quoteFormat?: QuoteFormatConfig;
   pdfExport?: PDFExportConfig;
   createdAt: string;
+  /** system = app pre-built (read-only); user = created by user. Omitted treated as 'user'. */
+  source?: SavedTemplateSource;
 }
 

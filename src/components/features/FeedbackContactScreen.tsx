@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import { useAuthStore } from '@/stores';
 
-const SUPPORT_EMAIL = 'support@workingsapp.com';
+const SUPPORT_EMAIL = 'support@glazeworkings.com';
 
 type FeedbackCategory = 'bug' | 'feature' | 'general';
 
@@ -48,7 +48,7 @@ const FeedbackContactScreen: React.FC<FeedbackContactScreenProps> = ({ onBack, o
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
         <div className="max-w-2xl mx-auto space-y-8">
           {/* Send feedback */}
           <section className="bg-gray-50 rounded-xl border border-gray-200 p-6 lg:p-8">

@@ -180,43 +180,48 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#FAFAFA]">
+    <div className="flex flex-col h-screen min-h-0 bg-[#FAFAFA]">
         <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
             <div className="max-w-7xl lg:mx-auto">
              <div className="flex items-center gap-3 mb-4">
                 {onBack && (
                   <button 
                     onClick={onBack}
-                        className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors"
+                    className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors"
                     aria-label="Go back"
                   >
                     <ChevronLeftIcon />
                   </button>
                 )}
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 flex-1">
-                Quotes
-                </h1>
+                <div className="flex-1">
+                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
+                    Quotes
+                  </h1>
+                  <p className="text-sm lg:text-base text-gray-700 mt-1">
+                    Create, send, and track quotes for your projects.
+                  </p>
+                </div>
             </div>
-            <div className="bg-gray-100 p-1 rounded-full flex space-x-1 overflow-x-auto">
+            <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
                 {tabs.map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                            className={`flex-1 min-w-[70px] text-center px-3 py-1.5 lg:px-6 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 focus:outline-none whitespace-nowrap ${
+                        className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${
                             activeTab === tab 
-                                ? 'bg-gray-800 text-white shadow-sm' 
-                                : 'bg-transparent text-gray-600 hover:bg-white/50'
+                                ? 'bg-gray-800 text-white' 
+                                : 'text-gray-500'
                         }`}
                     >
                         {tab}
                     </button>
                 ))}
-                </div>
+            </div>
             </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8 flex flex-col">
-            <div className="max-w-7xl lg:mx-auto w-full">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 lg:p-8 flex flex-col">
+            <div className="max-w-7xl lg:mx-auto w-full min-w-0">
             {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">

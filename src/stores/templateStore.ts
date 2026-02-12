@@ -70,11 +70,16 @@ interface TemplateState {
   saveTemplates: () => Promise<void>;
   resetToDefaults: () => void;
 
-  // Saved Templates (presets for one-click apply)
+  // Saved Templates (user-created presets) - synced with backend /api/v1/saved-templates
   savedTemplates: SavedTemplate[];
-  addSavedTemplate: (name: string, type: SavedTemplateType) => void;
-  removeSavedTemplate: (id: string) => void;
+  fetchSavedTemplates: () => Promise<void>;
+  addSavedTemplate: (name: string, type: SavedTemplateType) => Promise<{ success: true } | { success: false; message: string }>;
+  removeSavedTemplate: (id: string) => Promise<{ success: boolean; message?: string }>;
   applySavedTemplate: (id: string) => void;
+
+  // Pre-built templates (app defaults; read-only list)
+  getPrebuiltTemplates: () => SavedTemplate[];
+  applyPrebuiltTemplate: (id: string) => void;
 }
 
 // Default values
@@ -142,6 +147,32 @@ const defaultPDFExport: PDFExportConfig = {
     dateFormat: 'YYYY-MM-DD',
   },
 };
+
+/** App-provided preset templates (same shape as SavedTemplate, source: system). Not persisted. */
+const PREBUILT_TEMPLATES: SavedTemplate[] = [
+  {
+    id: 'prebuilt_standard',
+    name: 'Standard',
+    type: 'full',
+    quoteFormat: JSON.parse(JSON.stringify(defaultQuoteFormat)),
+    pdfExport: JSON.parse(JSON.stringify(defaultPDFExport)),
+    createdAt: '',
+    source: 'system',
+  },
+  {
+    id: 'prebuilt_minimal',
+    name: 'Minimal',
+    type: 'full',
+    quoteFormat: JSON.parse(JSON.stringify({
+      ...defaultQuoteFormat,
+      typography: { ...defaultQuoteFormat.typography, bodySize: 11 },
+      page: { ...defaultQuoteFormat.page, sectionSpacing: 10 },
+    })),
+    pdfExport: JSON.parse(JSON.stringify(defaultPDFExport)),
+    createdAt: '',
+    source: 'system',
+  },
+];
 
 export const useTemplateStore = create<TemplateState>()(
   persist(
@@ -695,23 +726,52 @@ export const useTemplateStore = create<TemplateState>()(
         });
       },
 
-      // Saved Templates
-      addSavedTemplate: (name, type) => {
-        const state = get();
-        const template: SavedTemplate = {
-          id: `st_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          name,
-          type,
-          createdAt: new Date().toISOString(),
-        };
-        if (type === 'quoteFormat' || type === 'full') template.quoteFormat = state.quoteFormat;
-        if (type === 'pdfExport' || type === 'full') template.pdfExport = state.pdfExport;
-        set({ savedTemplates: [...state.savedTemplates, template] });
+      // Saved Templates (user-created) - consume backend /api/v1/saved-templates
+      fetchSavedTemplates: async () => {
+        try {
+          const list = await templatesService.getSavedTemplates();
+          set({ savedTemplates: list });
+        } catch (error: any) {
+          console.warn('[TemplateStore] Failed to fetch saved templates:', error?.message);
+          // Keep existing state (e.g. from persist) on failure
+        }
       },
-      removeSavedTemplate: (id) => {
-        set((state) => ({
-          savedTemplates: state.savedTemplates.filter((t) => t.id !== id),
-        }));
+      addSavedTemplate: async (name, type) => {
+        const state = get();
+        const payload: { name: string; type: SavedTemplateType; quoteFormat?: QuoteFormatConfig; pdfExport?: PDFExportConfig } = {
+          name: name.trim(),
+          type,
+        };
+        if (type === 'quoteFormat' || type === 'full') payload.quoteFormat = state.quoteFormat;
+        if (type === 'pdfExport' || type === 'full') payload.pdfExport = state.pdfExport;
+        try {
+          const created = await templatesService.createSavedTemplate(payload);
+          set({ savedTemplates: [...state.savedTemplates.filter((t) => t.source !== 'system'), created] });
+          return { success: true as const };
+        } catch (error: any) {
+          const message =
+            error?.response?.data?.message ||
+            error?.response?.data?.responseMessage ||
+            error?.message ||
+            'Failed to save template';
+          return { success: false, message };
+        }
+      },
+      removeSavedTemplate: async (id) => {
+        try {
+          await templatesService.deleteSavedTemplate(id);
+          set((state) => ({
+            savedTemplates: state.savedTemplates.filter((t) => t.id !== id),
+          }));
+          return { success: true };
+        } catch (error: any) {
+          const message =
+            error?.response?.data?.message ||
+            error?.response?.data?.responseMessage ||
+            error?.message ||
+            'Failed to delete template';
+          return { success: false, message };
+        }
       },
       applySavedTemplate: (id) => {
         const state = get();
@@ -721,6 +781,17 @@ export const useTemplateStore = create<TemplateState>()(
         if (template.quoteFormat) updates.quoteFormat = template.quoteFormat;
         if (template.pdfExport) updates.pdfExport = template.pdfExport;
         set(updates);
+      },
+
+      getPrebuiltTemplates: () => PREBUILT_TEMPLATES,
+      applyPrebuiltTemplate: (id) => {
+        const template = PREBUILT_TEMPLATES.find((t) => t.id === id);
+        if (!template) return;
+        set((state) => ({
+          quoteFormat: template.quoteFormat ?? state.quoteFormat,
+          pdfExport: template.pdfExport ?? state.pdfExport,
+          hasUnsavedChanges: true,
+        }));
       },
     }),
     {

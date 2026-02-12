@@ -298,7 +298,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   };
 
   return (
-    <div className="flex flex-col h-full bg-white font-sans text-gray-800 p-4 sm:p-6">
+    <div className="flex flex-col h-full bg-white font-sans text-gray-800 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6">
       {isSaving && <LoadingOverlay />}
       
       <div className="flex-1 overflow-y-auto">

@@ -142,7 +142,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
         </div>
 
         {/* Right Content Area - full width on mobile, scrollable */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 px-2 sm:px-2 lg:px-2">
           {activeSection === 'profile' && (
             <ProfileScreen onBack={() => {}} onNavigate={onNavigate} />
           )}

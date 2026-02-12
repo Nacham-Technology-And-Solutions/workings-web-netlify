@@ -39,7 +39,7 @@ import MaterialListDetailScreen from '../components/features/material-lists/Mate
 import CreateMaterialListScreen from '../components/features/material-lists/CreateMaterialListScreen';
 import MaterialListPreviewScreen from '../components/features/material-lists/MaterialListPreviewScreen';
 import EditMaterialListScreen from '../components/features/material-lists/EditMaterialListScreen';
-import SavedTemplatesScreen from '../components/features/SavedTemplatesScreen';
+import TemplatesScreen from '../components/features/TemplatesScreen';
 import PaymentCallbackScreen from '../components/features/PaymentCallbackScreen';
 import SessionExpiredModal from '../components/common/SessionExpiredModal';
 import LogViewer from '../components/common/LogViewer';
@@ -1139,14 +1139,14 @@ const App: React.FC = () => {
 
   if (currentView === 'newProject') {
     return (
-      <div className="flex h-screen bg-white">
+      <div className="flex h-full min-h-0 overflow-hidden bg-white">
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setSidebarOpen(false)}
           currentView={currentView}
           onNavigate={handleNavigate}
         />
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-20">
+        <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-20">
           <Header onMenuClick={() => setSidebarOpen(true)} />
           <NewProjectScreen onBack={goBack} onGenerateQuote={handleGenerateQuote} />
         </div>
@@ -1156,16 +1156,16 @@ const App: React.FC = () => {
 
   if (currentView === 'quotes') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuotesScreen 
               onNewQuote={handleNewQuote} 
               onViewQuote={handleViewQuote} 
@@ -1176,7 +1176,7 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1195,16 +1195,16 @@ const App: React.FC = () => {
 
   if (currentView === 'quoteDetail' && selectedQuoteId) {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="quotes"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuoteDetailScreen
               quoteId={selectedQuoteId}
               onBack={() => navigate('quotes')}
@@ -1213,46 +1213,46 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'settings') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <SettingsScreen onNavigate={handleNavigate} />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   // Credits History Screen
   if (currentView === 'creditsHistory') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="settings"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <CreditsHistoryScreen onBack={() => navigate('profile')} />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1260,23 +1260,23 @@ const App: React.FC = () => {
   if (currentView === 'profile' || currentView === 'subscriptionPlans' || currentView === 'exportSettings') {
     const targetSection = currentView === 'subscriptionPlans' ? 'subscriptionPlans' : currentView === 'exportSettings' ? 'exportSettings' : 'profile';
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="settings"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <SettingsScreen 
               onNavigate={handleNavigate}
               initialSection={targetSection}
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1302,80 +1302,80 @@ const App: React.FC = () => {
 
   if (currentView === 'templates') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <SavedTemplatesScreen
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
+            <TemplatesScreen
               onBack={() => navigate('home')}
               onNavigate={handleNavigate}
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'help') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <HelpAndTipsScreen onBack={goBack} />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'feedback') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <FeedbackContactScreen onBack={goBack} onNavigate={handleNavigate} />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'material-list') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <MaterialListScreen onBack={() => navigate('home')} onViewList={handleViewMaterialList} onCreateNewList={handleCreateNewMaterialList} />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1384,16 +1384,16 @@ const App: React.FC = () => {
     // Find a fallback or default if listData is not found
     const displayData = listData || sampleFullMaterialLists[0];
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <MaterialListDetailScreen
               list={displayData}
               onBack={() => navigate('material-list')}
@@ -1404,22 +1404,22 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'editMaterialList' && editingMaterialList) {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <EditMaterialListScreen
               list={editingMaterialList}
               onBack={() => {
@@ -1434,7 +1434,7 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1448,16 +1448,16 @@ const App: React.FC = () => {
 
   if (currentView === 'projects') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectsScreen 
               key={refreshProjects}
               onNewProject={handleNewProject} 
@@ -1469,22 +1469,22 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'projectDetail' && selectedProjectId) {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="projects"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectDetailScreen
               projectId={selectedProjectId}
               onBack={() => {
@@ -1498,22 +1498,22 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'projectEdit' && selectedProjectId) {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="projects"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectEditScreen
               projectId={selectedProjectId}
               onBack={() => {
@@ -1524,41 +1524,41 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'projectDescription') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectDescriptionScreen onBack={goBack} onNext={handleProjectDescriptionNext} />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'selectProject') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <SelectProjectScreen 
               onBack={() => navigate('projectDescription')} 
               onNext={handleSelectProjectNext} 
@@ -1566,22 +1566,22 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'projectMeasurement') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectMeasurementScreen 
               onBack={() => navigate('selectProject')}
               onNext={(data) => {
@@ -1605,23 +1605,23 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'projectSolution') {
     const combinedData = getCombinedProjectData();
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView={currentView}
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectSolutionScreen
               onBack={() => navigate('projectMeasurement')}
               onGenerate={handleProjectSolutionGenerate}
@@ -1638,7 +1638,7 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1662,16 +1662,16 @@ const App: React.FC = () => {
   // Standalone quote flow screens
   if (currentView === 'quoteOverview') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="quotes"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuoteOverviewScreen
               onBack={() => navigate(draftProjectId ? 'projectSolution' : 'quotes')}
               onNext={handleQuoteOverviewNext}
@@ -1680,22 +1680,22 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'quoteItemList') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="quotes"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuoteItemListScreen
               onBack={() => navigate('quoteOverview')}
               onNext={handleQuoteItemListNext}
@@ -1705,22 +1705,22 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'quoteExtrasNotes') {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="quotes"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuoteExtrasNotesScreen
               onBack={() => navigate('quoteItemList')}
               onPreview={handleQuoteExtrasNotesPreview}
@@ -1730,23 +1730,23 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   // Loading state for saving quote
   if (isSavingQuote) {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="quotes"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
@@ -1755,22 +1755,22 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (currentView === 'quoteFinalPreview' && generatedQuote) {
     return (
-      <>
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className="flex h-screen bg-[#FAFAFA]">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             currentView="quotes"
             onNavigate={handleNavigate}
           />
-          <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[336px]">
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuoteFinalPreviewScreen
               onBack={() => navigate('quotes')}
               onEdit={() => {
@@ -1792,16 +1792,16 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
       {/* Header - Full width, aligned with sidebar */}
       <Header onMenuClick={() => setSidebarOpen(true)} />
-      
-      <div className="flex h-screen bg-[#FAFAFA]">
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
         <Sidebar
           isOpen={isSidebarOpen}
@@ -1811,8 +1811,8 @@ const App: React.FC = () => {
         />
 
         {/* Main Content Area - Starts below header, accounts for sidebar */}
-        <div className="flex flex-col flex-1 h-screen transition-all duration-300 min-w-0 lg:ml-[360px]">
-          <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[360px]">
+          <div className="flex-1 overflow-y-auto min-h-0">
             {currentView === 'home' && <HomeScreen onNewProject={handleNewProject} onNavigate={handleNavigate} />}
           </div>
         </div>
@@ -1829,7 +1829,7 @@ const App: React.FC = () => {
         onConfirm={handleSessionExpiredConfirm}
         message={sessionExpiredMessage}
       />
-    </>
+    </div>
   );
 };
 

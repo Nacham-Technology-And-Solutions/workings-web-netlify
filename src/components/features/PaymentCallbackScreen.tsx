@@ -16,12 +16,13 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
     verifyPayment();
   }, []);
 
+  const isDev = import.meta.env.DEV;
+
   const verifyPayment = async () => {
     try {
-      // Get reference from URL params or localStorage
       const urlParams = new URLSearchParams(window.location.search);
       const reference = urlParams.get('reference') || urlParams.get('tx_ref') || localStorage.getItem('paymentReference');
-      
+
       if (!reference) {
         setStatus('failed');
         setMessage('No payment reference found. Please contact support if you completed the payment.');
@@ -31,28 +32,44 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
         return;
       }
 
-      // Check current subscription status
+      // Dev: manual verify via POST /api/v1/subscriptions/verify-payment (webhooks not available locally)
+      if (isDev) {
+        const provider = (localStorage.getItem('paymentProvider') || 'paystack') as 'paystack' | 'flutterwave' | 'monnify';
+        const verifyResponse = await subscriptionsService.verifyPayment({ reference, provider });
+        if (verifyResponse?.response) {
+          setStatus('success');
+          setMessage('Payment successful! Your subscription has been activated.');
+          localStorage.removeItem('paymentReference');
+          localStorage.removeItem('paymentProvider');
+          if (onSuccess) {
+            setTimeout(() => onSuccess(), 2000);
+          }
+        } else {
+          const errMsg = verifyResponse?.responseMessage || (verifyResponse as any)?.message || 'Verification failed.';
+          setStatus('failed');
+          setMessage(errMsg);
+          if (onFailure) onFailure(errMsg);
+        }
+        return;
+      }
+
+      // Production: webhook flow — only check current subscription (webhook activates it)
       const response = await subscriptionsService.getCurrent();
       const subscription = response.response?.subscription;
 
       if (subscription && subscription.status === 'active') {
-        // Payment successful
         setStatus('success');
         setMessage('Payment successful! Your subscription has been activated.');
         localStorage.removeItem('paymentReference');
         localStorage.removeItem('paymentProvider');
-        
         if (onSuccess) {
           setTimeout(() => onSuccess(), 2000);
         }
       } else {
-        // Payment might still be processing
         if (attempts < maxAttempts) {
           setStatus('pending');
           setMessage(`Payment is being processed... (${attempts + 1}/${maxAttempts})`);
           setAttempts(prev => prev + 1);
-          
-          // Poll again after 2 seconds
           setTimeout(() => {
             verifyPayment();
           }, 2000);
@@ -63,16 +80,15 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
       }
     } catch (error: any) {
       console.error('Payment verification error:', error);
-      setStatus('failed');
-      setMessage(
+      const errorMessage =
         error?.response?.data?.responseMessage ||
         error?.response?.data?.message ||
         error?.message ||
-        'Failed to verify payment. Please check your subscription status or contact support.'
-      );
-      
+        'Failed to verify payment. Please check your subscription status or contact support.';
+      setStatus('failed');
+      setMessage(errorMessage);
       if (onFailure) {
-        onFailure(message);
+        onFailure(errorMessage);
       }
     }
   };

@@ -158,7 +158,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
               )}
               <NavLink 
                 icon={<TemplatesIcon />} 
-                label="Pre-built Templates" 
+                label="Templates" 
                 isActive={currentView === 'templates'} 
                 onClick={() => onNavigate('templates')}
                 isExpanded={isExpanded}

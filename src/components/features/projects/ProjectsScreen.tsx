@@ -336,24 +336,35 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#FAFAFA]">
+    <div className="flex flex-col h-full min-h-0 bg-[#FAFAFA]">
       {/* Page Title and Navigation */}
       <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
         <div className="max-w-7xl lg:mx-auto">
           {/* Title and Button Row */}
           <div className="flex items-start justify-between mb-6">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-                Projects
-              </h1>
-              <p className="text-sm lg:text-base text-gray-700">
-                Manage and track all your estimation projects
-              </p>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors shrink-0"
+                  aria-label="Go back"
+                >
+                  <ChevronLeftIcon />
+                </button>
+              )}
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+                  Projects
+                </h1>
+                <p className="text-sm lg:text-base text-gray-700">
+                  Manage and track all your estimation projects
+                </p>
+              </div>
             </div>
             {onNewProject && (
               <button
                 onClick={onNewProject}
-                className="px-4 py-2 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap"
+                className="px-4 py-2 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
               >
                 Create New Project
               </button>
@@ -420,8 +431,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       )}
 
       {/* Project List */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-[#FAFAFA]">
-        <div className="max-w-7xl lg:mx-auto">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 lg:p-8 bg-[#FAFAFA]">
+        <div className="max-w-7xl lg:mx-auto min-w-0">
         {isLoading ? (
           <div className="py-12 lg:py-20 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>

@@ -8,9 +8,11 @@ import TemplatePreviewCanvas from './prebuilt-templates/TemplatePreviewCanvas';
 
 interface PreBuiltTemplatesScreenProps {
   onBack: () => void;
+  /** When true, used inside TemplatesScreen; header is hidden and layout fits parent. */
+  embedded?: boolean;
 }
 
-const PreBuiltTemplatesScreen: React.FC<PreBuiltTemplatesScreenProps> = ({ onBack }) => {
+const PreBuiltTemplatesScreen: React.FC<PreBuiltTemplatesScreenProps> = ({ onBack, embedded }) => {
   const { activeTab, setActiveTab, hasUnsavedChanges, setHasUnsavedChanges, saveTemplates, loadTemplates, isSaving } = useTemplateStore();
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingTab, setPendingTab] = useState<TemplateTab | null>(null);
@@ -75,25 +77,29 @@ const PreBuiltTemplatesScreen: React.FC<PreBuiltTemplatesScreenProps> = ({ onBac
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
-      {/* Header */}
-      <div className="px-8 py-6 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-4 mb-2">
-            <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Pre-Built Templates</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Configure quote formats, payment methods, PDF export settings, and material prices
-              </p>
+    <div className={`flex flex-col bg-white font-sans text-gray-800 ${embedded ? 'flex-1 min-h-0' : 'h-screen'}`}>
+      {!embedded && (
+        <>
+          {/* Header - only when not embedded */}
+          <div className="px-8 py-6 border-b border-gray-100">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center gap-4 mb-2">
+                <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Pre-Built Templates</h1>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Configure quote formats, payment methods, PDF export settings, and material prices
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Unsaved Changes Warning Modal */}
       {showUnsavedWarning && (
@@ -134,7 +140,7 @@ const PreBuiltTemplatesScreen: React.FC<PreBuiltTemplatesScreenProps> = ({ onBac
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Tabs */}
           <div className="border-b border-gray-200 bg-white flex-shrink-0">
-            <div className="max-w-7xl mx-auto px-4 sm:px-8">
+            <div className={`max-w-7xl mx-auto ${embedded ? 'px-6 lg:px-8' : 'px-4 sm:px-8'}`}>
               <div className="flex gap-1 overflow-x-auto scrollbar-hide">
                 {tabs.map((tab) => {
                   const isDisabled = tab.comingSoon === true;
@@ -170,7 +176,7 @@ const PreBuiltTemplatesScreen: React.FC<PreBuiltTemplatesScreenProps> = ({ onBac
 
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
-            <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
+            <div className={`max-w-7xl mx-auto py-6 sm:py-8 ${embedded ? 'px-6 lg:px-8' : 'px-4 sm:px-8'}`}>
             {activeTab === 'quoteFormat' && (
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Quote Format Configuration</h2>

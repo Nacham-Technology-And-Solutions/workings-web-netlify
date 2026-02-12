@@ -227,37 +227,46 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-screen min-h-0 bg-white font-sans text-gray-800">
       {/* Content Header */}
-      <div className="p-6 lg:p-8 bg-white border-b border-gray-200">
+      <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
         <div className="max-w-7xl lg:mx-auto">
           {/* Title and Create Button Row */}
           <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Material List</h1>
-              <p className="text-sm lg:text-base text-gray-600">Manage and track all your estimation projects</p>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors shrink-0"
+                  aria-label="Go back"
+                >
+                  <ChevronLeftIcon />
+                </button>
+              )}
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Material List</h1>
+                <p className="text-sm lg:text-base text-gray-600">Manage and track all your estimation projects</p>
+              </div>
             </div>
             <button
               onClick={onCreateNewList}
-              className="px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap ml-4"
+              className="px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
             >
               Create New List
             </button>
           </div>
 
           {/* Filter Tabs */}
-          <div className="bg-gray-100 p-1 rounded-full flex items-center w-fit">
+          <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
             <button
               onClick={() => setActiveTab('All')}
-              className={`px-6 py-2 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 ${activeTab === 'All' ? 'bg-gray-800 text-white shadow' : 'text-gray-600'
-                }`}
+              className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${activeTab === 'All' ? 'bg-gray-800 text-white' : 'text-gray-500'}`}
             >
               All
             </button>
             <button
               onClick={() => setActiveTab('Draft')}
-              className={`px-6 py-2 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 ${activeTab === 'Draft' ? 'bg-gray-800 text-white shadow' : 'text-gray-600'
-                }`}
+              className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${activeTab === 'Draft' ? 'bg-gray-800 text-white' : 'text-gray-500'}`}
             >
               Draft
             </button>
@@ -297,8 +306,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto bg-gray-50">
-        <div className="max-w-7xl lg:mx-auto p-6 lg:p-8">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#FAFAFA]">
+        <div className="max-w-7xl lg:mx-auto min-w-0 p-6 lg:p-8">
           {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
               <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-800 rounded-full animate-spin mb-4"></div>
@@ -356,17 +365,15 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
 
       {/* Floating Action Button - Only show in empty state */}
       {filteredLists.length === 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
-          <button
-            onClick={onCreateNewList}
-            className="w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
-            aria-label="Create new material list"
-          >
-            <div className="lg:scale-125">
-              <PlusIcon />
-            </div>
-          </button>
-        </div>
+        <button
+          onClick={onCreateNewList}
+          className="fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
+          aria-label="Create new material list"
+        >
+          <div className="lg:scale-125">
+            <PlusIcon />
+          </div>
+        </button>
       )}
 
       {/* Search Modal */}

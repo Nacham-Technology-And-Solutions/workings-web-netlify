@@ -6,6 +6,8 @@ import type {
   PDFExportConfig,
   MaterialPrice,
   MaterialPricesConfig,
+  SavedTemplate,
+  SavedTemplateType,
 } from '@/types/templates';
 
 export interface TemplateConfig {
@@ -188,6 +190,67 @@ export const templatesService = {
       console.warn('[TemplatesService] API unavailable for deleting material price:', error.message);
       return false;
     }
+  },
+
+  // --- Saved Templates (user presets) - /api/v1/saved-templates ---
+
+  /**
+   * List saved templates for the current user.
+   * Response: { responseMessage, response: { savedTemplates: SavedTemplate[] } }
+   */
+  getSavedTemplates: async (): Promise<SavedTemplate[]> => {
+    const response = await apiClient.get<ApiResponse<{ savedTemplates: SavedTemplate[] }>>(
+      '/api/v1/saved-templates'
+    );
+    const list = response.data?.response?.savedTemplates;
+    if (!Array.isArray(list)) return [];
+    return list.map((t) => ({ ...t, source: 'user' as const }));
+  },
+
+  /**
+   * Create a saved template. Backend limit: max 3 per user (400 if exceeded).
+   * Body: { name, type, quoteFormat?, pdfExport? }
+   * Response (201): { responseMessage, response: { savedTemplate: SavedTemplate } }
+   */
+  createSavedTemplate: async (body: {
+    name: string;
+    type: SavedTemplateType;
+    quoteFormat?: QuoteFormatConfig;
+    pdfExport?: PDFExportConfig;
+  }): Promise<SavedTemplate> => {
+    const response = await apiClient.post<ApiResponse<{ savedTemplate: SavedTemplate }>>(
+      '/api/v1/saved-templates',
+      body
+    );
+    const saved = response.data?.response?.savedTemplate;
+    if (!saved) throw new Error('Invalid response from server');
+    return { ...saved, source: 'user' as const };
+  },
+
+  /**
+   * Update a saved template (rename and/or snapshot).
+   * Body: { name?, quoteFormat?, pdfExport? }
+   * Response (200): { responseMessage, response: { savedTemplate: SavedTemplate } }
+   */
+  updateSavedTemplate: async (
+    id: string,
+    body: { name?: string; quoteFormat?: QuoteFormatConfig; pdfExport?: PDFExportConfig }
+  ): Promise<SavedTemplate> => {
+    const response = await apiClient.patch<ApiResponse<{ savedTemplate: SavedTemplate }>>(
+      `/api/v1/saved-templates/${id}`,
+      body
+    );
+    const saved = response.data?.response?.savedTemplate;
+    if (!saved) throw new Error('Invalid response from server');
+    return { ...saved, source: 'user' as const };
+  },
+
+  /**
+   * Delete a saved template.
+   * Response (200): { responseMessage, response: { success: true } }
+   */
+  deleteSavedTemplate: async (id: string): Promise<void> => {
+    await apiClient.delete<ApiResponse<{ success: boolean }>>(`/api/v1/saved-templates/${id}`);
   },
 };
 
