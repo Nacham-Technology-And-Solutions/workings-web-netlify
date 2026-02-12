@@ -28,6 +28,13 @@ export interface CalculationSettings {
   wasteThreshold: number; // 200 (mm)
 }
 
+// Glazing element (one per project cart item: Window 1, Window 2, …). Used to label/color-code cuts.
+export interface GlazingElement {
+  id: string; // e.g. "el_0", "el_1"
+  title: string; // e.g. "Window 1", "Window 2"
+  color: string; // Hex, e.g. "#3B82F6"
+}
+
 // Calculation Result (output format from calculation engine)
 export interface CalculationResult {
   materialList: MaterialListItem[];
@@ -35,19 +42,28 @@ export interface CalculationResult {
   glassList: GlassListResult;
   rubberTotals: RubberTotal[];
   accessoryTotals: AccessoryTotal[];
+  elements?: GlazingElement[];
 }
 
 export interface MaterialListItem {
   item: string; // e.g., "Transom (55x55mm)"
   units: number; // Total quantity
   type: 'Profile' | 'Accessory_Pair' | 'Sheet' | 'Roll' | 'Meter';
+  unitPrice?: number;
+  totalPrice?: number;
+}
+
+// One piece in a cutting plan bar (new format with element attribution)
+export interface CuttingPlanPiece {
+  cut: string; // e.g. "cut_1900mm", "offcut_2055mm"
+  elementId?: string; // e.g. "el_0". Omitted for offcut/waste.
 }
 
 export interface CuttingListItem {
   profile_name: string;
   stock_length: number; // 5850 or 6000 (mm)
   plan: {
-    [key: string]: string[]; // e.g., { length_1: ["cut_1900mm", "cut_1900mm", "offcut_255mm"] }
+    [key: string]: string[] | CuttingPlanPiece[]; // Legacy: string[]. New: CuttingPlanPiece[] with elementId.
   }[];
 }
 
@@ -58,6 +74,7 @@ export interface GlassListResult {
     h: number; // Height
     w: number; // Width
     qty: number; // Quantity of this size
+    elementId?: string; // e.g. "el_0" for "Window 1 glass"
   }[];
 }
 
@@ -69,5 +86,6 @@ export interface RubberTotal {
 export interface AccessoryTotal {
   name: string;
   qty: number;
+  unit?: string; // e.g. "pcs", "pair"
 }
 

@@ -1,19 +1,49 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData, DimensionItem } from '@/types';
-import type { CalculationResult, MaterialListItem, CuttingListItem, GlassListResult, RubberTotal, AccessoryTotal } from '@/types/calculations';
+import type { CalculationResult, MaterialListItem, CuttingListItem, GlassListResult, RubberTotal, AccessoryTotal, GlazingElement, CuttingPlanPiece } from '@/types/calculations';
 import {
   exportMaterialListToPDF,
   exportCuttingListToPDF,
   exportMaterialListToExcel,
   exportCuttingListToExcel,
+  exportGlassCuttingListToPDF,
+  exportGlassCuttingListToExcel,
   shareData
 } from '@/services/export/exportService';
 import { calculationsService, projectsService } from '@/services/api';
 import { createProjectData, projectDataToProjectCart } from '@/utils/dataTransformers';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
+
+/** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId). */
+function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): Array<{ length: number; label: string; elementId?: string }> {
+  const result: Array<{ length: number; label: string; elementId?: string }> = [];
+  Object.keys(planEntry).forEach((cutKey) => {
+    const raw = planEntry[cutKey];
+    const lengthMatch = cutKey.match(/(\d+)mm/);
+    const lengthMm = lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
+    const lengthMeters = lengthMm / 1000;
+    const label = lengthMeters ? `${lengthMeters.toFixed(1)}m` : cutKey;
+    if (!Array.isArray(raw) || raw.length === 0) return;
+    const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
+    if (isNewFormat) {
+      (raw as CuttingPlanPiece[]).forEach((piece) => {
+        result.push({ length: lengthMeters, label, elementId: piece.elementId });
+      });
+    } else {
+      (raw as string[]).forEach(() => {
+        result.push({ length: lengthMeters, label });
+      });
+    }
+  });
+  return result;
+}
+
+function getMaxRepetition(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): number {
+  return Math.max(0, ...Object.values(planEntry).map((arr) => (Array.isArray(arr) ? arr.length : 0)));
+}
 
 interface ProjectSolutionScreenProps {
   onBack: () => void;
@@ -24,6 +54,9 @@ interface ProjectSolutionScreenProps {
     projectMeasurement?: ProjectMeasurementData;
   };
   initialTab?: 'material' | 'cutting' | 'glass';
+  draftProjectId?: number | null;
+  onCreateQuote?: (materialCost?: number, calculationResult?: CalculationResult, projectMeasurement?: ProjectMeasurementData) => void;
+  onProjectSaved?: () => void;
 }
 
 interface MaterialItem {
@@ -33,7 +66,7 @@ interface MaterialItem {
   unit: string;
 }
 
-const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, previousData, initialTab = 'material' }) => {
+const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, previousData, initialTab = 'material', draftProjectId, onCreateQuote, onProjectSaved }) => {
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass'>(initialTab);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
@@ -43,13 +76,76 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [projectSaved, setProjectSaved] = useState(false);
+  const [pointsDeducted, setPointsDeducted] = useState<number | null>(null);
+  const [balanceAfter, setBalanceAfter] = useState<number | null>(null);
+  const [responseMessage, setResponseMessage] = useState<string | null>(null);
   
-  // State for prices and quantities (itemId -> value)
-  const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
+  // Refs to prevent duplicate calculations and saves (especially with React StrictMode)
+  const calculationInProgressRef = useRef(false);
+  const saveInProgressRef = useRef(false);
+  const hasCalculatedRef = useRef(false);
+  const hasSavedRef = useRef(false);
+  
+  // State for prices and quantities (itemId -> value) - persist to localStorage
+  const [itemPrices, setItemPrices] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined' && draftProjectId) {
+      const saved = localStorage.getItem(`project-prices-${draftProjectId}`);
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
+  
+  // Filter states
+  const [materialFilter, setMaterialFilter] = useState<'all' | 'Profile' | 'Accessory_Pair'>('all');
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [cuttingFilter, setCuttingFilter] = useState<string>('all');
+  const [cuttingElementFilter, setCuttingElementFilter] = useState<string>('all');
+  const [glassFilter, setGlassFilter] = useState<string>('all');
+  const [glassElementFilter, setGlassElementFilter] = useState<string>('all');
+  
+  // Export dropdown states
+  const [showExportDropdown, setShowExportDropdown] = useState<'cutting' | 'glass' | null>(null);
+  
+  // Save prices to localStorage when they change
+  useEffect(() => {
+    if (draftProjectId && Object.keys(itemPrices).length > 0) {
+      localStorage.setItem(`project-prices-${draftProjectId}`, JSON.stringify(itemPrices));
+    }
+  }, [itemPrices, draftProjectId]);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showExportDropdown && !(event.target as Element).closest('.export-dropdown-container')) {
+        setShowExportDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showExportDropdown]);
+
+  // Auto-dismiss calculation success (points/balance) notification after 5 seconds
+  const showCalculationNotification = pointsDeducted !== null || balanceAfter !== null || responseMessage;
+  useEffect(() => {
+    if (!showCalculationNotification) return;
+    const t = window.setTimeout(() => {
+      setPointsDeducted(null);
+      setBalanceAfter(null);
+      setResponseMessage(null);
+    }, 5000);
+    return () => window.clearTimeout(t);
+  }, [showCalculationNotification, pointsDeducted, balanceAfter, responseMessage]);
+
+  // Auto-dismiss "Project saved successfully!" notification after 5 seconds
+  useEffect(() => {
+    if (!projectSaved) return;
+    const t = window.setTimeout(() => setProjectSaved(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [projectSaved]);
 
   // Transform calculation result to display format
-  const profileItems: MaterialItem[] = calculationResult?.materialList
+  const allProfileItems: MaterialItem[] = calculationResult?.materialList
     ? calculationResult.materialList
         .filter(item => item.type === 'Profile')
         .map((item, index) => ({
@@ -60,7 +156,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         }))
     : [];
 
-  const accessoriesItems: MaterialItem[] = calculationResult?.accessoryTotals
+  const allAccessoriesItems: MaterialItem[] = calculationResult?.accessoryTotals
     ? calculationResult.accessoryTotals.map((item, index) => ({
         id: `accessory-${index}`,
         name: item.name,
@@ -69,8 +165,66 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       }))
     : [];
 
+  // Apply filters to material items
+  const profileItems = useMemo(() => {
+    let filtered = allProfileItems;
+    if (materialFilter === 'Profile') {
+      filtered = allProfileItems;
+    } else if (materialFilter === 'Accessory_Pair') {
+      filtered = [];
+    }
+    if (materialSearch) {
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(materialSearch.toLowerCase())
+      );
+    }
+    return filtered;
+  }, [allProfileItems, materialFilter, materialSearch]);
+
+  const accessoriesItems = useMemo(() => {
+    let filtered = allAccessoriesItems;
+    if (materialFilter === 'Accessory_Pair') {
+      filtered = allAccessoriesItems;
+    } else if (materialFilter === 'Profile') {
+      filtered = [];
+    }
+    if (materialSearch) {
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(materialSearch.toLowerCase())
+      );
+    }
+    return filtered;
+  }, [allAccessoriesItems, materialFilter, materialSearch]);
+
+  const elementsMap = useMemo(() => {
+    const map: Record<string, GlazingElement> = {};
+    (calculationResult?.elements || []).forEach((el) => { map[el.id] = el; });
+    return map;
+  }, [calculationResult?.elements]);
+
+  /** True if this cutting item has at least one piece with the given elementId. */
+  const cuttingItemHasElement = useMemo(() => {
+    return (cuttingItem: CuttingListItem, elementId: string): boolean => {
+      for (const planEntry of cuttingItem.plan) {
+        for (const raw of Object.values(planEntry)) {
+          if (!Array.isArray(raw) || raw.length === 0) continue;
+          const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
+          if (isNewFormat) {
+            if ((raw as CuttingPlanPiece[]).some((p) => p.elementId === elementId)) return true;
+          }
+        }
+      }
+      return false;
+    };
+  }, []);
+
   // Load calculation on mount if we have previous data
   useEffect(() => {
+    // Prevent duplicate calculations (React StrictMode runs effects twice in dev)
+    if (hasCalculatedRef.current || calculationInProgressRef.current) {
+      return;
+    }
+    
     if (previousData?.projectDescription && previousData?.selectProject && previousData?.projectMeasurement) {
       handleCalculate();
     }
@@ -78,11 +232,18 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   }, []); // Only run on mount
 
   const handleCalculate = async () => {
+    // Prevent duplicate calculations
+    if (calculationInProgressRef.current || hasCalculatedRef.current) {
+      console.log('[ProjectSolutionScreen] Calculation already in progress or completed, skipping');
+      return;
+    }
+
     if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
       setError('Missing project data');
       return;
     }
 
+    calculationInProgressRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -124,8 +285,19 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         // Extract the result object which contains the calculation data
         const calculationData = responseData?.result;
         
+        // Extract points information
+        const points = responseData?.pointsDeducted ?? null;
+        const balance = responseData?.balanceAfter ?? null;
+        const message = getApiResponseMessage(response) || null;
+        
+        setPointsDeducted(points);
+        setBalanceAfter(balance);
+        setResponseMessage(message);
+        
         // Debug: Log the raw calculation data structure
         console.log('Calculation result data:', calculationData);
+        console.log('Points deducted:', points);
+        console.log('Balance after:', balance);
         
         // Validate calculation data structure
         if (!calculationData) {
@@ -140,6 +312,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         const glassListData = calculationData.glassList || { sheet_type: '', total_sheets: 0, cuts: [] };
         const rubberTotalsData = calculationData.rubberTotals || [];
         const accessoryTotalsData = calculationData.accessoryTotals || [];
+        const elementsData = calculationData.elements || [];
         
         // Debug: Log extracted data
         console.log('Extracted materialList:', materialListData);
@@ -154,14 +327,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           glassList: glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] },
           rubberTotals: Array.isArray(rubberTotalsData) ? rubberTotalsData : [],
           accessoryTotals: Array.isArray(accessoryTotalsData) ? accessoryTotalsData : [],
+          elements: Array.isArray(elementsData) ? elementsData : [],
         };
         
         console.log('Validated calculation data:', validatedData);
         console.log('Profile items count:', validatedData.materialList.filter(item => item.type === 'Profile').length);
         console.log('Accessory items count:', validatedData.accessoryTotals.length);
         setCalculationResult(validatedData);
+        hasCalculatedRef.current = true;
         
-        // Auto-save project after successful calculation
+        // Auto-save project after successful calculation (only once)
         await handleSaveProject();
       } else {
         setError(getApiResponseMessage(response) || 'Calculation failed');
@@ -172,14 +347,22 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       console.error('Calculation error:', err);
     } finally {
       setIsLoading(false);
+      calculationInProgressRef.current = false;
     }
   };
 
   const handleSaveProject = async () => {
+    // Prevent duplicate saves (React StrictMode or multiple calls)
+    if (saveInProgressRef.current || hasSavedRef.current || projectSaved) {
+      console.log('[ProjectSolutionScreen] Project already saved or save in progress, skipping');
+      return;
+    }
+
     if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
       return;
     }
 
+    saveInProgressRef.current = true;
     setIsSaving(true);
     setSaveError(null);
 
@@ -191,21 +374,43 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         previousData.projectMeasurement
       );
 
-      // Save project to API
-      const response = await projectsService.create({
-        projectName: projectData.projectName,
-        customer: projectData.customer,
-        siteAddress: projectData.siteAddress,
-        description: projectData.description,
-        glazingDimensions: projectData.glazingDimensions,
-        calculationSettings: projectData.calculationSettings,
-      });
+      let response;
+      
+      // If we have a draft project ID, update it instead of creating a new one
+      if (draftProjectId) {
+        console.log('[ProjectSolutionScreen] Updating existing draft project:', draftProjectId);
+        // Update the existing draft project with full data
+        response = await projectsService.update(draftProjectId, {
+          glazingDimensions: projectData.glazingDimensions,
+          calculationSettings: projectData.calculationSettings,
+          status: 'calculated', // Update status from draft to calculated
+        });
+      } else {
+        console.log('[ProjectSolutionScreen] Creating new project (no draft ID)');
+        // Create new project (fallback if draft wasn't created)
+        response = await projectsService.create({
+          projectName: projectData.projectName,
+          customer: projectData.customer,
+          siteAddress: projectData.siteAddress,
+          description: projectData.description,
+          glazingDimensions: projectData.glazingDimensions,
+          calculationSettings: projectData.calculationSettings,
+        });
+      }
 
       // Normalize and check response using API response helpers
       const normalizedResponse = normalizeApiResponse(response);
       
       if (normalizedResponse.success) {
         setProjectSaved(true);
+        hasSavedRef.current = true;
+        console.log('[ProjectSolutionScreen] Project saved successfully', draftProjectId ? '(updated)' : '(created)');
+        
+        // Notify parent that project was saved (so it can clear draftProjectId)
+        if (onProjectSaved) {
+          onProjectSaved();
+        }
+        
         // Trigger refresh in parent component if callback exists
         // This will be handled by the parent component's refresh mechanism
       } else {
@@ -213,10 +418,49 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       }
     } catch (err: any) {
       const errorMessage = extractErrorMessage(err);
+      
+      // If update failed and we have a draft ID, try creating a new project as fallback
+      if (draftProjectId && err?.response?.status !== 404) {
+        console.warn('[ProjectSolutionScreen] Update failed, attempting to create new project as fallback');
+        try {
+          const projectData = createProjectData(
+            previousData.projectDescription,
+            previousData.selectProject,
+            previousData.projectMeasurement
+          );
+          
+          const fallbackResponse = await projectsService.create({
+            projectName: projectData.projectName,
+            customer: projectData.customer,
+            siteAddress: projectData.siteAddress,
+            description: projectData.description,
+            glazingDimensions: projectData.glazingDimensions,
+            calculationSettings: projectData.calculationSettings,
+          });
+          
+          const normalizedFallback = normalizeApiResponse(fallbackResponse);
+          if (normalizedFallback.success) {
+            setProjectSaved(true);
+            hasSavedRef.current = true;
+            console.log('[ProjectSolutionScreen] Project created successfully (fallback after update failed)');
+            
+            // Notify parent that project was saved
+            if (onProjectSaved) {
+              onProjectSaved();
+            }
+            
+            return; // Success, exit early
+          }
+        } catch (fallbackErr: any) {
+          console.error('[ProjectSolutionScreen] Fallback create also failed:', fallbackErr);
+        }
+      }
+      
       setSaveError(errorMessage.message);
       console.error('Save project error:', err);
     } finally {
       setIsSaving(false);
+      saveInProgressRef.current = false;
     }
   };
 
@@ -232,6 +476,92 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     const quantity = itemQuantities[itemId] ?? defaultQuantity;
     const price = itemPrices[itemId] ?? 0;
     return quantity * price;
+  };
+
+  // Export handlers — one PDF/Excel with all profiles (Cutting List) or all layouts (Glass List)
+  const handleExportCuttingList = (format: 'pdf' | 'excel') => {
+    if (!calculationResult?.cuttingList || !previousData?.projectDescription) return;
+    
+    const projectName = previousData.projectDescription.projectName || 'Project';
+    const elMap: Record<string, GlazingElement> = {};
+    (calculationResult.elements || []).forEach((el) => { elMap[el.id] = el; });
+    
+    const sections = calculationResult.cuttingList.map((cuttingItem) => {
+      const stockLengthMeters = cuttingItem.stock_length / 1000;
+      const layouts = cuttingItem.plan.map((planEntry, planIndex) => {
+        const individualCuts = normalizePlanEntryToCuts(planEntry);
+        const totalRepetition = getMaxRepetition(planEntry);
+        const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
+        const offcut = stockLengthMeters - totalUsed;
+        return {
+          layout: String.fromCharCode(65 + planIndex),
+          cuts: individualCuts.map((c) => ({
+            length: c.length,
+            unit: c.label,
+            elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
+          })),
+          offCut: offcut,
+          repetition: totalRepetition,
+        };
+      });
+      
+      const totalQuantity = layouts.reduce((sum, layout) => sum + layout.repetition, 0);
+      
+      return {
+        profileName: cuttingItem.profile_name,
+        materialLength: stockLengthMeters,
+        totalQuantity,
+        layouts,
+      };
+    });
+    
+    if (format === 'pdf') {
+      exportCuttingListToPDF(sections, projectName);
+    } else {
+      exportCuttingListToExcel(sections, projectName);
+    }
+    
+    setShowExportDropdown(null);
+  };
+
+  const handleExportGlassCuttingList = (format: 'pdf' | 'excel') => {
+    if (!calculationResult?.glassList || !previousData?.projectDescription) return;
+    
+    const projectName = previousData.projectDescription.projectName || 'Project';
+    const glassList = calculationResult.glassList;
+    const elMap: Record<string, GlazingElement> = {};
+    (calculationResult.elements || []).forEach((el) => { elMap[el.id] = el; });
+    
+    // Parse sheet dimensions
+    const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
+    const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
+    const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
+    
+    const cutsWithTitle = (glassList.cuts || []).map((c) => ({
+      w: c.w,
+      h: c.h,
+      qty: c.qty,
+      elementId: c.elementId,
+      elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
+    }));
+    
+    // Create layouts for each sheet
+    const layouts = Array.from({ length: glassList.total_sheets }).map((_, index) => ({
+      sheetNumber: index + 1,
+      sheetType: glassList.sheet_type,
+      sheetWidth,
+      sheetHeight,
+      cuts: cutsWithTitle,
+      totalCuts: glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0,
+    }));
+    
+    if (format === 'pdf') {
+      exportGlassCuttingListToPDF(layouts, projectName);
+    } else {
+      exportGlassCuttingListToExcel(layouts, projectName);
+    }
+    
+    setShowExportDropdown(null);
   };
 
   // Calculate grand total from all items
@@ -287,16 +617,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   }, [calculationResult]);
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
       {/* Header / Breadcrumbs */}
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
             <span className="cursor-pointer hover:text-gray-600" onClick={onBack}>Projects</span>
             <span>/</span>
-            <span className="cursor-pointer hover:text-gray-600">Glazing-Type</span>
+            <span className="cursor-pointer hover:text-gray-600">{previousData?.projectDescription?.projectName || 'Project'}</span>
             <span>/</span>
-            <span className="text-gray-900 font-medium">Create New Quote</span>
+            <span className="text-gray-900 font-medium">Calculation Results</span>
           </div>
 
           <div className="flex items-start justify-between">
@@ -308,44 +638,131 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               </button>
 
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Create New Quote</h1>
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">Project Calculation Results</h1>
+                <p className="text-sm text-gray-500">{previousData?.projectDescription?.projectName || 'Project'}</p>
               </div>
             </div>
 
-            {/* Header Actions */}
-            {activeTab === 'cutting' || activeTab === 'glass' ? (
-              <button
-                onClick={() => console.log('Exporting cutting list...')}
-                className="flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
-              >
-                <span>Export</span>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </button>
-            ) : (
+            {/* Action Buttons - Show after calculation completes */}
+            {!isLoading && !error && calculationResult && (
               <div className="flex items-center gap-3">
-                {isSaving && (
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Saving...
-                  </span>
-                )}
                 <button
-                  onClick={() => onGenerate(grandTotal)}
+                  onClick={() => {
+                    // Debug logging
+                    if (import.meta.env.DEV) {
+                      console.log('[ProjectSolutionScreen] Generate Quote clicked:', {
+                        hasOnCreateQuote: !!onCreateQuote,
+                        hasCalculationResult: !!calculationResult,
+                        hasProjectMeasurement: !!previousData?.projectMeasurement,
+                        calculationResultType: typeof calculationResult,
+                        projectMeasurementType: typeof previousData?.projectMeasurement,
+                        calculationResultKeys: calculationResult ? Object.keys(calculationResult) : [],
+                        projectMeasurementKeys: previousData?.projectMeasurement ? Object.keys(previousData.projectMeasurement) : [],
+                        grandTotal
+                      });
+                    }
+                    
+                    if (onCreateQuote) {
+                      onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
+                    } else {
+                      onGenerate(grandTotal);
+                    }
+                  }}
                   disabled={isSaving}
-                  className="px-8 py-3 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 font-semibold rounded transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Generate Now
+                  Generate Quote
                 </button>
+                <div className="relative export-dropdown-container">
+                  <button
+                    onClick={() => setShowExportDropdown(showExportDropdown === 'cutting' ? null : 'cutting')}
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                  >
+                    <span>Export Cutting List</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {showExportDropdown === 'cutting' && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <button
+                        onClick={() => handleExportCuttingList('pdf')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        onClick={() => handleExportCuttingList('excel')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg"
+                      >
+                        Export as Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="relative export-dropdown-container">
+                  <button
+                    onClick={() => setShowExportDropdown(showExportDropdown === 'glass' ? null : 'glass')}
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                  >
+                    <span>Export Glass List</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {showExportDropdown === 'glass' && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <button
+                        onClick={() => handleExportGlassCuttingList('pdf')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        onClick={() => handleExportGlassCuttingList('excel')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg"
+                      >
+                        Export as Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* API Response Info - Points and Balance */}
+      {(pointsDeducted !== null || balanceAfter !== null || responseMessage) && (
+        <div className="px-8 pt-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  {responseMessage && (
+                    <p className="text-blue-800 font-medium mb-2">{responseMessage}</p>
+                  )}
+                  <div className="flex items-center gap-6 text-sm">
+                    {pointsDeducted !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600 font-medium">Points Deducted:</span>
+                        <span className="text-blue-900 font-semibold">{pointsDeducted}</span>
+                      </div>
+                    )}
+                    {balanceAfter !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600 font-medium">Balance After:</span>
+                        <span className="text-blue-900 font-semibold">{balanceAfter}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save Status Messages */}
       {(projectSaved || saveError) && (
@@ -422,13 +839,81 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 )}
               </button>
 
-              {/* Filter Button */}
-              <button className="ml-auto pb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                <span className="text-sm">Filter</span>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-              </button>
+              {/* Filter Dropdowns */}
+              <div className="ml-auto pb-4 flex items-center gap-4">
+                {activeTab === 'material' && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={materialFilter}
+                      onChange={(e) => setMaterialFilter(e.target.value as 'all' | 'Profile' | 'Accessory_Pair')}
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      <option value="all">All Types</option>
+                      <option value="Profile">Profile</option>
+                      <option value="Accessory_Pair">Accessory</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Search materials..."
+                      value={materialSearch}
+                      onChange={(e) => setMaterialSearch(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 w-48"
+                    />
+                  </div>
+                )}
+                {activeTab === 'cutting' && calculationResult?.cuttingList && (
+                  <>
+                    <select
+                      value={cuttingFilter}
+                      onChange={(e) => setCuttingFilter(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      <option value="all">All Profiles</option>
+                      {calculationResult.cuttingList.map((item, index) => (
+                        <option key={index} value={item.profile_name}>{item.profile_name}</option>
+                      ))}
+                    </select>
+                    {calculationResult.elements && calculationResult.elements.length > 0 && (
+                      <select
+                        value={cuttingElementFilter}
+                        onChange={(e) => setCuttingElementFilter(e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      >
+                        <option value="all">All elements</option>
+                        {calculationResult.elements.map((el) => (
+                          <option key={el.id} value={el.id}>{el.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                )}
+                {activeTab === 'glass' && (
+                  <>
+                    <select
+                      value={glassFilter}
+                      onChange={(e) => setGlassFilter(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      <option value="all">All Sheets</option>
+                      {calculationResult?.glassList && Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => (
+                        <option key={index} value={`sheet${index + 1}`}>Sheet {index + 1}</option>
+                      ))}
+                    </select>
+                    {calculationResult?.elements && calculationResult.elements.length > 0 && (
+                      <select
+                        value={glassElementFilter}
+                        onChange={(e) => setGlassElementFilter(e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      >
+                        <option value="all">All elements</option>
+                        {calculationResult.elements.map((el) => (
+                          <option key={el.id} value={el.id}>{el.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -659,42 +1144,18 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           {!isLoading && !error && activeTab === 'cutting' && (
             <div>
               {calculationResult?.cuttingList && calculationResult.cuttingList.length > 0 ? (
-                calculationResult.cuttingList.map((cuttingItem, profileIndex) => {
+                calculationResult.cuttingList
+                  .filter((item) => cuttingFilter === 'all' || item.profile_name === cuttingFilter)
+                  .filter((item) => cuttingElementFilter === 'all' || cuttingItemHasElement(item, cuttingElementFilter))
+                  .map((cuttingItem, profileIndex) => {
                   const stockLengthMeters = cuttingItem.stock_length / 1000; // Convert mm to meters
                   
-                  // Parse cutting plans
-                  const layouts = cuttingItem.plan.map((planEntry, planIndex) => {
-                    // Each plan entry is an object like { "cut_1200mm": ["cut_1200mm", "cut_1200mm", ...] }
-                    const cutKeys = Object.keys(planEntry);
-                    const individualCuts: Array<{ length: number; label: string }> = [];
-                    let totalRepetition = 0;
-                    
-                    // Extract all individual cuts (one segment per cut)
-                    cutKeys.forEach(cutKey => {
-                      const cutArray = planEntry[cutKey];
-                      // Extract length from key like "cut_1200mm" -> 1200
-                      const lengthMatch = cutKey.match(/(\d+)mm/);
-                      if (lengthMatch) {
-                        const lengthMm = parseInt(lengthMatch[1]);
-                        const lengthMeters = lengthMm / 1000;
-                        const label = `${lengthMeters.toFixed(1)}m`;
-                        
-                        // Add one segment for each cut in the array
-                        for (let i = 0; i < cutArray.length; i++) {
-                          individualCuts.push({
-                            length: lengthMeters,
-                            label: label
-                          });
-                        }
-                        
-                        totalRepetition = Math.max(totalRepetition, cutArray.length);
-                      }
-                    });
-                    
-                    // Calculate total used length and offcut
+                  // Parse cutting plans (supports legacy string[] and new CuttingPlanPiece[] with elementId)
+                  const layouts = cuttingItem.plan.map((planEntry) => {
+                    const individualCuts = normalizePlanEntryToCuts(planEntry);
+                    const totalRepetition = getMaxRepetition(planEntry);
                     const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
                     const offcut = stockLengthMeters - totalUsed;
-                    
                     return {
                       cuts: individualCuts,
                       offcut,
@@ -726,8 +1187,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         </div>
                       </div>
 
-                      {/* Layouts Grid */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Layouts Grid - Always 2 columns per row (left-to-right flow) */}
+                      <div className="grid grid-cols-2 gap-6">
                         {layouts.map((layout, layoutIndex) => {
                           const layoutLetter = String.fromCharCode(65 + layoutIndex); // A, B, C, etc.
                           const totalCutsWidth = layout.cuts.reduce((sum, cut) => sum + (cut.length / layout.stockLength * 100), 0);
@@ -751,15 +1212,19 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                 {layout.cuts.map((cut, cutIndex) => {
                                   const widthPercent = (cut.length / layout.stockLength) * 100;
                                   const isLastCut = cutIndex === layout.cuts.length - 1;
-                                  
+                                  const element = cut.elementId ? elementsMap[cut.elementId] : undefined;
+                                  const bgColor = element?.color ?? '#6B9EB6';
+                                  const titleAttr = element ? `${cut.label} — ${element.title}` : cut.label;
                                   return (
-                                    <div 
+                                    <div
                                       key={cutIndex}
-                                      className="h-full bg-[#6B9EB6] flex items-center justify-center text-xs font-medium text-gray-900"
-                                      style={{ 
+                                      className="h-full flex items-center justify-center text-xs font-medium text-gray-900"
+                                      style={{
                                         width: `${widthPercent}%`,
-                                        borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none'
+                                        backgroundColor: bgColor,
+                                        borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none',
                                       }}
+                                      title={titleAttr}
                                     >
                                       {cut.label}
                                     </div>
@@ -821,16 +1286,24 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                       const currentSheetIndex = selectedSheet ? parseInt(selectedSheet.replace('sheet', '')) - 1 : 0;
                       const currentSheet = currentSheetIndex + 1;
                       
+                      // Optional filter by glazing element
+                      const rawCuts = glassList.cuts || [];
+                      const cuts = glassElementFilter === 'all'
+                        ? rawCuts
+                        : rawCuts.filter((c) => c.elementId === glassElementFilter);
+                      
                       // Parse sheet dimensions from sheet_type (e.g., "3310x2140mm")
                       const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
                       const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
                       const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
                       
-                      // Calculate layout for cuts
-                      const cuts = glassList.cuts || [];
-                      const totalCuts = cuts.reduce((sum, cut) => sum + cut.qty, 0);
+                      // Flat list of cut instances (one per piece) for color/title by element
+                      const flatCutInstances = cuts.flatMap((c) =>
+                        Array.from({ length: c.qty }, () => ({ w: c.w, h: c.h, elementId: c.elementId }))
+                      );
+                      const totalCuts = flatCutInstances.length;
                       
-                      // Use the first cut type for visualization (API provides cuts with same dimensions)
+                      // Use the first cut type for visualization (grid assumes uniform cell size)
                       const primaryCut = cuts.length > 0 ? cuts[0] : null;
                       
                       if (!primaryCut) {
@@ -911,17 +1384,22 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                     {Array.from({ length: cutsPerRow }).map((_, colIndex) => {
                                       const cutIndex = rowIndex * cutsPerRow + colIndex;
                                       if (cutIndex >= Math.min(totalCuts, maxCutsPerSheet)) return null;
-                                      
+                                      const instance = flatCutInstances[cutIndex];
+                                      const element = instance?.elementId ? elementsMap[instance.elementId!] : undefined;
+                                      const bgColor = element?.color ?? '#C8DEE5';
+                                      const titleAttr = element ? `${primaryCut.w}×${primaryCut.h} — ${element.title}` : `${primaryCut.w}×${primaryCut.h}`;
                                       return (
                                         <div
                                           key={colIndex}
-                                          className="bg-[#C8DEE5] relative"
+                                          className="relative"
                                           style={{
                                             width: `${(primaryCut.w / usedWidth) * 100}%`,
                                             height: '100%',
                                             marginRight: colIndex < cutsPerRow - 1 ? '2px' : '0',
-                                            border: '1px solid #4B5563' // Border for cut definition
+                                            border: '1px solid #4B5563',
+                                            backgroundColor: bgColor,
                                           }}
+                                          title={titleAttr}
                                         >
                                           <span className="absolute top-1 left-1 text-xs font-medium">{primaryCut.w}</span>
                                           <span className="absolute bottom-1 left-1 text-xs font-medium">{primaryCut.h}</span>
@@ -1054,21 +1532,14 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         </div>
       </main>
 
-      {/* Footer with Grand Total and Generate Button */}
-      {/* Footer with Grand Total and Generate Button */}
-      {activeTab === 'material' && (
+      {/* Footer with Grand Total - Show on all tabs */}
+      {!isLoading && !error && calculationResult && (
         <div className="border-t border-gray-200 bg-white px-8 py-6">
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center">
               <span className="text-lg font-semibold text-gray-900">Grand Total</span>
-              <span className="text-2xl font-bold text-gray-900">₦{grandTotal.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-gray-900">₦{grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            <button
-              onClick={() => onGenerate(grandTotal)}
-              className="w-full py-4 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
-            >
-              Generate Now
-            </button>
           </div>
         </div>
       )}

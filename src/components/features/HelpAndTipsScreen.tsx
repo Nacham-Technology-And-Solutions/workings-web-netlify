@@ -99,7 +99,7 @@ const rightColumnTopics = [
     title: 'Need More Help?',
     content: (
        <div className="text-gray-700">
-        <p>Still stuck? Reach out via email us at <a href="mailto:support@workingsapp.com" className="font-semibold text-gray-800 underline">support@workingsapp.com</a>. We're always here to help.</p>
+        <p>Still stuck? Reach out via email us at <a href="mailto:support@glazeworkings.com" className="font-semibold text-gray-800 underline">support@glazeworkings.com</a>. We're always here to help.</p>
       </div>
     ),
   },
@@ -137,9 +137,9 @@ const HelpAndTipsScreen: React.FC<HelpAndTipsScreenProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-screen min-h-0 bg-white font-sans text-gray-800">
       <header className="p-4 lg:p-6 flex items-center gap-4 sticky top-0 z-40 bg-white border-b border-gray-200">
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors" aria-label="Go back">
+        <button onClick={onBack} className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors" aria-label="Go back">
           <ChevronLeftIcon />
         </button>
         <div className="flex-1">
@@ -148,7 +148,7 @@ const HelpAndTipsScreen: React.FC<HelpAndTipsScreenProps> = ({ onBack }) => {
         </div>
       </header>
 
-      <main className="flex-1 px-6 lg:px-8 xl:px-10 overflow-y-auto py-6 lg:py-8">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
         <div className="max-w-7xl lg:mx-auto">
           {/* Two columns */}
           <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-12">

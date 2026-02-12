@@ -6,4 +6,5 @@ export { useCalculationStore } from './calculationStore';
 export { useQuoteStore } from './quoteStore';
 export { useMaterialListStore } from './materialListStore';
 export { useSyncStore } from './syncStore';
+export { useTemplateStore } from './templateStore';
 

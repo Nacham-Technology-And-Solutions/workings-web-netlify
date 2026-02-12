@@ -30,7 +30,10 @@ export interface DimensionItem {
   width: string;
   height: string;
   quantity: string;
-  panel: string;
+  panel: string; // Used for N (panels) in M1, or N_v in M9
+  openingPanels?: string; // O - Opening panels for M1
+  verticalPanels?: string; // N_v - Vertical panels for M9
+  horizontalPanels?: string; // N_h - Horizontal panels for M9
 }
 
 export interface ProjectMeasurementData {

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { QuotePreviewData, Quote } from '@/types/quote';
+import type { QuotePreviewData, Quote, QuoteOverviewData, QuoteItemListData, QuoteExtrasNotesData } from '@/types/quote';
+import type { ProjectMeasurementData } from '@/types/project';
+import type { CalculationResult } from '@/types/calculations';
 
 interface QuoteState {
   // Generated quote (from project solution)
@@ -9,10 +11,30 @@ interface QuoteState {
   // Selected quote for viewing
   selectedQuoteId: string | null;
   
+  // Standalone quote flow data
+  standaloneQuoteData: {
+    overview?: QuoteOverviewData;
+    itemList?: QuoteItemListData;
+    extrasNotes?: QuoteExtrasNotesData;
+    projectData?: {
+      calculationResult?: CalculationResult;
+      projectMeasurement?: ProjectMeasurementData;
+    };
+  } | null;
+  
+  // Editing quote ID (for edit flow)
+  editingQuoteId: string | null;
+  
   // Actions
   setGeneratedQuote: (quote: QuotePreviewData | null) => void;
   setSelectedQuoteId: (id: string | null) => void;
   clearGeneratedQuote: () => void;
+  setStandaloneQuoteData: (data: QuoteState['standaloneQuoteData']) => void;
+  updateStandaloneQuoteOverview: (data: QuoteOverviewData) => void;
+  updateStandaloneQuoteItemList: (data: QuoteItemListData) => void;
+  updateStandaloneQuoteExtrasNotes: (data: QuoteExtrasNotesData) => void;
+  clearStandaloneQuoteData: () => void;
+  setEditingQuoteId: (id: string | null) => void;
 }
 
 export const useQuoteStore = create<QuoteState>()(
@@ -21,17 +43,103 @@ export const useQuoteStore = create<QuoteState>()(
       // Initial state
       generatedQuote: null,
       selectedQuoteId: null,
+      standaloneQuoteData: null,
+      editingQuoteId: null,
       
       // Actions
       setGeneratedQuote: (quote) => set({ generatedQuote: quote }),
       setSelectedQuoteId: (id) => set({ selectedQuoteId: id }),
       clearGeneratedQuote: () => set({ generatedQuote: null }),
+      setStandaloneQuoteData: (data) => set({ standaloneQuoteData: data }),
+      updateStandaloneQuoteOverview: (data) => set((state) => {
+        // Preserve projectData when updating overview
+        // Check state.standaloneQuoteData directly, not existingData, to ensure we get the actual projectData
+        const existingData = state.standaloneQuoteData || {};
+        const projectData = state.standaloneQuoteData?.projectData;
+        
+        const updated = {
+          ...existingData,
+          overview: data,
+        };
+        
+        // Explicitly preserve projectData if it exists in the current state
+        if (projectData) {
+          updated.projectData = projectData;
+        }
+        
+        // Debug logging in development
+        if (import.meta.env.DEV) {
+          console.log('[quoteStore] updateStandaloneQuoteOverview:', {
+            hadProjectData: !!projectData,
+            hasCalculationResult: !!projectData?.calculationResult,
+            hasProjectMeasurement: !!projectData?.projectMeasurement,
+          });
+        }
+        
+        return { standaloneQuoteData: updated };
+      }),
+      updateStandaloneQuoteItemList: (data) => set((state) => {
+        // Preserve projectData when updating itemList
+        const existingData = state.standaloneQuoteData || {};
+        const projectData = state.standaloneQuoteData?.projectData;
+        
+        const updated = {
+          ...existingData,
+          itemList: data,
+        };
+        
+        // Explicitly preserve projectData if it exists
+        if (projectData) {
+          updated.projectData = projectData;
+        }
+        
+        // Debug logging in development
+        if (import.meta.env.DEV) {
+          console.log('[quoteStore] updateStandaloneQuoteItemList:', {
+            hadProjectData: !!projectData,
+            hasCalculationResult: !!projectData?.calculationResult,
+            hasProjectMeasurement: !!projectData?.projectMeasurement,
+          });
+        }
+        
+        return { standaloneQuoteData: updated };
+      }),
+      updateStandaloneQuoteExtrasNotes: (data) => set((state) => {
+        // Preserve projectData when updating extrasNotes
+        const existingData = state.standaloneQuoteData || {};
+        const projectData = state.standaloneQuoteData?.projectData;
+        
+        const updated = {
+          ...existingData,
+          extrasNotes: data,
+        };
+        
+        // Explicitly preserve projectData if it exists
+        if (projectData) {
+          updated.projectData = projectData;
+        }
+        
+        // Debug logging in development
+        if (import.meta.env.DEV) {
+          console.log('[quoteStore] updateStandaloneQuoteExtrasNotes:', {
+            hadProjectData: !!projectData,
+            hasCalculationResult: !!projectData?.calculationResult,
+            hasProjectMeasurement: !!projectData?.projectMeasurement,
+          });
+        }
+        
+        return { standaloneQuoteData: updated };
+      }),
+      clearStandaloneQuoteData: () => set({ standaloneQuoteData: null }),
+      setEditingQuoteId: (id) => set({ editingQuoteId: id }),
     }),
     {
       name: 'quote-storage',
       partialize: (state) => ({
         generatedQuote: state.generatedQuote,
         selectedQuoteId: state.selectedQuoteId,
+        standaloneQuoteData: state.standaloneQuoteData,
+        editingQuoteId: state.editingQuoteId,
       }),
     }
   )

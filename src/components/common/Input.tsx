@@ -17,11 +17,11 @@ const Input: React.FC<InputProps> = ({ label, id, error, rightIcon, className, .
       <div className="relative">
         <input
           id={id}
-          className={`w-full px-4 py-4 text-gray-900 bg-gray-50 border-2 ${
+          className={`w-full px-4 py-2.5 text-gray-900 bg-gray-50 border-2 ${
             hasError 
               ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' 
               : 'border-gray-200 focus:border-gray-400 focus:ring-gray-400/20'
-          } rounded-xl focus:outline-none focus:ring-4 transition-all duration-300 placeholder:text-gray-500 hover:border-gray-300 font-exo ${className || ''}`}
+          } rounded-2xl focus:outline-none focus:ring-4 transition-all duration-300 placeholder:text-gray-500 hover:border-gray-300 font-exo ${className || ''}`}
           {...props}
         />
         {rightIcon && (

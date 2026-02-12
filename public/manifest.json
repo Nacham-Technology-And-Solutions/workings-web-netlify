@@ -1,0 +1,30 @@
+{
+    "name": "Glaze Workings",
+    "short_name": "Workings",
+    "description": "Automate construction takeoffs and cost estimating by importing or drawing floor plans to instantly calculate material, labor, and budget figures.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#1f2937",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/icons/app-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/app-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ],
+    "categories": [
+        "business",
+        "productivity"
+    ],
+    "screenshots": [],
+    "shortcuts": []
+}

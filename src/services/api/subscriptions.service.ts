@@ -1,30 +1,55 @@
 import apiClient from './apiClient';
 
+export type SubscriptionPlanId = 'free' | 'starter' | 'pro' | 'enterprise';
+export type BillingCycle = 'monthly' | 'yearly';
+export type PaymentProvider = 'paystack' | 'flutterwave' | 'monnify';
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled';
+
 export interface SubscriptionPlan {
-  id: number;
+  id: SubscriptionPlanId;
   name: string;
-  description: string;
   monthlyPrice: number;
   yearlyPrice: number;
+  pointsPerMonth: number;
+  projectsLimit: number | null;
+  modules: string[];
   features: string[];
 }
 
+export interface PaymentProviderInfo {
+  name: PaymentProvider;
+  enabled: boolean;
+  priority: number;
+}
+
+export interface PaymentProvidersResponse {
+  providers: PaymentProviderInfo[];
+  defaultProvider: PaymentProvider;
+}
+
 export interface CurrentSubscription {
-  plan: 'free' | 'starter' | 'pro' | 'enterprise';
-  billingCycle: 'monthly' | 'yearly';
-  expiresAt: string | null;
+  plan: SubscriptionPlanId;
+  billingCycle: BillingCycle;
+  startDate: string | null;
+  endDate: string | null;
+  status: SubscriptionStatus;
   pointsBalance: number;
-  subscriptionStatus: string;
 }
 
 export interface SubscribeRequest {
-  plan: 'free' | 'starter' | 'pro' | 'enterprise';
-  billingCycle: 'monthly' | 'yearly';
+  plan: SubscriptionPlanId;
+  billingCycle: BillingCycle;
+  paymentProvider?: PaymentProvider;
 }
 
 export interface SubscribeResponse {
-  reference: string;
   authorizationUrl: string;
+  accessCode?: string; // Paystack only
+  reference: string;
+  paymentProvider: PaymentProvider;
+  amount: number;
+  plan: SubscriptionPlanId;
+  billingCycle: BillingCycle;
 }
 
 export interface ApiResponse<T> {
@@ -33,26 +58,51 @@ export interface ApiResponse<T> {
   response: T;
 }
 
+export interface VerifyPaymentRequest {
+  reference: string;
+  provider: PaymentProvider;
+  plan?: SubscriptionPlanId;
+  billingCycle?: BillingCycle;
+}
+
+export interface VerifyPaymentResponse {
+  message: string;
+  subscriptionId: number;
+  plan: SubscriptionPlanId;
+  billingCycle: BillingCycle;
+  provider: PaymentProvider;
+  reference: string;
+  amount: number;
+}
+
 // Subscriptions Service
 export const subscriptionsService = {
   /**
    * Get all available subscription plans
    */
-  getPlans: async (): Promise<ApiResponse<SubscriptionPlan[]>> => {
-    const response = await apiClient.get<ApiResponse<SubscriptionPlan[]>>('/api/v1/subscriptions/plans');
+  getPlans: async (): Promise<ApiResponse<{ plans: SubscriptionPlan[] }>> => {
+    const response = await apiClient.get<ApiResponse<{ plans: SubscriptionPlan[] }>>('/api/v1/subscriptions/plans');
+    return response.data;
+  },
+
+  /**
+   * Get available payment providers
+   */
+  getPaymentProviders: async (): Promise<ApiResponse<PaymentProvidersResponse>> => {
+    const response = await apiClient.get<ApiResponse<PaymentProvidersResponse>>('/api/v1/subscriptions/payment-providers');
     return response.data;
   },
 
   /**
    * Get user's current subscription details (includes points balance)
    */
-  getCurrent: async (): Promise<ApiResponse<CurrentSubscription>> => {
-    const response = await apiClient.get<ApiResponse<CurrentSubscription>>('/api/v1/subscriptions/current');
+  getCurrent: async (): Promise<ApiResponse<{ subscription: CurrentSubscription }>> => {
+    const response = await apiClient.get<ApiResponse<{ subscription: CurrentSubscription }>>('/api/v1/subscriptions/current');
     return response.data;
   },
 
   /**
-   * Subscribe to a plan (initiates Paystack payment)
+   * Subscribe to a plan (initiates payment with selected provider)
    */
   subscribe: async (data: SubscribeRequest): Promise<ApiResponse<SubscribeResponse>> => {
     const response = await apiClient.post<ApiResponse<SubscribeResponse>>('/api/v1/subscriptions/subscribe', data);
@@ -66,6 +116,18 @@ export const subscriptionsService = {
     const response = await apiClient.post<ApiResponse<{ message: string }>>('/api/v1/subscriptions/cancel', {
       reason: reason || undefined,
     });
+    return response.data;
+  },
+
+  /**
+   * Manual verify payment (dev fallback when webhooks are not available).
+   * Backend verifies with payment provider and activates subscription.
+   */
+  verifyPayment: async (data: VerifyPaymentRequest): Promise<ApiResponse<VerifyPaymentResponse>> => {
+    const response = await apiClient.post<ApiResponse<VerifyPaymentResponse>>(
+      '/api/v1/subscriptions/verify-payment',
+      data
+    );
     return response.data;
   },
 };

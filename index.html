@@ -2,31 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/icons/app-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WORKINGS - Construction Estimating</title>
+    <meta name="theme-color" content="#1f2937" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>Glaze Workings - Glaze Estimator</title>
     
     <!-- Custom Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Audiowide:wght@400&family=Exo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      /* For a better dark mode experience */
+      /* Typography: Exo 2 everywhere except logo wordmark + three onboarding step titles (Audiowide only there) */
       body {
         background-color: #ffffff; /* white */
-        color: #2d2e2e; /* primary color */
-        font-family: 'Exo', sans-serif;
+        color: #2d2e2e; /* Workings Primary */
+        font-family: 'Exo 2', sans-serif;
       }
       
-      /* Custom Font Classes */
+      /* Audiowide: ONLY logo wordmark (if text) and the three OnboardingScreen step titles. Everything else is Exo 2. */
       .font-audiowide {
         font-family: 'Audiowide', cursive;
       }
       
       .font-exo {
-        font-family: 'Exo', sans-serif;
+        font-family: 'Exo 2', sans-serif;
       }
       
       /* Splash Screen Logo Animation - Simplified */

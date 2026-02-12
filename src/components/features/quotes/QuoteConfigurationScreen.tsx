@@ -305,7 +305,7 @@ const QuoteConfigurationScreen: React.FC<QuoteConfigurationScreenProps> = ({
         <button
           onClick={handleGenerate}
           disabled={!isFormValid}
-          className={`w-full py-4 rounded-lg font-semibold transition-colors ${
+          className={`w-full py-4 rounded font-semibold transition-colors ${
             isFormValid
               ? 'bg-gray-800 text-white hover:bg-gray-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'

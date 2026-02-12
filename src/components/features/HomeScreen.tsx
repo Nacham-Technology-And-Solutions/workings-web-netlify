@@ -1,98 +1,90 @@
 import React, { useState } from 'react';
-import { DocumentIcon, CloseIcon, PlusIcon } from '@/assets/icons/IconComponents';
+import { PlusIcon } from '@/assets/icons/IconComponents';
 import { useAuthStore } from '@/stores';
 import { getDisplayName } from '@/utils/userHelpers';
 
 interface HomeScreenProps {
     onNewProject: () => void;
+    onNavigate?: (view: string) => void;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onNewProject, onNavigate }) => {
     const [showTemplateCard, setShowTemplateCard] = useState(true);
     const { user } = useAuthStore();
     const userName = getDisplayName(user?.name, user?.email);
 
     return (
         <div className="flex-1 relative bg-white">
-            <main className="p-6 lg:p-8 xl:p-10 h-full flex flex-col max-w-7xl lg:mx-auto">
+            <main className="p-6 lg:p-8 xl:p-10 h-full flex flex-col max-w-7xl mx-auto">
                 {/* Welcome Message */}
                 <div className="mb-6 lg:mb-8">
                     <h1 className="text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight">
-                        Welcome to Workings, {userName}!
+                        Welcome to Workings, {userName}
                     </h1>
-                    <p className="hidden lg:block text-gray-600 mt-2 text-lg">
-                        Your construction estimation workspace
-                    </p>
                 </div>
 
-                {/* Two-column layout */}
-                <div className="lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8 flex-grow">
-                    {/* Left Column - Informational Card */}
-                    <div className="lg:flex lg:flex-col">
+                {/* Quick Start with Templates - Call-to-Action Card */}
                 {showTemplateCard && (
-                            <div className="relative p-5 lg:p-6 xl:p-8 bg-blue-50 rounded-2xl shadow-sm mb-6 lg:mb-0">
-                        <button 
-                            onClick={() => setShowTemplateCard(false)}
-                            className="absolute top-4 right-4 w-6 h-6 rounded-full border-2 border-gray-700 flex items-center justify-center text-gray-700 hover:bg-gray-100 transition-colors"
-                            aria-label="Dismiss"
-                        >
-                            <svg className="w-3 h-3" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" stroke="currentColor">
-                                <path d="M6 18L18 6M6 6l12 12"></path>
+                    <div className="relative flex flex-col sm:flex-row sm:items-start gap-4 p-5 lg:p-6 bg-blue-50/80 border border-gray-200/80 rounded-xl mb-8">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6A4.997 4.997 0 017 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z" />
                             </svg>
-                        </button>
-                                <h3 className="hidden lg:block text-xl font-bold text-gray-900 mb-3">
-                                    Get Started Quickly
-                                </h3>
-                                <p className="text-gray-700 text-sm lg:text-base leading-relaxed pr-6 mb-4 lg:mb-6">
-                            Start your estimate in seconds with a pre-built template—industry-standard dimensions let you focus on costs, not setup.
-                        </p>
-                                <button className="px-5 py-2.5 lg:px-6 lg:py-3 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors">
-                            See Templates
-                        </button>
-                                
-                                {/* Additional Quick Actions */}
-                                <div className="hidden lg:block mt-6 pt-6 border-t border-blue-100">
-                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h4>
-                                    <div className="space-y-2">
-                                        <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700">
-                                            📊 View Recent Projects
-                                        </button>
-                                        <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700">
-                                            📝 Draft Quotes
-                                        </button>
-                                        <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm text-gray-700">
-                                            📋 Material Lists
-                                        </button>
-                                    </div>
-                                </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                Quick Start with Templates
+                            </h3>
+                            <p className="text-gray-600 text-sm lg:text-base leading-relaxed mb-4">
+                                Choose from our pre-built estimation templates to get started instantly. Save time and ensure accuracy with industry-standard calculations.
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => onNavigate?.('templates')}
+                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium underline"
+                                >
+                                    Learn More
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTemplateCard(false)}
+                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium underline"
+                                >
+                                    Dismiss
+                                </button>
                             </div>
-                        )}
+                        </div>
+                        <div className="flex-shrink-0">
+                            <button
+                                onClick={() => onNavigate?.('templates')}
+                                className="px-5 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
+                            >
+                                See Templates
+                            </button>
+                        </div>
                     </div>
+                )}
 
-                    {/* Right Column - Empty State / Illustration */}
-                    <div className="flex-grow flex flex-col items-center justify-center text-center pb-24 lg:pb-0">
-                    <img 
-                        src="/Frame 5.png" 
-                        alt="Start estimating" 
-                            className="w-48 h-48 lg:w-64 lg:h-64 xl:w-80 xl:h-80 object-contain"
+                {/* Central content: illustration + CTA text + Create New Project button */}
+                <div className="flex-grow flex flex-col items-center justify-center text-center pb-8 lg:pb-12">
+                    <img
+                        src="/icons/home-screen-icons-start-estimating-now.svg"
+                        alt="Start estimating"
+                        className="w-48 lg:w-64 xl:w-72 object-contain"
                     />
-                        <p className="hidden lg:block text-gray-500 mt-6 text-lg max-w-md">
-                            Click the button below to create your first project
-                        </p>
-                    </div>
+                    <p className="text-gray-900 font-bold mt-6 text-lg lg:text-xl">
+                        Start estimating now!!!
+                    </p>
+                    <button
+                        onClick={onNewProject}
+                        className="mt-6 px-6 py-3 bg-gray-800 text-white text-base font-semibold rounded hover:bg-gray-700 transition-colors"
+                        aria-label="Create new project"
+                    >
+                        Create New Project
+                    </button>
                 </div>
             </main>
-            
-            {/* Floating Action Button */}
-            <button 
-                onClick={onNewProject}
-                className="fixed lg:absolute bottom-8 right-8 lg:bottom-10 lg:right-10 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-10"
-                aria-label="Create new project"
-            >
-                <div className="lg:scale-125">
-                <PlusIcon />
-                </div>
-            </button>
         </div>
     );
 };

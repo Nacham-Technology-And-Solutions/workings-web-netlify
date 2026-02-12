@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeftIcon, ShoppingBagIcon, PlusIcon, SearchIcon, CloseIcon, UserCircleIcon } from '@/assets/icons/IconComponents';
-import { sampleMaterialLists } from '@/constants';
+import { projectsService, materialListsService } from '@/services/api';
+import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
 import type { MaterialList, MaterialListStatus } from '@/types';
 
 interface MaterialListScreenProps {
@@ -32,7 +33,7 @@ const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ l
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-start gap-4"
+      className="w-full text-left bg-white border border-gray-200 rounded p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-start gap-4"
     >
       <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-bold text-sm">
         {initials}
@@ -54,7 +55,9 @@ const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ l
 
 const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewList, onCreateNewList }) => {
   const [activeTab, setActiveTab] = useState<'All' | 'Draft'>('All');
-  const [materialLists] = useState<MaterialList[]>(sampleMaterialLists);
+  const [materialLists, setMaterialLists] = useState<MaterialList[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -68,6 +71,70 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
     if (saved) {
       setSearchHistory(JSON.parse(saved));
     }
+  }, []);
+
+  // Fetch material lists from API
+  useEffect(() => {
+    const fetchMaterialLists = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // First, fetch all projects
+        const projectsResponse = await projectsService.list(1, 100);
+
+        if (isApiResponseSuccess(projectsResponse)) {
+          const projectsData = getApiResponseData(projectsResponse) as any;
+          const projects = projectsData?.projects || [];
+
+          // Filter projects that have been calculated (have material lists)
+          const calculatedProjects = projects.filter((p: any) => p.calculated && p.status === 'calculated');
+
+          // Fetch material list for each calculated project
+          const materialListPromises = calculatedProjects.map(async (project: any) => {
+            try {
+              const materialListResponse = await materialListsService.getByProject(project.id);
+
+              if (isApiResponseSuccess(materialListResponse)) {
+                const materialListData = getApiResponseData(materialListResponse) as any;
+                const materialList = materialListData?.materialList || materialListData;
+
+                if (materialList) {
+                  // Transform API response to MaterialList type
+                  const transformed: MaterialList = {
+                    id: String(materialList.id),
+                    projectName: project.projectName || 'Untitled Project',
+                    listNumber: `#${String(materialList.id).padStart(6, '0')}`,
+                    status: project.status === 'calculated' ? 'Completed' : 'Draft',
+                    issueDate: materialList.createdAt || materialList.updatedAt || new Date().toISOString(),
+                  };
+                  return transformed;
+                }
+              }
+            } catch (err: any) {
+              // Project might not have a material list yet (404), skip it
+              console.log(`[MaterialListScreen] No material list for project ${project.id}:`, err.message);
+              return null;
+            }
+            return null;
+          });
+
+          const results = await Promise.all(materialListPromises);
+          const validLists = results.filter((list): list is MaterialList => list !== null);
+
+          setMaterialLists(validLists);
+        } else {
+          setError('Failed to load projects');
+        }
+      } catch (err: any) {
+        console.error('[MaterialListScreen] Error fetching material lists:', err);
+        setError('Failed to load material lists. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMaterialLists();
   }, []);
 
   const filteredLists = useMemo(() => {
@@ -160,37 +227,46 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-screen min-h-0 bg-white font-sans text-gray-800">
       {/* Content Header */}
-      <div className="p-6 lg:p-8 bg-white border-b border-gray-200">
+      <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
         <div className="max-w-7xl lg:mx-auto">
           {/* Title and Create Button Row */}
           <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Material List</h1>
-              <p className="text-sm lg:text-base text-gray-600">Manage and track all your estimation projects</p>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors shrink-0"
+                  aria-label="Go back"
+                >
+                  <ChevronLeftIcon />
+                </button>
+              )}
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Material List</h1>
+                <p className="text-sm lg:text-base text-gray-600">Manage and track all your estimation projects</p>
+              </div>
             </div>
             <button
               onClick={onCreateNewList}
-              className="px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap ml-4"
+              className="px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
             >
               Create New List
             </button>
           </div>
 
           {/* Filter Tabs */}
-          <div className="bg-gray-100 p-1 rounded-full flex items-center w-fit">
+          <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
             <button
               onClick={() => setActiveTab('All')}
-              className={`px-6 py-2 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 ${activeTab === 'All' ? 'bg-gray-800 text-white shadow' : 'text-gray-600'
-                }`}
+              className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${activeTab === 'All' ? 'bg-gray-800 text-white' : 'text-gray-500'}`}
             >
               All
             </button>
             <button
               onClick={() => setActiveTab('Draft')}
-              className={`px-6 py-2 lg:py-2.5 rounded-full text-sm lg:text-base font-semibold transition-colors duration-200 ${activeTab === 'Draft' ? 'bg-gray-800 text-white shadow' : 'text-gray-600'
-                }`}
+              className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${activeTab === 'Draft' ? 'bg-gray-800 text-white' : 'text-gray-500'}`}
             >
               Draft
             </button>
@@ -230,9 +306,30 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto bg-gray-50">
-        <div className="max-w-7xl lg:mx-auto p-6 lg:p-8">
-          {filteredLists.length > 0 ? (
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#FAFAFA]">
+        <div className="max-w-7xl lg:mx-auto min-w-0 p-6 lg:p-8">
+          {isLoading ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
+              <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-800 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Loading material lists...</p>
+            </div>
+          ) : error ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
+              <div className="w-24 h-24 lg:w-28 lg:h-28 rounded-full bg-red-50 flex items-center justify-center border-2 border-red-100 mb-4">
+                <svg className="w-12 h-12 lg:w-14 lg:h-14 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">Error Loading Material Lists</h3>
+              <p className="max-w-sm mx-auto mb-6 text-gray-500 text-sm lg:text-base">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : filteredLists.length > 0 ? (
             /* Multi-column grid */
             <div className="space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0 pb-24">
               {filteredLists.map(list => (
@@ -242,18 +339,11 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
               {/* Shopping Bag Illustration with Radiating Lines */}
-              <div className="relative mb-8">
-                {/* Radiating Lines Above */}
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex gap-2">
-                  <div className="w-0.5 h-6 bg-blue-200"></div>
-                  <div className="w-0.5 h-8 bg-blue-300"></div>
-                  <div className="w-0.5 h-6 bg-blue-200"></div>
-                </div>
-                {/* Shopping Bag Icon */}
-                <div className="w-24 h-24 lg:w-28 lg:h-28 rounded-full bg-blue-50 flex items-center justify-center border-2 border-blue-100">
-                  <ShoppingBagIcon className="w-12 h-12 lg:w-14 lg:h-14 text-blue-400" />
-                </div>
-              </div>
+              <img
+                src="/icons/materials-list-screen-icons-no-material-list-yet.svg"
+                alt="Start estimating"
+                className="w-48 lg:w-64 xl:w-72 object-contain"
+              />
 
               <h3 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">
                 {emptyStateMessages[activeTab].title}
@@ -261,25 +351,22 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
               <p className="max-w-sm mx-auto mb-12 text-gray-500 text-sm lg:text-base leading-relaxed">
                 {emptyStateMessages[activeTab].message}
               </p>
+
+              <button
+                onClick={onCreateNewList}
+                className=" w-16 h-16 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
+                aria-label="Create new material list"
+              >
+                <div className="lg:scale-125">
+                  <PlusIcon />
+                </div>
+              </button>
             </div>
           )}
         </div>
       </main>
 
-      {/* Floating Action Button - Only show in empty state */}
-      {filteredLists.length === 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
-          <button
-            onClick={onCreateNewList}
-            className="w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
-            aria-label="Create new material list"
-          >
-            <div className="lg:scale-125">
-              <PlusIcon />
-            </div>
-          </button>
-        </div>
-      )}
+
 
       {/* Search Modal */}
       {showSearch && (
@@ -350,8 +437,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('all')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'all'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   All Time
@@ -359,8 +446,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('last7')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'last7'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   Last 7 Days
@@ -368,8 +455,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('thisMonth')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'thisMonth'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   This Month
@@ -454,7 +541,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
           <div className="p-4 bg-white border-t border-gray-200 sticky bottom-0">
             <button
               onClick={handleSearchSubmit}
-              className="w-full py-3.5 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+              className="w-full py-3.5 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors"
             >
               Apply Search
             </button>

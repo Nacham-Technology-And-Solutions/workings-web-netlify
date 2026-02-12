@@ -97,7 +97,7 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
               
               {/* Download PDF Button - Only show for completed */}
               {isCompleted && (
-                <button className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors">
+                <button className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors">
                   Download PDF
                 </button>
               )}

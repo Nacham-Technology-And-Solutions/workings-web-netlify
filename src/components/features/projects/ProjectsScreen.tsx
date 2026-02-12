@@ -43,9 +43,9 @@ const transformApiProject = (apiProject: ApiProject): Project => {
   };
 };
 
-const ProjectsScreen: React.FC<ProjectsScreenProps> = ({ 
-  onNewProject, 
-  onBack, 
+const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
+  onNewProject,
+  onBack,
   onViewProject,
   onEditProject,
   onDeleteProject,
@@ -55,7 +55,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Helper to safely set error message (always ensures it's a string)
   const setErrorMessage = (err: unknown) => {
     if (typeof err === 'string') {
@@ -65,8 +65,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       setError(typeof msg === 'string' ? msg : 'An unexpected error occurred');
     } else {
       const errorMessage = extractErrorMessage(err);
-      setError(typeof errorMessage.message === 'string' 
-        ? errorMessage.message 
+      setError(typeof errorMessage.message === 'string'
+        ? errorMessage.message
         : 'An unexpected error occurred');
     }
   };
@@ -91,7 +91,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
     requestInProgressRef.current = true;
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Check if user is authenticated before making request
       const accessToken = localStorage.getItem('accessToken');
@@ -103,18 +103,18 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       }
 
       const response = await projectsService.list(1, 50, search);
-      
+
       // Normalize the API response - handle both formats
       const normalizedResponse = normalizeApiResponse(response);
-      
+
       if (normalizedResponse.success) {
         const responseData = normalizedResponse.response;
-        
+
         // Handle different response structures
         // API returns: { projects: [...], pagination: {...} }
         // Or: { projects: [...], total: ..., page: ..., limit: ... }
         let projectsArray: any[] = [];
-        
+
         if (responseData && (responseData as any).projects && Array.isArray((responseData as any).projects)) {
           // Standard format: { projects: [...], pagination: {...} }
           projectsArray = (responseData as any).projects;
@@ -126,7 +126,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
           setError('Invalid response format from server');
           return;
         }
-        
+
         // Transform and set projects (empty array is valid - means no projects)
         const transformedProjects = projectsArray.map(transformApiProject);
         setProjects(transformedProjects);
@@ -136,17 +136,18 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
         setError(errorMsg);
       }
     } catch (err: any) {
-      // Don't show 401 errors or auth redirect errors - they trigger redirect to login
-      if (err?.response?.status === 401 || 
-          err?.message?.includes('401') || 
-          err?.isAuthError || 
-          err?.redirecting) {
-        // Authentication error - redirect will happen via API interceptor
-        console.log('Authentication required - redirecting to login');
+      // Don't show 401/403 or auth redirect errors - they trigger refresh or redirect to login
+      if (err?.response?.status === 401 ||
+        err?.response?.status === 403 ||
+        err?.message?.includes('401') ||
+        err?.message?.includes('403') ||
+        err?.isAuthError ||
+        err?.redirecting) {
+        // Auth/session error - API interceptor handles refresh or session-expired modal
         setIsLoading(false);
         return;
       }
-      
+
       setErrorMessage(err);
       console.error('Error fetching projects:', err);
     } finally {
@@ -199,7 +200,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
 
   const saveSearchToHistory = (query: string) => {
     if (!query.trim()) return;
-    
+
     const newHistory = [query, ...searchHistory.filter(h => h !== query)].slice(0, 5); // Keep last 5
     setSearchHistory(newHistory);
     localStorage.setItem('projectSearchHistory', JSON.stringify(newHistory));
@@ -221,7 +222,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
     // Search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(project => 
+      filtered = filtered.filter(project =>
         project.name.toLowerCase().includes(query) ||
         project.projectId?.toLowerCase().includes(query) ||
         project.status.toLowerCase().includes(query) ||
@@ -240,7 +241,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
         const projectDate = new Date(project.lastUpdated);
         const startDate = dateRange.start ? new Date(dateRange.start) : null;
         const endDate = dateRange.end ? new Date(dateRange.end) : null;
-        
+
         if (startDate && projectDate < startDate) return false;
         if (endDate && projectDate > endDate) return false;
         return true;
@@ -256,8 +257,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       const now = new Date();
       filtered = filtered.filter(project => {
         const projectDate = new Date(project.lastUpdated);
-        return projectDate.getMonth() === now.getMonth() && 
-               projectDate.getFullYear() === now.getFullYear();
+        return projectDate.getMonth() === now.getMonth() &&
+          projectDate.getFullYear() === now.getFullYear();
       });
     }
 
@@ -265,8 +266,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   }, [activeTab, projects, searchQuery, selectedStatuses, dateRange, quickFilter]);
 
   const toggleStatusFilter = (status: ProjectStatus) => {
-    setSelectedStatuses(prev => 
-      prev.includes(status) 
+    setSelectedStatuses(prev =>
+      prev.includes(status)
         ? prev.filter(s => s !== status)
         : [...prev, status]
     );
@@ -305,11 +306,11 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       }
 
       const response = await projectsService.delete(projectIdNum);
-      
+
       // Normalize API response (backend doesn't send success field)
       // If we get here without an error, the delete was successful
       const normalizedResponse = normalizeApiResponse(response);
-      
+
       if (normalizedResponse.success) {
         // Refresh projects list
         fetchProjects(searchQuery || undefined);
@@ -335,24 +336,35 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      {/* Header */}
-      <header className="p-4 lg:p-6 bg-white border-b border-gray-200">
+    <div className="flex flex-col h-full min-h-0 bg-[#FAFAFA]">
+      {/* Page Title and Navigation */}
+      <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
         <div className="max-w-7xl lg:mx-auto">
           {/* Title and Button Row */}
           <div className="flex items-start justify-between mb-6">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-                Projects
-              </h1>
-              <p className="text-sm lg:text-base text-gray-700">
-                Manage and track all your estimation projects
-              </p>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors shrink-0"
+                  aria-label="Go back"
+                >
+                  <ChevronLeftIcon />
+                </button>
+              )}
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+                  Projects
+                </h1>
+                <p className="text-sm lg:text-base text-gray-700">
+                  Manage and track all your estimation projects
+                </p>
+              </div>
             </div>
             {onNewProject && (
               <button
                 onClick={onNewProject}
-                className="px-4 py-2 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap"
+                className="px-4 py-2 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
               >
                 Create New Project
               </button>
@@ -365,18 +377,17 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${
-                  activeTab === tab 
-                    ? 'bg-gray-800 text-white' 
+                className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${activeTab === tab
+                    ? 'bg-gray-800 text-white'
                     : 'text-gray-500'
-                }`}
+                  }`}
               >
                 {tab}
               </button>
             ))}
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Active Filters Display */}
       {(searchQuery || selectedStatuses.length > 0 || dateRange.start || dateRange.end || quickFilter !== 'all') && (
@@ -397,7 +408,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
               {quickFilter === 'recent' ? 'Last 7 days' : 'This month'}
             </span>
           )}
-          <button 
+          <button
             onClick={resetFilters}
             className="ml-auto text-xs text-blue-600 hover:text-blue-800 font-medium"
           >
@@ -419,27 +430,22 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
       )}
 
       {/* Project List */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-gray-50">
-        <div className="max-w-7xl lg:mx-auto">
-        {isLoading ? (
-          <div className="py-12 lg:py-20 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            <p className="mt-4 text-gray-500">Loading projects...</p>
-          </div>
-        ) : filteredProjects.length === 0 ? (
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 lg:p-8 bg-[#FAFAFA]">
+        <div className="max-w-7xl lg:mx-auto min-w-0">
+          {isLoading ? (
+            <div className="py-12 lg:py-20 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <p className="mt-4 text-gray-500">Loading projects...</p>
+            </div>
+          ) : filteredProjects.length === 0 ? (
             <div className="py-12 lg:py-20 flex flex-col items-center justify-center">
-              {/* Two overlapping documents icon */}
-              <div className="relative mb-6" style={{ width: '96px', height: '96px' }}>
-                {/* Back document */}
-                <svg className="absolute top-2 left-2 w-20 h-20 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                {/* Front document */}
-                <svg className="absolute top-0 left-0 w-20 h-20 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              
+
+              <img
+                src="/icons/home-screen-icons-start-estimating-now.svg"
+                alt="Start a project now" 
+              />
+
+
               {searchQuery || selectedStatuses.length > 0 || dateRange.start || dateRange.end || quickFilter !== 'all' ? (
                 <>
                   <p className="text-lg lg:text-xl mb-2 text-gray-500">No projects found</p>
@@ -455,7 +461,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                   {onNewProject && (
                     <button
                       onClick={onNewProject}
-                      className="w-20 h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
+                      className="w-16 h-16 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
                       aria-label="Create new project"
                     >
                       <PlusIcon className="w-8 h-8" />
@@ -463,34 +469,34 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                   )}
                 </>
               )}
-          </div>
-        ) : (
+            </div>
+          ) : (
             /* Multi-column grid */
             <div className="space-y-3 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 xl:gap-6 lg:space-y-0">
-            {filteredProjects.map(project => (
-              <ProjectCard 
-                key={project.id} 
-                project={project}
-                onClick={onViewProject ? () => onViewProject(project.id) : undefined}
-                onEdit={onEditProject ? () => handleEditProject(project) : undefined}
-                onDelete={onDeleteProject ? () => handleDeleteProject(project) : undefined}
-                onCalculate={onCalculateProject ? () => handleCalculateProject(project) : undefined}
-              />
-            ))}
-          </div>
-        )}
+              {filteredProjects.map(project => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onClick={onViewProject ? () => onViewProject(project.id) : undefined}
+                  onEdit={onEditProject ? () => handleEditProject(project) : undefined}
+                  onDelete={onDeleteProject ? () => handleDeleteProject(project) : undefined}
+                  onCalculate={onCalculateProject ? () => handleCalculateProject(project) : undefined}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
       {/* Floating Action Button - Only show when there are projects */}
       {onNewProject && filteredProjects.length > 0 && !isLoading && (
-        <button 
+        <button
           onClick={onNewProject}
           className="fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
           aria-label="Create new project"
         >
           <div className="lg:scale-125">
-          <PlusIcon />
+            <PlusIcon />
           </div>
         </button>
       )}
@@ -501,7 +507,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
           {/* Search Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center gap-3 mb-4">
-              <button 
+              <button
                 onClick={() => setShowSearch(false)}
                 className="text-gray-600 hover:text-gray-900"
               >
@@ -540,7 +546,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
               <div className="p-4 border-b border-gray-200">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-sm font-semibold text-gray-700">Recent Searches</h3>
-                  <button 
+                  <button
                     onClick={clearSearchHistory}
                     className="text-xs text-blue-600 hover:text-blue-800"
                   >
@@ -570,31 +576,28 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => setQuickFilter('all')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    quickFilter === 'all'
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'all'
                       ? 'bg-gray-800 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   All Projects
                 </button>
                 <button
                   onClick={() => setQuickFilter('recent')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    quickFilter === 'recent'
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'recent'
                       ? 'bg-gray-800 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   Last 7 Days
                 </button>
                 <button
                   onClick={() => setQuickFilter('this-month')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    quickFilter === 'this-month'
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'this-month'
                       ? 'bg-gray-800 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   This Month
                 </button>
@@ -651,7 +654,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                   Results ({filteredProjects.length})
                 </h3>
                 {(searchQuery || selectedStatuses.length > 0 || dateRange.start || dateRange.end || quickFilter !== 'all') && (
-                  <button 
+                  <button
                     onClick={resetFilters}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
@@ -659,7 +662,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                   </button>
                 )}
               </div>
-              
+
               {filteredProjects.length === 0 ? (
                 <div className="py-8 text-center text-gray-500">
                   <p className="mb-2">No projects found</p>
@@ -669,7 +672,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 <div className="space-y-3">
                   {filteredProjects.map(project => (
                     <div key={project.id} onClick={() => setShowSearch(false)}>
-                      <ProjectCard 
+                      <ProjectCard
                         project={project}
                         onClick={onViewProject ? () => {
                           setShowSearch(false);
@@ -702,7 +705,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 handleSearchSubmit();
                 setShowSearch(false);
               }}
-              className="w-full py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+              className="w-full py-3 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors"
             >
               Apply Search
             </button>

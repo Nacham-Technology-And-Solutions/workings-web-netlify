@@ -6,20 +6,38 @@ interface EmptyStateProps {
   message: string;
   onAction: () => void;
   actionText: string;
+  /** Optional: custom icon image src (e.g. screen-specific illustration) */
+  iconSrc?: string;
+  /** Optional: when set, show a round plus-style button instead of text button */
+  actionIcon?: React.ReactNode;
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({ title, message, onAction, actionText }) => {
+const EmptyState: React.FC<EmptyStateProps> = ({ title, message, onAction, actionText, iconSrc, actionIcon }) => {
   return (
     <div className="flex-grow flex flex-col items-center justify-center text-center p-6">
-      <EmptyStateIcon className="mb-4" />
+      {iconSrc ? (
+        <img src={iconSrc} alt="" aria-hidden />
+      ) : (
+        <EmptyStateIcon className="mb-4" />
+      )}
       <h2 className="text-xl font-semibold text-gray-800 mb-2">{title}</h2>
       <p className="max-w-xs mx-auto mb-6 text-gray-500">{message}</p>
-      <button
-        onClick={onAction}
-        className="px-6 py-3 bg-gray-800 text-white text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
-      >
-        {actionText}
-      </button>
+      {actionIcon ? (
+        <button
+          onClick={onAction}
+          className="w-16 h-16 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform hover:scale-110"
+          aria-label={actionText}
+        >
+          {actionIcon}
+        </button>
+      ) : (
+        <button
+          onClick={onAction}
+          className="px-6 py-3 bg-gray-800 text-white text-base font-semibold rounded hover:bg-gray-700 transition-colors shadow-sm"
+        >
+          {actionText}
+        </button>
+      )}
     </div>
   );
 };

@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import Input from '@/components/common/Input';
 import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon, AppleIcon } from '@/assets/icons/IconComponents';
 import { authService } from '@/services/api';
-import { extractErrorMessage, extractFieldErrors } from '@/utils/errorHandler';
+import { extractErrorMessage, extractFieldErrors, getValidationIssues } from '@/utils/errorHandler';
+import { getFieldErrorsFromIssues, getValidationSummaryMessage, authPathToField } from '@/utils/validationErrors';
 import ErrorMessage from '@/components/common/ErrorMessage';
+import ValidationErrorAlert from '@/components/common/ValidationErrorAlert';
 import { useAuthStore } from '@/stores';
 
 interface LoginScreenProps {
@@ -20,7 +22,7 @@ const SocialButton: React.FC<{
 }> = ({ provider, icon, onClick }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-border rounded-lg text-text-secondary font-medium hover:bg-background-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+    className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-border rounded text-text-secondary font-medium hover:bg-background-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
     aria-label={`Sign up with ${provider}`}
   >
     {icon}
@@ -37,6 +39,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
   const [error, setError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [validationIssues, setValidationIssues] = useState<{ path: string; message: string }[]>([]);
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +57,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
 
     setIsLoading(true);
     setError(null);
+    setDetailedError(null);
     setFieldErrors({});
+    setValidationIssues([]);
 
     try {
       const response = await authService.login({
@@ -91,15 +96,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
       const apiResponseData = (response as any)?.response || response;
       setDetailedError(apiResponseData?.message || apiResponseData?.error || null);
     } catch (err) {
-      // Extract field-specific errors
-      const errors = extractFieldErrors(err);
-      if (Object.keys(errors).length > 0) {
-        setFieldErrors(errors);
+      const issues = getValidationIssues(err);
+      if (issues.length > 0) {
+        setValidationIssues(issues);
+        setFieldErrors(getFieldErrorsFromIssues(issues, { pathToField: authPathToField }));
+        setError(getValidationSummaryMessage(issues));
+        setDetailedError(undefined);
       } else {
-        // Extract general error message
+        setValidationIssues([]);
+        const errors = extractFieldErrors(err);
+        if (Object.keys(errors).length > 0) {
+          setFieldErrors(errors);
+        }
         const errorMessage = extractErrorMessage(err);
         setError(errorMessage.message);
-        setDetailedError(errorMessage.detailedMessage || null);
+        setDetailedError(errorMessage.detailedMessage ?? null);
       }
     } finally {
       setIsLoading(false);
@@ -111,13 +122,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12">
         <div className="w-full max-w-md mx-auto py-6 sm:py-8 lg:py-10">
         <div className="text-left mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text-primary font-audiowide">Sign in</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text-primary">Sign in</h1>
           <p className="text-sm sm:text-base text-text-secondary mt-2 font-exo">Welcome back — pick up where you left off.</p>
         </div>
         
         <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5" noValidate>
-          {/* Error Message */}
-          {error && (
+          {/* Validation errors list (API ZodError) */}
+          {validationIssues.length > 0 && (
+            <ValidationErrorAlert
+              issues={validationIssues}
+              onDismiss={() => {
+                setValidationIssues([]);
+                setError(null);
+                setFieldErrors({});
+              }}
+            />
+          )}
+          {/* General error message */}
+          {error && validationIssues.length === 0 && (
             <ErrorMessage
               message={error}
               detailedMessage={detailedError || undefined}
@@ -182,7 +204,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 sm:py-4 text-base sm:text-lg font-semibold text-text-inverse bg-primary rounded-lg transition-all duration-200 disabled:bg-text-tertiary disabled:cursor-not-allowed hover:enabled:bg-primary/90 transform hover:enabled:scale-105 font-exo flex items-center justify-center gap-2"
+                className="w-full py-3 sm:py-3.5 text-base font-semibold text-white bg-gray-900 transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed hover:enabled:bg-gray-800 font-exo flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>

@@ -7,19 +7,23 @@ import type { ProjectDescriptionData } from '@/types';
 interface ProjectDescriptionScreenProps {
   onBack: () => void;
   onNext: (data: ProjectDescriptionData) => void;
+  previousData?: ProjectDescriptionData;
+  onNavigateToStep?: (step: string) => void;
 }
 
-const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onBack, onNext }) => {
-  const [projectName, setProjectName] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [siteAddress, setSiteAddress] = useState('');
+const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onBack, onNext, previousData, onNavigateToStep }) => {
+  const [projectName, setProjectName] = useState(previousData?.projectName || '');
+  const [customerName, setCustomerName] = useState(previousData?.customerName || '');
+  const [siteAddress, setSiteAddress] = useState(previousData?.siteAddress || '');
+  const [description, setDescription] = useState(previousData?.description || '');
 
   const handleNext = () => {
     if (projectName && customerName && siteAddress) {
       onNext({
         projectName,
         customerName,
-        siteAddress
+        siteAddress,
+        description: description.trim() || undefined
       });
     }
   };
@@ -27,17 +31,22 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
   const isFormValid = projectName.trim() !== '' && customerName.trim() !== '' && siteAddress.trim() !== '';
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
       {/* Header / Breadcrumbs */}
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-            <span className="cursor-pointer hover:text-gray-600" onClick={onBack}>Projects</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Projects</span>
             <span>/</span>
-            <span className="text-gray-900 font-medium">Project-description</span>
+            <span className="text-gray-900 font-medium">Project Description</span>
           </div>
 
           <div className="flex items-start gap-4">
+            <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mt-1">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
             {/* Progress Circle */}
             <div className="relative w-12 h-12 flex-shrink-0">
               <svg className="w-full h-full transform -rotate-90">
@@ -110,6 +119,21 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
             />
             {/* Empty column to match design */}
             <div className="hidden md:block"></div>
+          </div>
+
+          {/* Description */}
+          <div className="w-full">
+            <label htmlFor="description" className="block text-sm font-semibold text-gray-800 mb-2 font-exo">
+              Description (Optional)
+            </label>
+            <textarea
+              id="description"
+              placeholder="Enter project description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="w-full px-4 py-4 text-gray-900 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-gray-400/20 focus:border-gray-400 transition-all duration-300 placeholder:text-gray-500 hover:border-gray-300 font-exo resize-none"
+            />
           </div>
 
           {/* Next Button */}

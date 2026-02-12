@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import Input from '@/components/common/Input';
 import { authService } from '@/services/api';
-import { extractErrorMessage } from '@/utils/errorHandler';
+import { extractErrorMessage, getValidationIssues } from '@/utils/errorHandler';
+import { getValidationSummaryMessage } from '@/utils/validationErrors';
+import ValidationErrorAlert from '@/components/common/ValidationErrorAlert';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseMessage } from '@/utils/apiResponseHelper';
 import ErrorMessage from '@/components/common/ErrorMessage';
 
@@ -15,6 +17,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
+  const [validationIssues, setValidationIssues] = useState<{ path: string; message: string }[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,6 +36,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
 
     setIsLoading(true);
     setError(null);
+    setValidationIssues([]);
 
     try {
       const apiResponse = await authService.forgotPassword({ email });
@@ -51,9 +55,16 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
         setDetailedError(apiResponseData?.message || apiResponseData?.error || null);
       }
     } catch (err) {
-      const errorMessage = extractErrorMessage(err);
-      setError(errorMessage.message);
-      setDetailedError(errorMessage.detailedMessage || null);
+      const issues = getValidationIssues(err);
+      if (issues.length > 0) {
+        setValidationIssues(issues);
+        setError(getValidationSummaryMessage(issues));
+        setDetailedError(undefined);
+      } else {
+        const errorMessage = extractErrorMessage(err);
+        setError(errorMessage.message);
+        setDetailedError(errorMessage.detailedMessage ?? null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +93,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
                     />
                   </svg>
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2 font-audiowide">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
                   Check Your Email
                 </h1>
                 <p className="text-gray-600 mb-4">
@@ -108,7 +119,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
         <div className="w-full max-w-md mx-auto py-8">
           {/* Header Section */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 font-audiowide">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
               Forgot Password?
             </h1>
             <p className="text-gray-600 text-base sm:text-lg font-exo">
@@ -119,15 +130,26 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
           {/* Form Card */}
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
             {/* Error Message */}
-            {error && (
+            {validationIssues.length > 0 && (
               <div className="mb-5">
-                <ErrorMessage 
-                  message={error} 
+                <ValidationErrorAlert
+                  issues={validationIssues}
+                  onDismiss={() => {
+                    setValidationIssues([]);
+                    setError(null);
+                  }}
+                />
+              </div>
+            )}
+            {error && validationIssues.length === 0 && (
+              <div className="mb-5">
+                <ErrorMessage
+                  message={error}
                   detailedMessage={detailedError || undefined}
                   onDismiss={() => {
                     setError(null);
                     setDetailedError(null);
-                  }} 
+                  }}
                 />
               </div>
             )}
@@ -153,7 +175,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
                 <button
                   type="submit"
                   disabled={isLoading || !email.trim()}
-                  className="w-full py-4 text-lg font-semibold text-white bg-gray-900 rounded-xl transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg hover:enabled:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo flex items-center justify-center gap-2"
+                  className="w-full py-4 text-lg font-semibold text-white bg-gray-900 rounded transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg hover:enabled:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
                     <>

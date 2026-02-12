@@ -93,5 +93,6 @@ export interface QuoteExtrasNotesData {
   accountNumber: string;
   bankName: string;
   total: number;
+  addedCharges?: Array<{ description: string; amount: number }>;
 }
 

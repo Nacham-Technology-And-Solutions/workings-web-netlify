@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeftIcon, EditIcon, EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
 import { useAuthStore } from '@/stores';
-import { userService, subscriptionsService } from '@/services/api';
+import { userService } from '@/services/api';
 import { getUserInitials } from '@/utils/userHelpers';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
@@ -43,7 +43,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
-  const [pointsBalance, setPointsBalance] = useState<number | undefined>(user?.pointsBalance);
   const userInitials = getUserInitials(user?.name);
   
   const hasPasswordChanged = useMemo(() => newPassword.length > 0, [newPassword]);
@@ -54,80 +53,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       if (!user?.id) return;
 
       try {
-        // Fetch both user profile and current subscription (subscription has points balance)
-        const [profileResponse, subscriptionResponse] = await Promise.allSettled([
-          userService.getProfile(user.id),
-          subscriptionsService.getCurrent(),
-        ]);
+        const profileResponse = await userService.getProfile(user.id);
+        const normalizedResponse = normalizeApiResponse(profileResponse);
 
-        let userProfile: any = null;
-        let pointsBalance: number | undefined = user?.pointsBalance;
-
-        // Process user profile response
-        if (profileResponse.status === 'fulfilled') {
-          const apiResponse = profileResponse.value;
-          const normalizedResponse = normalizeApiResponse(apiResponse);
-
-          if (normalizedResponse.success && normalizedResponse.response) {
-            const responseData = normalizedResponse.response as any;
-            // API returns { userProfile: {...}, accessToken: "...", refreshToken: "...", subscriptionStatus: "..." }
-            userProfile = responseData.userProfile || responseData.user || responseData;
-          }
-        }
-
-        // Process subscription response (has points balance)
-        if (subscriptionResponse.status === 'fulfilled') {
-          const apiResponse = subscriptionResponse.value;
-          const normalizedResponse = normalizeApiResponse(apiResponse);
-
-          if (normalizedResponse.success && normalizedResponse.response) {
-            const responseData = normalizedResponse.response as any;
-            const subscription = responseData.subscription || responseData;
-            
-            // Get points balance from subscription (more reliable)
-            if (subscription.pointsBalance !== undefined) {
-              pointsBalance = subscription.pointsBalance;
-            }
-            
-            // Also update subscription status if available
-            if (subscription.plan && userProfile) {
-              userProfile.subscriptionStatus = subscription.plan;
-            }
-          }
-        } else {
-          console.warn('Failed to fetch subscription:', subscriptionResponse.reason);
-        }
-
-        // Fallback: try to get pointsBalance from user profile if subscription didn't have it
-        if (pointsBalance === undefined && userProfile) {
-          pointsBalance = userProfile.pointsBalance !== undefined 
-            ? userProfile.pointsBalance 
-            : userProfile.points;
-        }
-
-        // Update local state immediately for UI responsiveness
-        if (pointsBalance !== undefined) {
-          setPointsBalance(pointsBalance);
-        }
-
-        // Update auth store with fresh data including pointsBalance
-        // Always update pointsBalance even if userProfile fetch failed
-        const subscriptionPlan = subscriptionResponse.status === 'fulfilled' 
-          ? (normalizeApiResponse(subscriptionResponse.value).response as any)?.subscription?.plan 
-          : undefined;
-        
-        updateUser({
-          ...(userProfile ? {
+        if (normalizedResponse.success && normalizedResponse.response) {
+          const responseData = normalizedResponse.response as any;
+          const userProfile = responseData.userProfile || responseData.user || responseData;
+          
+          // Update auth store with fresh data
+          updateUser({
             name: userProfile.name,
             email: userProfile.email,
             companyName: userProfile.companyName,
-            subscriptionStatus: userProfile.subscriptionStatus || subscriptionPlan,
-          } : {}),
-          pointsBalance: pointsBalance,
-        });
+            subscriptionStatus: userProfile.subscriptionStatus,
+          });
 
-        // Update local form data if we have user profile
-        if (userProfile) {
+          // Update local form data
           const newInitialData = {
             name: userProfile.name || '',
             email: userProfile.email || '',
@@ -321,7 +262,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             />
             {isEditingThisField && (
                 <div className="mt-2">
-                    <button type="button" onClick={() => handleFieldSave(id)} className="px-5 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700">
+                    <button type="button" onClick={() => handleFieldSave(id)} className="px-5 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700">
                         Save
                     </button>
                 </div>
@@ -331,28 +272,36 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   };
 
 
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account? This action cannot be undone and will permanently remove all your projects, quotes, and lists.'
+    );
+    
+    if (!confirmed) return;
+    
+    setIsSaving(true);
+    setError(null);
+    
+    try {
+      // TODO: Implement delete account API call when endpoint is available
+      // await userService.deleteAccount(user.id);
+      console.log('Delete account functionality to be implemented');
+      alert('Account deletion functionality will be available soon.');
+    } catch (err) {
+      const errorMessage = extractErrorMessage(err);
+      setError(errorMessage.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-full bg-white font-sans text-gray-800 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6">
       {isSaving && <LoadingOverlay />}
       
-      <div className="flex-1 overflow-y-auto pb-24">
-        {/* User Avatar - Centered */}
-        <div className="flex justify-center mb-8">
-          <div className="relative">
-            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300">
-              <span className="text-gray-900 font-bold text-3xl">{userInitials}</span>
-            </div>
-            <button 
-              className="absolute bottom-0 right-0 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-blue-200 transition-colors" 
-              aria-label="Edit profile picture"
-            >
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        
+      <div className="flex-1 overflow-y-auto">
         <form onSubmit={handleSaveChanges}>
           {/* Error Message */}
           {error && (
@@ -368,93 +317,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             </div>
           )}
           
-          {/* Subscription & Credits Section */}
-          <section className="mb-8">
-            <h2 className="text-base font-bold mb-4 text-gray-900">Subscription & Credits</h2>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-              {/* Subscription Status */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">Subscription Plan</p>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      user?.subscriptionStatus === 'enterprise' 
-                        ? 'bg-purple-100 text-purple-800'
-                        : user?.subscriptionStatus === 'pro'
-                        ? 'bg-blue-100 text-blue-800'
-                        : user?.subscriptionStatus === 'starter'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user?.subscriptionStatus ? user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1) : 'Free'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onNavigate) {
-                      onNavigate('subscriptionPlans');
-                    }
-                  }}
-                  className="text-sm font-medium text-primary hover:text-primary/80 underline"
-                >
-                  Manage
-                </button>
+          {/* User Avatar - Left on desktop, centered on mobile */}
+          <div className="flex justify-center lg:justify-start mb-6 sm:mb-8">
+            <div className="relative">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300">
+                <span className="text-gray-900 font-bold text-2xl sm:text-3xl">{userInitials}</span>
               </div>
-
-              {/* Points Balance */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                <div 
-                  className="cursor-pointer"
-                  onClick={() => {
-                    if (onNavigate) {
-                      onNavigate('creditsHistory');
-                    }
-                  }}
-                >
-                  <p className="text-sm font-medium text-gray-700 mb-1">Available Credits</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {(pointsBalance !== undefined ? pointsBalance : user?.pointsBalance) !== undefined 
-                      ? (pointsBalance !== undefined ? pointsBalance : user?.pointsBalance)!.toLocaleString() 
-                      : '0'}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Points remaining</p>
-                </div>
-                <div className="text-right">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onNavigate) {
-                        onNavigate('creditsHistory');
-                      }
-                    }}
-                    className="text-sm font-medium text-gray-600 hover:text-gray-900 underline"
-                  >
-                    View History
-                  </button>
-                </div>
-              </div>
-
-              {/* Low Points Warning */}
-              {((pointsBalance !== undefined ? pointsBalance : user?.pointsBalance) !== undefined && 
-                (pointsBalance !== undefined ? pointsBalance : user?.pointsBalance)! < 50) && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-800">Low Credits Warning</p>
-                      <p className="text-xs text-yellow-700 mt-1">
-                        You're running low on credits. Consider upgrading your plan to continue using all features.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <button 
+                type="button"
+                className="absolute bottom-0 right-0 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-blue-200 transition-colors" 
+                aria-label="Edit profile picture"
+              >
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
             </div>
-          </section>
+          </div>
 
           {/* Personal Details Section */}
           <section className="mb-8">
@@ -463,40 +342,42 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Name Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="text"
                     value={editingField === 'name' ? tempValue : formData.name}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'name'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'name' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'name' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('name', formData.name)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'name' ? (
+                      <button 
+                        type="button" 
+                        onClick={handleCancelClick} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <button 
+                        type="button" 
+                        onClick={() => handleEditClick('name', formData.name)} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'name' && (
                   <div className="mt-3">
                     <button 
                       type="button" 
                       onClick={() => handleFieldSave('name')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                       Save
                     </button>
@@ -507,40 +388,42 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Email Address Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="email"
                     value={editingField === 'email' ? tempValue : formData.email}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'email'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'email' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'email' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('email', formData.email)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'email' ? (
+                      <button 
+                        type="button" 
+                        onClick={handleCancelClick} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <button 
+                        type="button" 
+                        onClick={() => handleEditClick('email', formData.email)} 
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'email' && (
                   <div className="mt-3">
                     <button 
                       type="button" 
                       onClick={() => handleFieldSave('email')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                       Save
                     </button>
@@ -612,24 +495,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                       <button 
                         type="button" 
                         onClick={handlePasswordSave} 
-                        className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                       >
                         Save
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <input
                       type="text"
                       value="No password yet"
                       disabled
-                      className="flex-1 px-4 py-3 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg"
+                      className="flex-1 min-w-0 px-4 py-3 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg"
                     />
                     <button 
                       type="button" 
                       onClick={handlePasswordEdit} 
-                      className="text-sm font-medium text-gray-700"
+                      className="text-sm font-medium text-gray-700 flex-shrink-0"
                     >
                       Create new
                     </button>
@@ -640,49 +523,49 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
           </section>
 
           {/* Company Information Section */}
-          <section>
+          <section className="mb-8">
             <h2 className="text-base font-bold mb-4 text-gray-900">Company Information</h2>
             <div className="space-y-4">
+              {/* Logo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Logo Upload</label>
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  <div className="w-full sm:w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors flex-shrink-0">
+                    <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="text-xs text-gray-500 text-center px-2">Upload your logo</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-600">This logo will appear on invoices and email notifications</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Company Name Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="text"
                     value={editingField === 'companyName' ? tempValue : formData.companyName}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'companyName'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'companyName' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'companyName' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('companyName', formData.companyName)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'companyName' ? (
+                      <button type="button" onClick={handleCancelClick} className="text-sm font-medium text-gray-700">Cancel</button>
+                    ) : (
+                      <button type="button" onClick={() => handleEditClick('companyName', formData.companyName)} className="text-sm font-medium text-gray-700">Edit</button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'companyName' && (
                   <div className="mt-3">
-                    <button 
-                      type="button" 
-                      onClick={() => handleFieldSave('companyName')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      Save
-                    </button>
+                    <button type="button" onClick={() => handleFieldSave('companyName')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors">Save</button>
                   </div>
                 )}
               </div>
@@ -690,60 +573,55 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
               {/* Company Address Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="text"
                     value={editingField === 'companyAddress' ? tempValue : formData.companyAddress}
                     onChange={(e) => setTempValue(e.target.value)}
                     disabled={editingField !== 'companyAddress'}
-                    className={`flex-1 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    className={`flex-1 min-w-0 px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
                       editingField === 'companyAddress' ? 'bg-white border-gray-400' : ''
                     }`}
                   />
-                  {editingField === 'companyAddress' ? (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelClick} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleEditClick('companyAddress', formData.companyAddress)} 
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {editingField === 'companyAddress' ? (
+                      <button type="button" onClick={handleCancelClick} className="text-sm font-medium text-gray-700">Cancel</button>
+                    ) : (
+                      <button type="button" onClick={() => handleEditClick('companyAddress', formData.companyAddress)} className="text-sm font-medium text-gray-700">Edit</button>
+                    )}
+                  </div>
                 </div>
                 {editingField === 'companyAddress' && (
                   <div className="mt-3">
-                    <button 
-                      type="button" 
-                      onClick={() => handleFieldSave('companyAddress')} 
-                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      Save
-                    </button>
+                    <button type="button" onClick={() => handleFieldSave('companyAddress')} className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors">Save</button>
                   </div>
                 )}
               </div>
             </div>
           </section>
-        </form>
-      </div>
 
-      {/* Save Changes Button - Sticky Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-10">
-        <button
-          type="button"
-          onClick={handleSaveChanges}
-          className="w-full px-8 py-3.5 bg-gray-800 text-white text-base font-bold rounded-lg hover:bg-gray-700 transition-colors"
-        >
-          Save changes
-        </button>
+          {/* Danger Zone Section */}
+          <section>
+            <h2 className="text-base font-bold mb-4 text-gray-900">Danger Zone</h2>
+            <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-red-900 mb-1">Delete Account</p>
+                  <p className="text-xs text-red-700">
+                    Deleting your account will remove all projects, quotes, and lists permanently.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  className="px-6 py-2.5 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700 transition-colors w-full sm:w-auto flex-shrink-0"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </section>
+        </form>
       </div>
     </div>
   );

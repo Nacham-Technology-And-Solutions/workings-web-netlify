@@ -2,8 +2,8 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import logger from '@/utils/logger';
 
 // Base URL from environment or default to localhost
-// const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.198:5000';
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://glaze-workings-og75x.ondigitalocean.app/workings-api2';
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://10.140.21.6:5000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 // Mutex to prevent concurrent token refresh attempts
 let isRefreshing = false;
@@ -148,14 +148,15 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Handle 401 Unauthorized - Try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle 401 Unauthorized or 403 Forbidden (often used for expired/invalid session) - Try to refresh token
+    const isAuthFailure = error.response?.status === 401 || error.response?.status === 403;
+    if (isAuthFailure && !originalRequest._retry) {
       originalRequest._retry = true;
 
       const refreshToken = localStorage.getItem('refreshToken');
       const userEmail = localStorage.getItem('userEmail');
 
-      logger.warn('AUTH', '401 Unauthorized - attempting token refresh', {
+      logger.warn('AUTH', `${error.response?.status === 403 ? '403 Forbidden' : '401 Unauthorized'} - attempting token refresh`, {
         url: originalRequest.url,
         hasRefreshToken: !!refreshToken,
         hasUserEmail: !!userEmail,
@@ -164,7 +165,7 @@ apiClient.interceptors.response.use(
       });
 
       if (import.meta.env.DEV) {
-        console.log('[API 401] Unauthorized request:', originalRequest.url, {
+        console.log(`[API ${error.response?.status}] Auth failure:`, originalRequest.url, {
           hasRefreshToken: !!refreshToken,
           hasUserEmail: !!userEmail,
           isRefreshing,
@@ -172,15 +173,19 @@ apiClient.interceptors.response.use(
         });
       }
 
-      // If we don't have refresh token or email, redirect to login immediately
+      // If we don't have refresh token or email, treat as session expired and redirect to login
       if (!refreshToken || !userEmail) {
         logger.error('AUTH', 'Missing refresh token or email - redirecting to login', {
           url: originalRequest.url,
         });
         if (import.meta.env.DEV) {
-          console.warn('[API 401] Missing refresh token or email - redirecting to login');
+          console.warn('[API] Missing refresh token or email - redirecting to login');
         }
-        clearAuthAndRedirect();
+        clearAuthAndRedirect(
+          error.response?.status === 403
+            ? 'Your session may have expired. Please sign in again to continue.'
+            : 'Authentication required. Please sign in to continue.'
+        );
         const redirectError = new Error('Authentication required');
         (redirectError as any).isAuthError = true;
         (redirectError as any).redirecting = true;
@@ -285,14 +290,14 @@ apiClient.interceptors.response.use(
           isRefreshing = false;
           refreshPromise = null;
 
-          // Check if refresh token is also invalid (401)
-          if (refreshError.response?.status === 401) {
+          // Check if refresh token is also invalid (401 or 403)
+          if (refreshError.response?.status === 401 || refreshError.response?.status === 403) {
             logger.error('AUTH', 'Refresh token is invalid or expired', {
               error: refreshError.response?.data,
               status: refreshError.response?.status,
             });
             console.error('[Token Refresh] Refresh token is invalid or expired');
-            clearAuthAndRedirect();
+            clearAuthAndRedirect('Your session has expired. Please sign in again to continue.');
             const authError = new Error('Session expired. Please sign in again.');
             (authError as any).isAuthError = true;
             (authError as any).redirecting = true;
@@ -306,7 +311,7 @@ apiClient.interceptors.response.use(
             data: refreshError.response?.data,
           });
           console.error('[Token Refresh] Token refresh failed:', refreshError);
-          clearAuthAndRedirect();
+          clearAuthAndRedirect('Unable to refresh your session. Please sign in again.');
           const refreshFailedError = new Error('Unable to refresh session. Please sign in again.');
           (refreshFailedError as any).isAuthError = true;
           (refreshFailedError as any).redirecting = true;
@@ -333,8 +338,8 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Helper function to clear auth and redirect to login
-function clearAuthAndRedirect() {
+// Helper function to clear auth and notify about session expiration
+function clearAuthAndRedirect(message?: string) {
   // Prevent multiple redirects
   if (isRedirecting) {
     logger.debug('AUTH', 'Redirect already in progress, skipping');
@@ -353,7 +358,7 @@ function clearAuthAndRedirect() {
   localStorage.removeItem('userId');
   localStorage.removeItem('isAuthenticated');
 
-  logger.info('AUTH', 'Cleared authentication data and redirecting to login');
+  logger.info('AUTH', 'Cleared authentication data');
 
   // Clear auth store if available
   import('@/stores').then(({ useAuthStore }) => {
@@ -362,8 +367,19 @@ function clearAuthAndRedirect() {
     // Store might not be available, continue anyway
   });
 
-  // Redirect to login
-  window.location.href = '/login';
+  // Notify about session expiration using event system
+  import('@/utils/sessionManager').then(({ notifySessionExpired }) => {
+    notifySessionExpired(
+      'SESSION_EXPIRED',
+      message || 'Your session has expired. Please sign in again to continue.'
+    );
+  }).catch((error) => {
+    console.error('[API Client] Failed to notify session expiration:', error);
+    // Fallback to hard redirect if event system fails
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 1000);
+  });
 }
 
 export default apiClient;

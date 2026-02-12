@@ -679,7 +679,7 @@ The Workings web application has been successfully developed as a comprehensive 
 
 **Imagery**:
 - ✅ Onboarding screens (0.png, 1.png, 2.png, 3.png)
-- ✅ Home screen illustration (Frame 5.png)
+- ✅ Home screen illustration (home-screen-icons-start-estimating-now.svg + "Start Estimating Now!!!")
 - ✅ Help & Tips visuals (6 pages)
 - ✅ Empty state illustrations
 - ✅ Project workflow diagrams

@@ -12,6 +12,7 @@ interface ProjectDetailScreenProps {
   onEdit?: (projectId: string) => void;
   onDelete?: () => void;
   onCalculate?: (projectId: string) => void;
+  onEditCalculationSettings?: (projectId: string) => void;
 }
 
 const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
@@ -20,6 +21,7 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
   onEdit,
   onDelete,
   onCalculate,
+  onEditCalculationSettings,
 }) => {
   const [project, setProject] = useState<ApiProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,7 +184,7 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
           <div className="flex items-center gap-3 mb-4">
             <button 
               onClick={onBack}
-              className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors"
+              className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded lg:transition-colors"
               aria-label="Go back"
             >
               <ChevronLeftIcon />
@@ -200,22 +202,30 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
             {onCalculate && (
               <button
                 onClick={() => onCalculate(projectId)}
-                className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
               >
                 Calculate
+              </button>
+            )}
+            {onEditCalculationSettings && (
+              <button
+                onClick={() => onEditCalculationSettings(projectId)}
+                className="px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm font-medium"
+              >
+                Edit Calculation Settings
               </button>
             )}
             {onEdit && (
               <button
                 onClick={() => onEdit(projectId)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm font-medium"
               >
                 Edit
               </button>
             )}
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+              className="px-4 py-2 bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors text-sm font-medium"
             >
               Delete
             </button>
@@ -407,14 +417,14 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={isDeleting}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {isDeleting && (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

@@ -12,8 +12,6 @@ import {
 } from '@/assets/icons/IconComponents';
 import { authService } from '@/services/api';
 import { useAuthStore } from '@/stores';
-import { getUserInitials, getDisplayName } from '@/utils/userHelpers';
-
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -38,7 +36,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, isActive = false, onClic
     }}
     className={`flex items-center gap-3 py-3 rounded-lg font-medium transition-all duration-200 ${
       isActive 
-        ? 'bg-gray-800 text-white' 
+        ? 'bg-[#F2F2F2] text-gray-900' 
         : 'text-gray-700 hover:bg-gray-50'
     } ${isExpanded ? 'px-4' : 'px-3 justify-center'}`}
   >
@@ -48,40 +46,25 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, isActive = false, onClic
 );
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate }) => {
-  const { user, logout: logoutStore } = useAuthStore();
-  const userName = getDisplayName(user?.name, user?.email);
-  const userInitials = getUserInitials(user?.name);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
+  const { logout: logoutStore } = useAuthStore();
+  const [isDesktop, setIsDesktop] = useState(() => {
+    // Initialize desktop state immediately during SSR-safe check
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return false;
+  });
 
   // Check if we're on desktop (lg breakpoint = 1024px)
   useEffect(() => {
-    let resizeTimer: NodeJS.Timeout;
-    
     const checkDesktop = () => {
-      setIsResizing(true);
-      setIsDesktop(window.innerWidth >= 1024);
-      
-      // Clear any existing timer
-      clearTimeout(resizeTimer);
-      
-      // Reset resizing flag after resize is complete
-      resizeTimer = setTimeout(() => {
-        setIsResizing(false);
-      }, 150);
-    };
-    
-    // Initial check
-    const initialCheck = () => {
       setIsDesktop(window.innerWidth >= 1024);
     };
     
-    initialCheck();
+    checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => {
       window.removeEventListener('resize', checkDesktop);
-      clearTimeout(resizeTimer);
     };
   }, []);
 
@@ -100,8 +83,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
     }
   };
 
-  // On mobile: always expanded when open. On desktop: expanded on hover
-  const isExpanded = isDesktop ? isHovered : isOpen;
+  // On mobile: always expanded when open. On desktop: always expanded (no collapse)
+  const isExpanded = isDesktop ? true : isOpen;
 
   return (
     <>
@@ -113,46 +96,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
-      {/* Sidebar Panel - Mobile: Centered modal, Desktop: Fixed left sidebar with hover expand */}
+      {/* Sidebar Panel - Mobile: Centered modal, Desktop: Fixed left sidebar with toggle */}
       <aside
-        onMouseEnter={isDesktop ? () => setIsHovered(true) : undefined}
-        onMouseLeave={isDesktop ? () => setIsHovered(false) : undefined}
         className={`
-          bg-white z-50 transform
-          ${isResizing ? 'transition-none' : 'transition-[width,opacity,transform] duration-300 ease-in-out'}
+          bg-white z-50
+          transition-all duration-300 ease-in-out
+          fixed
           
-          /* Mobile & Tablet: Centered modal slide-in - always expanded when open */
-          fixed top-1/2 -translate-y-1/2 w-[85%] max-w-md rounded-2xl shadow-2xl
-          ${isOpen ? 'left-1/2 -translate-x-1/2 opacity-100' : 'left-[200%] opacity-0 pointer-events-none'}
+          /* Mobile & Tablet: Centered modal slide-in */
+          top-1/2 -translate-y-1/2 w-[85%] max-w-md rounded-2xl shadow-2xl
+          ${isOpen ? 'left-1/2 -translate-x-1/2 opacity-100 pointer-events-auto' : 'left-[200%] opacity-0 pointer-events-none'}
           
-          /* Desktop: Fixed left sidebar with hover expand */
-          lg:fixed lg:translate-y-0 lg:translate-x-0 lg:top-0 lg:left-0 lg:h-screen lg:rounded-none lg:shadow-none lg:border-r lg:border-gray-200 lg:opacity-100 lg:pointer-events-auto
-          ${isHovered ? 'lg:w-64' : 'lg:w-20'}
+          /* Desktop: Fixed left sidebar - positioned below header with 24px left margin, 312px width */
+          lg:left-6 lg:top-32 lg:translate-x-0 lg:translate-y-0 lg:w-[312px] lg:h-[calc(100vh-8rem)] lg:rounded-none lg:shadow-lg lg:border-r lg:border-gray-200 lg:opacity-100 lg:pointer-events-auto
         `}
         role="dialog"
         aria-modal={!isDesktop}
         aria-label="Main menu"
       >
         <div className="pl-5 pr-4 py-6 max-h-[80vh] lg:max-h-full lg:h-full overflow-y-auto flex flex-col">
-          {/* Desktop Logo/Brand Section - Only show when expanded */}
-          {isExpanded && (
-            <div className="hidden lg:block mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">W</span>
-                </div>
-                <div className="opacity-100 transition-opacity duration-300">
-                  <h2 className="text-lg font-bold text-gray-900">WORKINGS</h2>
-                  <p className="text-xs text-gray-500">Estimator Pro</p>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           <nav className="space-y-1 flex-1">
             <div>
               {isExpanded && (
-                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide transition-opacity duration-300">Main</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide px-4">Main</h3>
               )}
               <NavLink 
                 icon={<HomeIcon isActive={currentView === 'home'} />} 
@@ -162,64 +130,64 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<ProjectsIcon />} 
+                icon={<ProjectsIcon isActive={currentView === 'projects'} />} 
                 label="Projects" 
                 isActive={currentView === 'projects'} 
                 onClick={() => onNavigate('projects')}
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<QuotesIcon />} 
+                icon={<QuotesIcon isActive={currentView === 'quotes'} />} 
                 label="Quotes" 
                 isActive={currentView === 'quotes'} 
                 onClick={() => onNavigate('quotes')}
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<MaterialListIcon />} 
+                icon={<MaterialListIcon isActive={currentView === 'material-list'} />} 
                 label="Material List" 
                 isActive={currentView === 'material-list'} 
                 onClick={() => onNavigate('material-list')}
                 isExpanded={isExpanded}
               />
             </div>
-            <hr className="border-gray-200 my-1" />
+            <hr className="border-gray-200 my-2" />
             <div>
               {isExpanded && (
-                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide transition-opacity duration-300">Tools / Resources</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide px-4">Tools / Resources</h3>
               )}
               <NavLink 
-                icon={<TemplatesIcon />} 
-                label="Pre-built Templates" 
+                icon={<TemplatesIcon isActive={currentView === 'templates'} />} 
+                label="Templates" 
                 isActive={currentView === 'templates'} 
                 onClick={() => onNavigate('templates')}
                 isExpanded={isExpanded}
               />
             </div>
-            <hr className="border-gray-200 my-1" />
+            <hr className="border-gray-200 my-2" />
             <div>
               {isExpanded && (
-                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide transition-opacity duration-300">Support & Info</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide px-4">Support & Info</h3>
               )}
               <NavLink 
-                icon={<HelpIcon />} 
+                icon={<HelpIcon isActive={currentView === 'help'} />} 
                 label="Help & Tips" 
                 isActive={currentView === 'help'} 
                 onClick={() => onNavigate('help')}
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<FeedbackIcon />} 
+                icon={<FeedbackIcon isActive={currentView === 'feedback'} />} 
                 label="Feedback / Contact Us" 
                 isActive={currentView === 'feedback'} 
                 onClick={() => onNavigate('feedback')}
                 isExpanded={isExpanded}
               />
             </div>
-            <hr className="border-gray-200 my-1" />
+            <hr className="border-gray-200 my-2" />
             <div>
               <NavLink 
-                icon={<SettingsIcon />} 
+                icon={<SettingsIcon isActive={currentView === 'settings'} />} 
                 label="Settings" 
                 isActive={currentView === 'settings'} 
                 onClick={() => onNavigate('settings')}
@@ -233,23 +201,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
               />
             </div>
           </nav>
-          
-          {/* Desktop User Info Section at Bottom - Only show when expanded */}
-          {isExpanded && (
-            <div className="hidden lg:block mt-auto pt-6">
-              <div className="py-3 bg-gray-50 rounded-lg transition-opacity duration-300">
-                <div className="flex items-center gap-3 px-3">
-                  <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-700 font-semibold text-sm">{userInitials}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
-                    <p className="text-xs text-gray-500 truncate">{user?.companyName || 'Company'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </aside>
     </>

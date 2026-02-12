@@ -1,19 +1,144 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { QuoteItemListData, QuoteItemRow } from '@/types';
+import { getInitialQuoteItems } from '@/utils/quoteDataTransformers';
 
 interface QuoteItemListScreenProps {
     onBack: () => void;
     onNext: (data: QuoteItemListData) => void;
     previousData?: any;
+    quoteType?: 'standalone' | 'from_project';
+    materialCost?: number;
 }
 
-const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData }) => {
-    const [listType, setListType] = useState<'dimension' | 'material' | null>(null);
-    const [items, setItems] = useState<QuoteItemRow[]>([
-        { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
-        { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
-    ]);
-    const [showWarning, setShowWarning] = useState(true);
+const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData, quoteType = 'standalone', materialCost }) => {
+    // Debug logging
+    if (import.meta.env.DEV) {
+        console.log('[QuoteItemListScreen] Component mounted with:', {
+            quoteType,
+            hasPreviousData: !!previousData,
+            hasProjectData: !!previousData?.projectData,
+            hasProjectMeasurement: !!previousData?.projectData?.projectMeasurement,
+            hasCalculationResult: !!previousData?.projectData?.calculationResult,
+            projectData: previousData?.projectData,
+            previousDataKeys: previousData ? Object.keys(previousData) : []
+        });
+    }
+
+    const [listType, setListType] = useState<'dimension' | 'material'>(
+        previousData?.itemList?.listType || 'dimension'
+    );
+
+    // Initialize items: prioritize project data for project quotes, otherwise use previous data or defaults
+    const getInitialItems = (currentListType: 'dimension' | 'material'): QuoteItemRow[] => {
+        // For project quotes, prioritize project data over saved itemList
+        if (quoteType === 'from_project' && previousData?.projectData) {
+            const projectItems = getInitialQuoteItems(
+                currentListType,
+                previousData.projectData.projectMeasurement,
+                previousData.projectData.calculationResult
+            );
+            
+            if (projectItems.length > 0) {
+                return projectItems;
+            }
+            
+            // Fallback to material cost if no project items
+            if (materialCost !== undefined && materialCost > 0) {
+                return [
+                    {
+                        id: '1',
+                        description: 'Material Cost',
+                        quantity: 1,
+                        unitPrice: materialCost,
+                        total: materialCost
+                    }
+                ];
+            }
+        }
+        
+        // Use saved itemList if it exists and has items (for editing existing quotes)
+        if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
+            return previousData.itemList.items;
+        }
+        
+        // Default items for standalone quotes (only if not from project)
+        if (quoteType === 'standalone') {
+            return [
+                { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
+                { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
+            ];
+        }
+        
+        // Empty array for project quotes with no data
+        return [];
+    };
+
+    const [items, setItems] = useState<QuoteItemRow[]>(() => getInitialItems(listType));
+    const [showWarning, setShowWarning] = useState(() => {
+        // Only show warning if we're from project and have no items
+        if (quoteType === 'from_project') {
+            const initialItems = getInitialItems(listType);
+            return initialItems.length === 0;
+        }
+        return false;
+    });
+
+    // Update items when list type changes for project quotes, or when project data becomes available
+    useEffect(() => {
+        if (quoteType === 'from_project' && previousData?.projectData) {
+            // Debug logging
+            if (import.meta.env.DEV) {
+                console.log('[QuoteItemListScreen] useEffect triggered:', {
+                    listType,
+                    hasProjectData: !!previousData.projectData,
+                    hasProjectMeasurement: !!previousData.projectData.projectMeasurement,
+                    hasCalculationResult: !!previousData.projectData.calculationResult,
+                    projectMeasurementType: typeof previousData.projectData.projectMeasurement,
+                    calculationResultType: typeof previousData.projectData.calculationResult,
+                    projectDataKeys: Object.keys(previousData.projectData || {}),
+                    projectData: previousData.projectData
+                });
+            }
+            
+            const projectItems = getInitialQuoteItems(
+                listType,
+                previousData.projectData.projectMeasurement,
+                previousData.projectData.calculationResult
+            );
+            
+            if (import.meta.env.DEV) {
+                console.log('[QuoteItemListScreen] getInitialQuoteItems returned:', {
+                    itemCount: projectItems.length,
+                    items: projectItems.slice(0, 3) // Log first 3 items to avoid console spam
+                });
+            }
+            
+            if (projectItems.length > 0) {
+                setItems(projectItems);
+                setShowWarning(false);
+            } else {
+                // Check if we have material cost as fallback
+                if (materialCost !== undefined && materialCost > 0 && listType === 'material') {
+                    setItems([{
+                        id: '1',
+                        description: 'Material Cost',
+                        quantity: 1,
+                        unitPrice: materialCost,
+                        total: materialCost
+                    }]);
+                    setShowWarning(false);
+                } else {
+                    setItems([]);
+                    setShowWarning(true);
+                }
+            }
+        } else if (quoteType === 'from_project' && !previousData?.projectData) {
+            // Project data not available yet, show warning
+            setShowWarning(true);
+        }
+    }, [listType, quoteType, previousData, materialCost]);
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState<QuoteItemRow | null>(null);
 
     const calculateSubtotal = () => {
         return items.reduce((sum, item) => sum + item.total, 0);
@@ -50,10 +175,53 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
             total: 0
         };
         setItems([...items, newItem]);
+        setEditingItemId(newItem.id);
+        setEditFormData({ ...newItem });
     };
 
     const handleDeleteItem = (id: string) => {
         setItems(items.filter(item => item.id !== id));
+        if (editingItemId === id) {
+            setEditingItemId(null);
+            setEditFormData(null);
+        }
+    };
+
+    const handleEditItem = (item: QuoteItemRow) => {
+        setEditingItemId(item.id);
+        setEditFormData({ ...item });
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingItemId || !editFormData) return;
+        
+        const updatedItems = items.map(item => {
+            if (item.id === editingItemId) {
+                const updated = {
+                    ...editFormData,
+                    total: editFormData.quantity * editFormData.unitPrice
+                };
+                return updated;
+            }
+            return item;
+        });
+        
+        setItems(updatedItems);
+        setEditingItemId(null);
+        setEditFormData(null);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingItemId(null);
+        setEditFormData(null);
+    };
+
+    const handleEditFormChange = (field: keyof QuoteItemRow, value: string | number) => {
+        if (!editFormData) return;
+        setEditFormData({
+            ...editFormData,
+            [field]: value
+        });
     };
 
     const handleNext = () => {
@@ -130,62 +298,36 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                         </div>
                     </div>
 
-                    {/* Warning Message - Top Right */}
-                    {showWarning && (
-                        <div className="absolute top-0 right-0 bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-sm max-w-md z-10">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 flex-1">
-                                    <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    <div>
-                                        <p className="text-sm font-semibold text-yellow-800">List Selection Required!!</p>
-                                        <p className="text-sm text-yellow-700">Please select a Dimension or Material List to proceed with your quote.</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setShowWarning(false)} className="text-yellow-600 hover:text-yellow-800 flex-shrink-0">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                    {/* List Type Selection - Only show for from_project quotes */}
+                    {quoteType === 'from_project' && (
+                        <div className="mb-6">
+                            <p className="text-sm text-gray-700 mb-3">Select a list to pull items into your quote:</p>
+                            <div className="flex items-center gap-6">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="listType"
+                                        value="dimension"
+                                        checked={listType === 'dimension'}
+                                        onChange={() => setListType('dimension')}
+                                        className="w-4 h-4 text-gray-900 focus:ring-gray-900"
+                                    />
+                                    <span className="text-sm text-gray-900">Dimension List</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="listType"
+                                        value="material"
+                                        checked={listType === 'material'}
+                                        onChange={() => setListType('material')}
+                                        className="w-4 h-4 text-gray-900 focus:ring-gray-900"
+                                    />
+                                    <span className="text-sm text-gray-900">Material List</span>
+                                </label>
                             </div>
                         </div>
                     )}
-
-                    {/* List Type Selection */}
-                    <div className="mb-6">
-                        <p className="text-sm text-gray-700 mb-3">Select a list to pull items into your quote:</p>
-                        <div className="flex items-center gap-6">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="listType"
-                                    value="dimension"
-                                    checked={listType === 'dimension'}
-                                    onChange={() => {
-                                        setListType('dimension');
-                                        setShowWarning(false);
-                                    }}
-                                    className="w-4 h-4 text-gray-900 focus:ring-gray-900"
-                                />
-                                <span className="text-sm text-gray-900">Dimension List</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="listType"
-                                    value="material"
-                                    checked={listType === 'material'}
-                                    onChange={() => {
-                                        setListType('material');
-                                        setShowWarning(false);
-                                    }}
-                                    className="w-4 h-4 text-gray-900 focus:ring-gray-900"
-                                />
-                                <span className="text-sm text-gray-900">Material List</span>
-                            </label>
-                        </div>
-                    </div>
 
                     {/* Items Table */}
                     <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
@@ -201,73 +343,117 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {items.map((item, index) => (
-                                    <tr key={item.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-4 text-sm text-gray-900">#{item.id}</td>
-                                        <td className="px-4 py-4">
-                                            <input
-                                                type="text"
-                                                value={item.description}
-                                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <input
-                                                type="number"
-                                                value={item.quantity}
-                                                onChange={(e) => updateItem(item.id, 'quantity', Number(e.target.value) || 0)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <input
-                                                type="text"
-                                                value={formatNumber(item.unitPrice)}
-                                                onChange={(e) => {
-                                                    const numValue = parseFormattedNumber(e.target.value);
-                                                    updateItem(item.id, 'unitPrice', numValue);
-                                                }}
-                                                onBlur={(e) => {
-                                                    const numValue = parseFormattedNumber(e.target.value);
-                                                    updateItem(item.id, 'unitPrice', numValue);
-                                                }}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4 text-sm font-medium text-gray-900">₦ {item.total.toLocaleString()}</td>
-                                        <td className="px-4 py-4 text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <button className="text-gray-600 hover:text-blue-600">
-                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                    </svg>
-                                                </button>
-                                                <button onClick={() => handleDeleteItem(item.id)} className="text-gray-600 hover:text-red-600">
-                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {items.map((item, index) => {
+                                    const isEditing = editingItemId === item.id;
+                                    return (
+                                        <tr key={item.id} className="hover:bg-gray-50">
+                                            <td className="px-4 py-4 text-sm text-gray-900">#{item.id}</td>
+                                            <td className="px-4 py-4 text-sm">
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editFormData.description}
+                                                        onChange={(e) => handleEditFormChange('description', e.target.value)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900">{item.description}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm">
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="number"
+                                                        value={editFormData.quantity}
+                                                        onChange={(e) => handleEditFormChange('quantity', parseInt(e.target.value) || 0)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900">{item.quantity}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm">
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="number"
+                                                        value={editFormData.unitPrice}
+                                                        onChange={(e) => handleEditFormChange('unitPrice', parseFloat(e.target.value) || 0)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900">{item.unitPrice.toLocaleString()}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                                                ₦ {isEditing && editFormData 
+                                                    ? (editFormData.quantity * editFormData.unitPrice).toLocaleString()
+                                                    : item.total.toLocaleString()}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button
+                                                                onClick={handleSaveEdit}
+                                                                className="text-green-600 hover:text-green-800"
+                                                                title="Save"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCancelEdit}
+                                                                className="text-gray-600 hover:text-gray-800"
+                                                                title="Cancel"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleEditItem(item)}
+                                                                className="text-gray-600 hover:text-blue-600"
+                                                                title="Edit"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteItem(item.id)}
+                                                                className="text-gray-600 hover:text-red-600"
+                                                                title="Delete"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
 
                     {/* Add Dimension Button */}
-                    <div className="mb-8 border border-gray-300 rounded-lg bg-white">
-                        <button
-                            onClick={handleAddDimension}
-                            className="w-full py-3 px-4 text-blue-600 hover:bg-gray-50 transition-colors flex items-center justify-start gap-2"
-                        >
-                            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span className="font-medium text-blue-600">Add a Dimension</span>
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleAddDimension}
+                        className="w-full py-3 mb-8 border-2 border-dashed border-teal-400 text-teal-600 rounded hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium">Add a Dimension</span>
+                    </button>
 
                     {/* Subtotal */}
                     <div className="flex justify-between items-center py-4 border-t border-gray-200">
@@ -282,7 +468,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                 <div className="max-w-7xl mx-auto">
                     <button
                         onClick={handleNext}
-                        className="w-full py-4 font-semibold rounded-lg transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                        className="w-full py-4 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
                     >
                         Next
                     </button>
