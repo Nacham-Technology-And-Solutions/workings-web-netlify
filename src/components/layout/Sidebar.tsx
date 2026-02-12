@@ -130,21 +130,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<ProjectsIcon />} 
+                icon={<ProjectsIcon isActive={currentView === 'projects'} />} 
                 label="Projects" 
                 isActive={currentView === 'projects'} 
                 onClick={() => onNavigate('projects')}
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<QuotesIcon />} 
+                icon={<QuotesIcon isActive={currentView === 'quotes'} />} 
                 label="Quotes" 
                 isActive={currentView === 'quotes'} 
                 onClick={() => onNavigate('quotes')}
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<MaterialListIcon />} 
+                icon={<MaterialListIcon isActive={currentView === 'material-list'} />} 
                 label="Material List" 
                 isActive={currentView === 'material-list'} 
                 onClick={() => onNavigate('material-list')}
@@ -157,7 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                 <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide px-4">Tools / Resources</h3>
               )}
               <NavLink 
-                icon={<TemplatesIcon />} 
+                icon={<TemplatesIcon isActive={currentView === 'templates'} />} 
                 label="Templates" 
                 isActive={currentView === 'templates'} 
                 onClick={() => onNavigate('templates')}
@@ -170,14 +170,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                 <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide px-4">Support & Info</h3>
               )}
               <NavLink 
-                icon={<HelpIcon />} 
+                icon={<HelpIcon isActive={currentView === 'help'} />} 
                 label="Help & Tips" 
                 isActive={currentView === 'help'} 
                 onClick={() => onNavigate('help')}
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<FeedbackIcon />} 
+                icon={<FeedbackIcon isActive={currentView === 'feedback'} />} 
                 label="Feedback / Contact Us" 
                 isActive={currentView === 'feedback'} 
                 onClick={() => onNavigate('feedback')}
@@ -187,7 +187,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
             <hr className="border-gray-200 my-2" />
             <div>
               <NavLink 
-                icon={<SettingsIcon />} 
+                icon={<SettingsIcon isActive={currentView === 'settings'} />} 
                 label="Settings" 
                 isActive={currentView === 'settings'} 
                 onClick={() => onNavigate('settings')}

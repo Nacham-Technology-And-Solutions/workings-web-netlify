@@ -4,7 +4,7 @@ import {
   ProfileIcon,
   BillingsIcon,
   SubscriptionPlansIcon,
-  TemplatesIcon,
+  ExportSettingsIcon,
 } from '@/assets/icons/IconComponents';
 import ProfileScreen from '@/components/features/ProfileScreen';
 import BillingScreen from '@/components/features/BillingScreen';
@@ -101,7 +101,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
             onClick={() => handleSectionChange('subscriptionPlans')}
           />
           <SettingsTabPill
-            icon={<TemplatesIcon />}
+            icon={<ExportSettingsIcon />}
             label="Export settings"
             isActive={activeSection === 'exportSettings'}
             onClick={() => handleSectionChange('exportSettings')}
@@ -133,7 +133,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
               onClick={() => handleSectionChange('subscriptionPlans')}
             />
             <SettingsNavItem
-              icon={<TemplatesIcon />}
+              icon={<ExportSettingsIcon />}
               label="Export settings"
               isActive={activeSection === 'exportSettings'}
               onClick={() => handleSectionChange('exportSettings')}
