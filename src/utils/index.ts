@@ -5,5 +5,6 @@ export * from './calculations';
 export * from './errorHandler';
 export * from './userHelpers';
 export * from './apiResponseHelper';
+export * from './validationErrors';
 export { default as logger, LogLevel } from './logger';
 

@@ -308,9 +308,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
             <span className="text-gray-900 font-medium">Measurement</span>
           </div>
 
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mt-1">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4 flex-1 min-w-0">
+              <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mt-1 flex-shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -347,6 +347,16 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                 <p className="text-gray-500 text-sm">What type of project are your measurements?</p>
               </div>
             </div>
+            <button
+              onClick={handleCalculateNow}
+              disabled={dimensions.length === 0}
+              className={`flex-shrink-0 px-5 py-2.5 font-semibold rounded-lg transition-colors ${dimensions.length > 0
+                ? 'bg-gray-900 text-white hover:bg-gray-800'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+            >
+              Calculate Now
+            </button>
           </div>
         </div>
       </div>

@@ -57,12 +57,20 @@ interface MaterialItem {
   total: number;
 }
 
-interface CuttingLayout {
-  id: string;
+export interface CuttingLayout {
+  id?: string;
   layout: string;
   repetition: number;
   cuts: { length: number; unit: string }[];
   offCut: number;
+}
+
+/** One profile's cutting data for a single PDF/Excel (all profiles in one file) */
+export interface CuttingListSection {
+  profileName: string;
+  materialLength: number;
+  totalQuantity: number;
+  layouts: CuttingLayout[];
 }
 
 export const exportMaterialListToPDF = (
@@ -115,44 +123,55 @@ export const exportMaterialListToPDF = (
 };
 
 export const exportCuttingListToPDF = (
-  layouts: CuttingLayout[],
-  projectName: string,
-  materialLength: number,
-  materialQuantity: number
+  sections: CuttingListSection[],
+  projectName: string
 ) => {
   const doc = new jsPDF();
 
-  // Header
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Cutting List', 14, 20);
+  let startY = 20;
 
-  // Project Info
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Project: ${projectName}`, 14, 30);
-  doc.text(`Material Length: ${materialLength} meters`, 14, 36);
-  doc.text(`Quantity: ${materialQuantity} length`, 14, 42);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 48);
+  sections.forEach((section, sectionIndex) => {
+    if (sectionIndex > 0) {
+      doc.addPage();
+      startY = 20;
+    }
 
-  // Cutting Layout Table
-  const tableData = layouts.map((layout) => [
-    layout.layout,
-    `${layout.repetition}X`,
-    layout.cuts.map(c => `${c.length}${c.unit}`).join(', '),
-    `${layout.offCut}m`
-  ]);
+    // Section header (profile name + material info)
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(section.profileName, 14, startY);
+    startY += 7;
 
-  autoTable(doc, {
-    startY: 55,
-    head: [['Layout', 'Repetition', 'Cuts', 'Off-cut']],
-    body: tableData,
-    theme: 'grid',
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' }
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Project: ${projectName}`, 14, startY);
+    startY += 6;
+    doc.text(`Material Length: ${section.materialLength} meters`, 14, startY);
+    startY += 6;
+    doc.text(`Quantity: ${section.totalQuantity} length`, 14, startY);
+    startY += 6;
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, startY);
+    startY += 10;
+
+    const tableData = section.layouts.map((layout) => [
+      layout.layout,
+      `${layout.repetition}X`,
+      layout.cuts.map(c => `${c.length}${c.unit}`).join(', '),
+      `${layout.offCut}m`
+    ]);
+
+    autoTable(doc, {
+      startY,
+      head: [['Layout', 'Repetition', 'Cuts', 'Off-cut']],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' }
+    });
+
+    startY = (doc as any).lastAutoTable.finalY + 10;
   });
 
-  // Save
   doc.save(`Cutting-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -204,30 +223,34 @@ export const exportMaterialListToExcel = (
 };
 
 export const exportCuttingListToExcel = (
-  layouts: CuttingLayout[],
-  projectName: string,
-  materialLength: number,
-  materialQuantity: number
+  sections: CuttingListSection[],
+  projectName: string
 ) => {
-  // Create worksheet data
-  const wsData = [
+  const wsData: (string | number)[][] = [
     ['Cutting List'],
     [],
     ['Project:', projectName],
-    ['Material Length:', `${materialLength} meters`],
-    ['Quantity:', `${materialQuantity} length`],
     ['Date:', new Date().toLocaleDateString()],
     [],
-    ['Layout', 'Repetition', 'Cuts', 'Off-cut (m)'],
-    ...layouts.map((layout) => [
-      layout.layout,
-      `${layout.repetition}X`,
-      layout.cuts.map(c => `${c.length}${c.unit}`).join(', '),
-      layout.offCut
-    ])
   ];
 
-  // Create workbook
+  sections.forEach((section) => {
+    wsData.push([`Profile: ${section.profileName}`]);
+    wsData.push(['Material Length:', `${section.materialLength} meters`]);
+    wsData.push(['Quantity:', `${section.totalQuantity} length`]);
+    wsData.push([]);
+    wsData.push(['Layout', 'Repetition', 'Cuts', 'Off-cut (m)']);
+    section.layouts.forEach((layout) => {
+      wsData.push([
+        layout.layout,
+        `${layout.repetition}X`,
+        layout.cuts.map(c => `${c.length}${c.unit}`).join(', '),
+        layout.offCut
+      ]);
+    });
+    wsData.push([]);
+  });
+
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -239,8 +262,6 @@ export const exportCuttingListToExcel = (
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Cutting List');
-
-  // Save file
   XLSX.writeFile(wb, `Cutting-List-${projectName.replace(/\s+/g, '-')}.xlsx`);
 };
 

@@ -2,9 +2,11 @@ import React, { useState, useMemo } from 'react';
 import Input from '@/components/common/Input';
 import { EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
 import { authService } from '@/services/api';
-import { extractErrorMessage, extractFieldErrors } from '@/utils/errorHandler';
+import { extractErrorMessage, extractFieldErrors, getValidationIssues } from '@/utils/errorHandler';
+import { getFieldErrorsFromIssues, getValidationSummaryMessage, getValidationIssuesFromData, authPathToField } from '@/utils/validationErrors';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
 import ErrorMessage from '@/components/common/ErrorMessage';
+import ValidationErrorAlert from '@/components/common/ValidationErrorAlert';
 import { useAuthStore } from '@/stores';
 
 interface RegistrationScreenProps {
@@ -35,6 +37,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
+  const [validationIssues, setValidationIssues] = useState<{ path: string; message: string }[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -43,10 +46,8 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
     if(errors[id as keyof typeof errors]) {
         setErrors(prev => ({...prev, [id]: ''}));
     }
-    // Clear general error when user starts typing
-    if (generalError) {
-      setGeneralError(null);
-    }
+    if (generalError) setGeneralError(null);
+    if (validationIssues.length > 0) setValidationIssues([]);
   };
   
   const validateField = (id: string, value: string): boolean => {
@@ -121,7 +122,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
 
     setIsLoading(true);
     setGeneralError(null);
-    // Clear all field errors
+    setValidationIssues([]);
     setErrors({
       name: '',
       email: '',
@@ -183,43 +184,39 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
         // Call the onRegister callback to proceed with the flow
         onRegister();
       } else {
-        // Extract error message - the response object contains error and responseMessage
         const apiResponseData = response as any;
-        
-        // Extract error using extractErrorMessage to handle ZodError and other formats
-        // Create a mock AxiosError structure to use extractErrorMessage
-        const mockError = {
-          response: {
-            status: 400,
-            data: apiResponseData,
-          }
-        };
-        
-        try {
-          const errorInfo = extractErrorMessage(mockError);
-          setGeneralError(errorInfo.message);
-          setDetailedError(errorInfo.detailedMessage || null);
-        } catch (err) {
-          // Fallback if extractErrorMessage fails - this should rarely happen
-          console.error('Error extracting error message:', err);
-          const errorField = apiResponseData?.error || normalizedResponse.message || 'Registration failed';
-          setGeneralError(errorField === 'BAD REQUEST' 
-            ? 'Invalid request. Please check your input.'
-            : errorField);
+        const issues = getValidationIssuesFromData(apiResponseData);
+        if (issues.length > 0) {
+          setValidationIssues(issues);
+          setErrors((prev) => ({ ...prev, ...getFieldErrorsFromIssues(issues, { pathToField: authPathToField }) }));
+          setGeneralError(getValidationSummaryMessage(issues));
           setDetailedError(null);
+        } else {
+          const mockError = { response: { status: 400, data: apiResponseData } };
+          try {
+            const errorInfo = extractErrorMessage(mockError);
+            setGeneralError(errorInfo.message);
+            setDetailedError(errorInfo.detailedMessage || null);
+          } catch (err) {
+            console.error('Error extracting error message:', err);
+            const errorField = apiResponseData?.error || normalizedResponse.message || 'Registration failed';
+            setGeneralError(errorField === 'BAD REQUEST' ? 'Invalid request. Please check your input.' : errorField);
+            setDetailedError(null);
+          }
         }
       }
     } catch (error) {
-      // Extract field-specific errors
-      const fieldErrors = extractFieldErrors(error);
-      if (Object.keys(fieldErrors).length > 0) {
-        // Set field-specific errors
-        setErrors(prev => ({
-          ...prev,
-          ...fieldErrors,
-        }));
+      const issues = getValidationIssues(error);
+      if (issues.length > 0) {
+        setValidationIssues(issues);
+        setErrors((prev) => ({ ...prev, ...getFieldErrorsFromIssues(issues, { pathToField: authPathToField }) }));
+        setGeneralError(getValidationSummaryMessage(issues));
+        setDetailedError(null);
       } else {
-        // Set general error with detailed message
+        const fieldErrors = extractFieldErrors(error);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        }
         const errorMessage = extractErrorMessage(error);
         setGeneralError(errorMessage.message);
         setDetailedError(errorMessage.detailedMessage || null);
@@ -241,8 +238,21 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
         
         {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
-          {/* General Error Message */}
-          {generalError && (
+          {/* Validation errors list (API ZodError) */}
+          {validationIssues.length > 0 && (
+            <div className="mb-5">
+              <ValidationErrorAlert
+                issues={validationIssues}
+                onDismiss={() => {
+                  setValidationIssues([]);
+                  setGeneralError(null);
+                  setErrors({ name: '', email: '', company: '', password: '', confirmPassword: '' });
+                }}
+              />
+            </div>
+          )}
+          {/* General error message */}
+          {generalError && validationIssues.length === 0 && (
             <div className="mb-5">
               <ErrorMessage
                 message={generalError}

@@ -2,9 +2,11 @@ import React, { useState, useMemo } from 'react';
 import Input from '@/components/common/Input';
 import { EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
 import { authService } from '@/services/api';
-import { extractErrorMessage, extractFieldErrors } from '@/utils/errorHandler';
+import { extractErrorMessage, extractFieldErrors, getValidationIssues } from '@/utils/errorHandler';
+import { getFieldErrorsFromIssues, getValidationSummaryMessage, getValidationIssuesFromData, resetPasswordPathToField } from '@/utils/validationErrors';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseMessage } from '@/utils/apiResponseHelper';
 import ErrorMessage from '@/components/common/ErrorMessage';
+import ValidationErrorAlert from '@/components/common/ValidationErrorAlert';
 
 interface ResetPasswordScreenProps {
   onBack: () => void;
@@ -38,6 +40,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
+  const [validationIssues, setValidationIssues] = useState<{ path: string; message: string }[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,9 +50,8 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
     if (errors[id as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [id]: '' }));
     }
-    if (generalError) {
-      setGeneralError(null);
-    }
+    if (generalError) setGeneralError(null);
+    if (validationIssues.length > 0) setValidationIssues([]);
   };
 
   const validateField = (id: string, value: string): boolean => {
@@ -122,6 +124,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 
     setIsLoading(true);
     setGeneralError(null);
+    setValidationIssues([]);
     setErrors({
       token: '',
       email: '',
@@ -146,23 +149,34 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
           onSuccess();
         }, 3000);
       } else {
-        const errorMsg = getApiResponseMessage(response) || 'Failed to reset password. Please try again.';
-        setGeneralError(errorMsg);
         const apiResponseData = (response as any)?.response || response;
-        setDetailedError(apiResponseData?.message || apiResponseData?.error || null);
+        const issues = getValidationIssuesFromData(apiResponseData);
+        if (issues.length > 0) {
+          setValidationIssues(issues);
+          setErrors((prev) => ({ ...prev, ...getFieldErrorsFromIssues(issues, { pathToField: resetPasswordPathToField }) }));
+          setGeneralError(getValidationSummaryMessage(issues));
+          setDetailedError(null);
+        } else {
+          setGeneralError(getApiResponseMessage(response) || 'Failed to reset password. Please try again.');
+          setDetailedError(apiResponseData?.message || apiResponseData?.error || null);
+        }
       }
     } catch (err) {
-      // Extract field-specific errors
-      const fieldErrors = extractFieldErrors(err);
-      if (Object.keys(fieldErrors).length > 0) {
-        setErrors((prev) => ({
-          ...prev,
-          ...fieldErrors,
-        }));
+      const issues = getValidationIssues(err);
+      if (issues.length > 0) {
+        setValidationIssues(issues);
+        setErrors((prev) => ({ ...prev, ...getFieldErrorsFromIssues(issues, { pathToField: resetPasswordPathToField }) }));
+        setGeneralError(getValidationSummaryMessage(issues));
+        setDetailedError(null);
       } else {
-        const errorMessage = extractErrorMessage(err);
-        setGeneralError(errorMessage.message);
-        setDetailedError(errorMessage.detailedMessage || null);
+        const fieldErrors = extractFieldErrors(err);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        } else {
+          const errorMessage = extractErrorMessage(err);
+          setGeneralError(errorMessage.message);
+          setDetailedError(errorMessage.detailedMessage || null);
+        }
       }
     } finally {
       setIsLoading(false);
@@ -229,15 +243,27 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
           {/* Form Card */}
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
             {/* General Error Message */}
-            {generalError && (
+            {validationIssues.length > 0 && (
               <div className="mb-5">
-                <ErrorMessage 
-                  message={generalError} 
+                <ValidationErrorAlert
+                  issues={validationIssues}
+                  onDismiss={() => {
+                    setValidationIssues([]);
+                    setGeneralError(null);
+                    setErrors({ token: '', email: '', newPassword: '', confirmPassword: '' });
+                  }}
+                />
+              </div>
+            )}
+            {generalError && validationIssues.length === 0 && (
+              <div className="mb-5">
+                <ErrorMessage
+                  message={generalError}
                   detailedMessage={detailedError || undefined}
                   onDismiss={() => {
                     setGeneralError(null);
                     setDetailedError(null);
-                  }} 
+                  }}
                 />
               </div>
             )}

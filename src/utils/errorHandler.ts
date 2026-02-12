@@ -1,9 +1,13 @@
 import { AxiosError } from 'axios';
+import { isZodErrorResponse, getValidationSummaryMessage, getValidationIssues } from './validationErrors';
+
+export { getValidationIssues } from './validationErrors';
+export type { ValidationIssue } from './validationErrors';
 
 /**
- * Safely converts responseMessage to string, handling ZodError objects
+ * Safely converts responseMessage to string, handling ZodError array (API) or legacy issues object
  */
-function parseResponseMessage(responseMessage: string | object | undefined): string {
+function parseResponseMessage(responseMessage: string | object | undefined, data?: { error?: string }): string {
   if (!responseMessage) return '';
   
   if (typeof responseMessage === 'string') {
@@ -11,17 +15,23 @@ function parseResponseMessage(responseMessage: string | object | undefined): str
   }
   
   if (typeof responseMessage === 'object' && responseMessage !== null) {
-    const zodError = responseMessage as any;
-    if (zodError.issues && Array.isArray(zodError.issues) && zodError.issues.length > 0) {
-      // Format ZodError issues into readable messages
-      return zodError.issues.map((issue: any, index: number) => {
-        const path = issue.path && issue.path.length > 0 
-          ? issue.path.join('.') 
+    const arr = responseMessage as any;
+    // API ZodError format: responseMessage is array of { code, path, message }
+    if (data?.error === 'ZodError(input validation error)' && Array.isArray(arr) && arr.length > 0) {
+      return arr.map((issue: any, index: number) => {
+        const path = issue.path && issue.path.length > 0
+          ? issue.path.filter((p: any) => p !== 'body').join('.') || issue.path.join('.')
           : 'field';
         return `${index + 1}. ${path}: ${issue.message || 'Validation failed'}`;
       }).join('\n');
     }
-    // Fallback: stringify the object
+    // Legacy: responseMessage.issues (Zod issues array)
+    if (arr.issues && Array.isArray(arr.issues) && arr.issues.length > 0) {
+      return arr.issues.map((issue: any, index: number) => {
+        const path = issue.path && issue.path.length > 0 ? issue.path.join('.') : 'field';
+        return `${index + 1}. ${path}: ${issue.message || 'Validation failed'}`;
+      }).join('\n');
+    }
     return JSON.stringify(responseMessage, null, 2);
   }
   
@@ -141,45 +151,43 @@ export function extractErrorMessage(error: unknown): ErrorMessage {
       const status = response.status;
       const data = response.data as ApiErrorResponse;
 
-      // Priority 1: Check for responseMessage (backend's detailed error message)
+      // Priority 1: API ZodError (400 + error label + responseMessage array)
+      if (status === 400 && isZodErrorResponse(data)) {
+        const issues = getValidationIssues(error);
+        const shortMessage = getValidationSummaryMessage(issues);
+        const detailedMessageStr = issues.length > 0
+          ? issues.map((i, idx) => `${idx + 1}. ${i.path}: ${i.message}`).join('\n')
+          : shortMessage;
+        return {
+          message: shortMessage,
+          detailedMessage: detailedMessageStr,
+          code: 'ZOD_VALIDATION',
+        };
+      }
+
+      // Priority 2: Other responseMessage (backend's detailed error message)
       if (data.responseMessage) {
         let detailedMessageStr: string;
         let shortMessage: string;
         
-        // Handle ZodError structure (responseMessage is an object with issues)
         if (typeof data.responseMessage === 'object' && data.responseMessage !== null) {
           const zodError = data.responseMessage as { issues?: Array<{ message?: string; path?: (string | number)[] }> };
-          
           if (zodError.issues && Array.isArray(zodError.issues) && zodError.issues.length > 0) {
-            // Extract the first issue message as the main message
             const firstIssue = zodError.issues[0];
-            const fieldPath = firstIssue.path && firstIssue.path.length > 0 
-              ? firstIssue.path.join('.') 
-              : 'field';
-            
             shortMessage = firstIssue.message || 'Validation error';
-            
-            // Build detailed message from all issues
-            const allIssues = zodError.issues.map((issue, index) => {
-              const path = issue.path && issue.path.length > 0 
-                ? issue.path.join('.') 
-                : 'unknown';
+            detailedMessageStr = zodError.issues.map((issue, index) => {
+              const path = issue.path && issue.path.length > 0 ? issue.path.join('.') : 'unknown';
               return `${index + 1}. ${path}: ${issue.message || 'Validation failed'}`;
             }).join('\n');
-            
-            detailedMessageStr = `Validation Errors:\n${allIssues}`;
           } else {
-            // Fallback if issues array is empty or malformed
-            detailedMessageStr = JSON.stringify(data.responseMessage, null, 2);
-            shortMessage = data.error || 'Validation error';
+            detailedMessageStr = parseResponseMessage(data.responseMessage, data as any);
+            shortMessage = (data as any).error || 'Validation error';
           }
         } else {
-          // responseMessage is a string
-          detailedMessageStr = data.responseMessage;
-          shortMessage = ERROR_MESSAGE_MAP[data.responseMessage] || 
-                         (data.error ? ERROR_MESSAGE_MAP[data.error] || data.error : 'An error occurred');
+          detailedMessageStr = data.responseMessage as string;
+          shortMessage = ERROR_MESSAGE_MAP[data.responseMessage as string] ||
+                         ((data as any).error ? ERROR_MESSAGE_MAP[(data as any).error] || (data as any).error : 'An error occurred');
         }
-        
         return {
           message: shortMessage,
           detailedMessage: detailedMessageStr,
@@ -263,7 +271,8 @@ export function extractErrorMessage(error: unknown): ErrorMessage {
 }
 
 /**
- * Extracts field-specific errors from API response
+ * Extracts field-specific errors from API response.
+ * Includes ZodError responseMessage array (path -> message) and legacy data.errors.
  */
 export function extractFieldErrors(error: unknown): Record<string, string> {
   const fieldErrors: Record<string, string> = {};
@@ -272,6 +281,16 @@ export function extractFieldErrors(error: unknown): Record<string, string> {
     const response = error.response;
     if (response?.data) {
       const data = response.data as ApiErrorResponse;
+      // Prefer ZodError validation issues (path -> message)
+      const issues = getValidationIssues(error);
+      if (issues.length > 0) {
+        issues.forEach((issue) => {
+          if (issue.path && issue.path !== 'form') {
+            fieldErrors[issue.path] = issue.message;
+          }
+        });
+        return fieldErrors;
+      }
       if (data.errors && typeof data.errors === 'object') {
         Object.entries(data.errors).forEach(([field, errorValue]) => {
           fieldErrors[field] = Array.isArray(errorValue) ? errorValue[0] : errorValue;

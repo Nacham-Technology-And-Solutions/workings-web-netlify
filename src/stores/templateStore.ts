@@ -16,6 +16,7 @@ import type {
   SavedTemplateType,
 } from '@/types/templates';
 import { templatesService } from '@/services/api/templates.service';
+import { extractErrorMessage } from '@/utils/errorHandler';
 
 interface TemplateState {
   // Quote Format
@@ -748,13 +749,9 @@ export const useTemplateStore = create<TemplateState>()(
           const created = await templatesService.createSavedTemplate(payload);
           set({ savedTemplates: [...state.savedTemplates.filter((t) => t.source !== 'system'), created] });
           return { success: true as const };
-        } catch (error: any) {
-          const message =
-            error?.response?.data?.message ||
-            error?.response?.data?.responseMessage ||
-            error?.message ||
-            'Failed to save template';
-          return { success: false, message };
+        } catch (err) {
+          const { message } = extractErrorMessage(err);
+          return { success: false, message: message || 'Failed to save template' };
         }
       },
       removeSavedTemplate: async (id) => {
@@ -764,13 +761,9 @@ export const useTemplateStore = create<TemplateState>()(
             savedTemplates: state.savedTemplates.filter((t) => t.id !== id),
           }));
           return { success: true };
-        } catch (error: any) {
-          const message =
-            error?.response?.data?.message ||
-            error?.response?.data?.responseMessage ||
-            error?.message ||
-            'Failed to delete template';
-          return { success: false, message };
+        } catch (err) {
+          const { message } = extractErrorMessage(err);
+          return { success: false, message: message || 'Failed to delete template' };
         }
       },
       applySavedTemplate: (id) => {

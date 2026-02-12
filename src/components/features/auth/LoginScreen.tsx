@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import Input from '@/components/common/Input';
 import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon, AppleIcon } from '@/assets/icons/IconComponents';
 import { authService } from '@/services/api';
-import { extractErrorMessage, extractFieldErrors } from '@/utils/errorHandler';
+import { extractErrorMessage, extractFieldErrors, getValidationIssues } from '@/utils/errorHandler';
+import { getFieldErrorsFromIssues, getValidationSummaryMessage, authPathToField } from '@/utils/validationErrors';
 import ErrorMessage from '@/components/common/ErrorMessage';
+import ValidationErrorAlert from '@/components/common/ValidationErrorAlert';
 import { useAuthStore } from '@/stores';
 
 interface LoginScreenProps {
@@ -37,6 +39,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
   const [error, setError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [validationIssues, setValidationIssues] = useState<{ path: string; message: string }[]>([]);
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +57,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
 
     setIsLoading(true);
     setError(null);
+    setDetailedError(null);
     setFieldErrors({});
+    setValidationIssues([]);
 
     try {
       const response = await authService.login({
@@ -91,15 +96,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
       const apiResponseData = (response as any)?.response || response;
       setDetailedError(apiResponseData?.message || apiResponseData?.error || null);
     } catch (err) {
-      // Extract field-specific errors
-      const errors = extractFieldErrors(err);
-      if (Object.keys(errors).length > 0) {
-        setFieldErrors(errors);
+      const issues = getValidationIssues(err);
+      if (issues.length > 0) {
+        setValidationIssues(issues);
+        setFieldErrors(getFieldErrorsFromIssues(issues, { pathToField: authPathToField }));
+        setError(getValidationSummaryMessage(issues));
+        setDetailedError(undefined);
       } else {
-        // Extract general error message
+        setValidationIssues([]);
+        const errors = extractFieldErrors(err);
+        if (Object.keys(errors).length > 0) {
+          setFieldErrors(errors);
+        }
         const errorMessage = extractErrorMessage(err);
         setError(errorMessage.message);
-        setDetailedError(errorMessage.detailedMessage || null);
+        setDetailedError(errorMessage.detailedMessage ?? null);
       }
     } finally {
       setIsLoading(false);
@@ -116,8 +127,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
         </div>
         
         <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5" noValidate>
-          {/* Error Message */}
-          {error && (
+          {/* Validation errors list (API ZodError) */}
+          {validationIssues.length > 0 && (
+            <ValidationErrorAlert
+              issues={validationIssues}
+              onDismiss={() => {
+                setValidationIssues([]);
+                setError(null);
+                setFieldErrors({});
+              }}
+            />
+          )}
+          {/* General error message */}
+          {error && validationIssues.length === 0 && (
             <ErrorMessage
               message={error}
               detailedMessage={detailedError || undefined}

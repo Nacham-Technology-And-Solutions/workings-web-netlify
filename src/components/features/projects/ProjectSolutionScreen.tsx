@@ -95,6 +95,25 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showExportDropdown]);
 
+  // Auto-dismiss calculation success (points/balance) notification after 5 seconds
+  const showCalculationNotification = pointsDeducted !== null || balanceAfter !== null || responseMessage;
+  useEffect(() => {
+    if (!showCalculationNotification) return;
+    const t = window.setTimeout(() => {
+      setPointsDeducted(null);
+      setBalanceAfter(null);
+      setResponseMessage(null);
+    }, 5000);
+    return () => window.clearTimeout(t);
+  }, [showCalculationNotification, pointsDeducted, balanceAfter, responseMessage]);
+
+  // Auto-dismiss "Project saved successfully!" notification after 5 seconds
+  useEffect(() => {
+    if (!projectSaved) return;
+    const t = window.setTimeout(() => setProjectSaved(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [projectSaved]);
+
   // Transform calculation result to display format
   const allProfileItems: MaterialItem[] = calculationResult?.materialList
     ? calculationResult.materialList
@@ -405,13 +424,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     return quantity * price;
   };
 
-  // Export handlers
+  // Export handlers — one PDF/Excel with all profiles (Cutting List) or all layouts (Glass List)
   const handleExportCuttingList = (format: 'pdf' | 'excel') => {
     if (!calculationResult?.cuttingList || !previousData?.projectDescription) return;
     
     const projectName = previousData.projectDescription.projectName || 'Project';
     
-    calculationResult.cuttingList.forEach((cuttingItem) => {
+    const sections = calculationResult.cuttingList.map((cuttingItem) => {
       const stockLengthMeters = cuttingItem.stock_length / 1000;
       const layouts = cuttingItem.plan.map((planEntry) => {
         const cutKeys = Object.keys(planEntry);
@@ -450,12 +469,19 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       
       const totalQuantity = layouts.reduce((sum, layout) => sum + layout.repetition, 0);
       
-      if (format === 'pdf') {
-        exportCuttingListToPDF(layouts, projectName, stockLengthMeters, totalQuantity);
-      } else {
-        exportCuttingListToExcel(layouts, projectName, stockLengthMeters, totalQuantity);
-      }
+      return {
+        profileName: cuttingItem.profile_name,
+        materialLength: stockLengthMeters,
+        totalQuantity,
+        layouts,
+      };
     });
+    
+    if (format === 'pdf') {
+      exportCuttingListToPDF(sections, projectName);
+    } else {
+      exportCuttingListToExcel(sections, projectName);
+    }
     
     setShowExportDropdown(null);
   };
