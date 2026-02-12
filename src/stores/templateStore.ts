@@ -100,7 +100,7 @@ const defaultQuoteFormat: QuoteFormatConfig = {
     accent: '#3B82F6',
   },
   typography: {
-    fontFamily: 'Arial',
+    fontFamily: 'Exo 2',
     headingSize: 18,
     bodySize: 12,
   },
@@ -127,7 +127,7 @@ const defaultPDFExport: PDFExportConfig = {
     footer: { enabled: true, height: 20 },
     logo: { enabled: false, size: 'medium', position: 'top-left' },
     fonts: {
-      family: 'Helvetica',
+      family: 'Exo 2',
       headingSize: 16,
       bodySize: 10,
       tableSize: 9,

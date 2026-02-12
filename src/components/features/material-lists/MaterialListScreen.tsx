@@ -78,27 +78,27 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
     const fetchMaterialLists = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // First, fetch all projects
         const projectsResponse = await projectsService.list(1, 100);
-        
+
         if (isApiResponseSuccess(projectsResponse)) {
           const projectsData = getApiResponseData(projectsResponse) as any;
           const projects = projectsData?.projects || [];
-          
+
           // Filter projects that have been calculated (have material lists)
           const calculatedProjects = projects.filter((p: any) => p.calculated && p.status === 'calculated');
-          
+
           // Fetch material list for each calculated project
           const materialListPromises = calculatedProjects.map(async (project: any) => {
             try {
               const materialListResponse = await materialListsService.getByProject(project.id);
-              
+
               if (isApiResponseSuccess(materialListResponse)) {
                 const materialListData = getApiResponseData(materialListResponse) as any;
                 const materialList = materialListData?.materialList || materialListData;
-                
+
                 if (materialList) {
                   // Transform API response to MaterialList type
                   const transformed: MaterialList = {
@@ -118,10 +118,10 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
             }
             return null;
           });
-          
+
           const results = await Promise.all(materialListPromises);
           const validLists = results.filter((list): list is MaterialList => list !== null);
-          
+
           setMaterialLists(validLists);
         } else {
           setError('Failed to load projects');
@@ -339,18 +339,11 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
               {/* Shopping Bag Illustration with Radiating Lines */}
-              <div className="relative mb-8">
-                {/* Radiating Lines Above */}
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex gap-2">
-                  <div className="w-0.5 h-6 bg-blue-200"></div>
-                  <div className="w-0.5 h-8 bg-blue-300"></div>
-                  <div className="w-0.5 h-6 bg-blue-200"></div>
-                </div>
-                {/* Shopping Bag Icon */}
-                <div className="w-24 h-24 lg:w-28 lg:h-28 rounded-full bg-blue-50 flex items-center justify-center border-2 border-blue-100">
-                  <ShoppingBagIcon className="w-12 h-12 lg:w-14 lg:h-14 text-blue-400" />
-                </div>
-              </div>
+              <img
+                src="/icons/materials-list-screen-icons-no-material-list-yet.svg"
+                alt="Start estimating"
+                className="w-48 lg:w-64 xl:w-72 object-contain"
+              />
 
               <h3 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">
                 {emptyStateMessages[activeTab].title}
@@ -358,23 +351,22 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
               <p className="max-w-sm mx-auto mb-12 text-gray-500 text-sm lg:text-base leading-relaxed">
                 {emptyStateMessages[activeTab].message}
               </p>
+
+              <button
+                onClick={onCreateNewList}
+                className=" w-16 h-16 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
+                aria-label="Create new material list"
+              >
+                <div className="lg:scale-125">
+                  <PlusIcon />
+                </div>
+              </button>
             </div>
           )}
         </div>
       </main>
 
-      {/* Floating Action Button - Only show in empty state */}
-      {filteredLists.length === 0 && (
-        <button
-          onClick={onCreateNewList}
-          className="fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
-          aria-label="Create new material list"
-        >
-          <div className="lg:scale-125">
-            <PlusIcon />
-          </div>
-        </button>
-      )}
+
 
       {/* Search Modal */}
       {showSearch && (
@@ -445,8 +437,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('all')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'all'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   All Time
@@ -454,8 +446,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('last7')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'last7'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   Last 7 Days
@@ -463,8 +455,8 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
                 <button
                   onClick={() => setQuickFilter('thisMonth')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'thisMonth'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   This Month

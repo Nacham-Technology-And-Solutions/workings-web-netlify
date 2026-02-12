@@ -82,7 +82,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
                     />
                   </svg>
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2 font-audiowide">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
                   Check Your Email
                 </h1>
                 <p className="text-gray-600 mb-4">
@@ -108,7 +108,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onBack, onS
         <div className="w-full max-w-md mx-auto py-8">
           {/* Header Section */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 font-audiowide">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
               Forgot Password?
             </h1>
             <p className="text-gray-600 text-base sm:text-lg font-exo">

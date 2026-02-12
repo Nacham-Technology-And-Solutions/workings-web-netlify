@@ -235,7 +235,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
         <div className="w-full max-w-md mx-auto py-8">
         {/* Header Section */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 font-audiowide">Create an account</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Create an account</h1>
           <p className="text-gray-600 text-base sm:text-lg font-exo">Get started — create quotes and manage projects.</p>
         </div>
         

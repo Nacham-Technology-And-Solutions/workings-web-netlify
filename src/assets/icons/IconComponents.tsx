@@ -5,11 +5,12 @@ import React from 'react';
 // App logos from design file (primary = horizontal, secondary = vertical)
 const APP_LOGOS_BASE = '/icons';
 
+/* Logo size increased to match design (icon + wordmark more prominent in header) */
 export const HeaderLogo: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (props) => (
   <img
     src={`${APP_LOGOS_BASE}/app-primary-logo.svg`}
     alt="Workings"
-    className="h-12 w-auto object-contain"
+    className="h-11 md:h-14 w-auto object-contain"
     {...props}
   />
 );

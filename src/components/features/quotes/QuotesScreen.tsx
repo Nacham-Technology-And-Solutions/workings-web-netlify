@@ -183,24 +183,32 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
     <div className="flex flex-col h-screen min-h-0 bg-[#FAFAFA]">
         <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
             <div className="max-w-7xl lg:mx-auto">
-             <div className="flex items-center gap-3 mb-4">
-                {onBack && (
-                  <button 
-                    onClick={onBack}
-                    className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors"
-                    aria-label="Go back"
-                  >
-                    <ChevronLeftIcon />
-                  </button>
-                )}
-                <div className="flex-1">
-                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
-                    Quotes
-                  </h1>
-                  <p className="text-sm lg:text-base text-gray-700 mt-1">
-                    Create, send, and track quotes for your projects.
-                  </p>
+             <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {onBack && (
+                    <button 
+                      onClick={onBack}
+                      className="text-gray-600 hover:text-gray-900 lg:hover:bg-gray-100 lg:p-2 lg:rounded-lg lg:transition-colors shrink-0"
+                      aria-label="Go back"
+                    >
+                      <ChevronLeftIcon />
+                    </button>
+                  )}
+                  <div>
+                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
+                      Quotes
+                    </h1>
+                    <p className="text-sm lg:text-base text-gray-700 mt-1">
+                      Create, send, and track quotes for your projects.
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={onNewQuote}
+                  className="px-4 py-2 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
+                >
+                  Create New Quote
+                </button>
             </div>
             <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
                 {tabs.map(tab => (
@@ -262,22 +270,16 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
                 <EmptyState
                     title={title}
                     message={message}
-                    actionText="New Quote"
+                    actionText="Create new quote"
                     onAction={onNewQuote}
+                    iconSrc="/icons/quotes-screen-icons-no-quote-yet.svg"
+                    actionIcon={<PlusIcon className="w-8 h-8" />}
                 />
             )}
             </div>
         </main>
 
-        <button 
-            onClick={onNewQuote}
-            className="fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
-            aria-label="Create new quote"
-        >
-            <div className="lg:scale-125">
-            <PlusIcon />
-            </div>
-        </button>
+        
     </div>
   );
 };

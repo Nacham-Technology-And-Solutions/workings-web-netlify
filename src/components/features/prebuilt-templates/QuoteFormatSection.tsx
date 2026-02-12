@@ -31,7 +31,7 @@ const QuoteFormatSection: React.FC = () => {
     });
   };
 
-  const fontFamilies = ['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'];
+  const fontFamilies = ['Exo 2', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'];
 
   return (
     <div className="space-y-6">

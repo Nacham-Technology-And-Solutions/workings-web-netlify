@@ -111,7 +111,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount, onF
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12">
         <div className="w-full max-w-md mx-auto py-6 sm:py-8 lg:py-10">
         <div className="text-left mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text-primary font-audiowide">Sign in</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text-primary">Sign in</h1>
           <p className="text-sm sm:text-base text-text-secondary mt-2 font-exo">Welcome back — pick up where you left off.</p>
         </div>
         

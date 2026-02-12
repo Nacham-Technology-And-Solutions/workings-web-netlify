@@ -8,8 +8,8 @@ export default {
     extend: {
       fontFamily: {
         'audiowide': ['Audiowide', 'cursive'],
-        'exo': ['Exo', 'sans-serif'],
-        'sans': ['Exo', 'sans-serif'],
+        'exo': ['Exo 2', 'sans-serif'],
+        'sans': ['Exo 2', 'sans-serif'],
       },
       colors: {
         primary: {

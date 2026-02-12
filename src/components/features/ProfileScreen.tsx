@@ -317,8 +317,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             </div>
           )}
           
-          {/* User Avatar - Right Aligned */}
-          <div className="flex justify-center sm:justify-end mb-6 sm:mb-8">
+          {/* User Avatar - Left on desktop, centered on mobile */}
+          <div className="flex justify-center lg:justify-start mb-6 sm:mb-8">
             <div className="relative">
               <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300">
                 <span className="text-gray-900 font-bold text-2xl sm:text-3xl">{userInitials}</span>

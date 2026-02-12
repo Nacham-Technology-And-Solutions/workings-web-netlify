@@ -26,7 +26,7 @@ const EstimatesPanel: React.FC<EstimatesPanelProps> = ({ estimates }) => {
                 <div key={item.id} className="grid grid-cols-3 gap-2 items-center text-slate-400">
                   <span className="col-span-2 truncate">{item.description}</span>
                   <div className="text-right">
-                    <span className="text-slate-200 font-mono">${item.total.toFixed(2)}</span>
+                    <span className="text-slate-200">${item.total.toFixed(2)}</span>
                     <p className="text-xs text-slate-500">{item.quantity.toFixed(2)} {item.unit} @ ${item.unitCost.toFixed(2)}</p>
                   </div>
                 </div>
@@ -38,7 +38,7 @@ const EstimatesPanel: React.FC<EstimatesPanelProps> = ({ estimates }) => {
       <div className="border-t-2 border-slate-700 pt-4 mt-4">
         <div className="flex justify-between items-center text-xl">
           <span className="font-bold text-slate-100">Grand Total</span>
-          <span className="font-bold text-sky-400 font-mono">${grandTotal.toFixed(2)}</span>
+          <span className="font-bold text-sky-400">${grandTotal.toFixed(2)}</span>
         </div>
       </div>
     </aside>

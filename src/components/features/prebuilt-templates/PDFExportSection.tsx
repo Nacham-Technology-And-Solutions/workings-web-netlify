@@ -5,7 +5,7 @@ const PDFExportSection: React.FC = () => {
   const { pdfExport, updatePDFExport, resetPDFExport } = useTemplateStore();
 
   const pageSizes = ['A4', 'Letter', 'Legal', 'A3', 'Custom'] as const;
-  const fontFamilies = ['Helvetica', 'Arial', 'Times', 'Courier'];
+  const fontFamilies = ['Exo 2', 'Helvetica', 'Arial', 'Times', 'Courier'];
   const dateFormats = [
     { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (2024-12-25)' },
     { value: 'DD-MM-YYYY', label: 'DD-MM-YYYY (25-12-2024)' },
@@ -630,7 +630,7 @@ const PDFExportSection: React.FC = () => {
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">Preview:</p>
-            <p className="text-sm font-mono text-gray-900">{generateFileNamePreview()}.pdf</p>
+            <p className="text-sm text-gray-900">{generateFileNamePreview()}.pdf</p>
           </div>
         </div>
       </div>
