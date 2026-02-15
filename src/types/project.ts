@@ -34,6 +34,8 @@ export interface DimensionItem {
   openingPanels?: string; // O - Opening panels for M1
   verticalPanels?: string; // N_v - Vertical panels for M9
   horizontalPanels?: string; // N_h - Horizontal panels for M9
+  title?: string; // Optional label (e.g. "Living room"); max 100 chars; sent to backend for element titling
+  color?: string; // Optional hex (e.g. "#3B82F6"); sent to backend for element color
 }
 
 export interface ProjectMeasurementData {
@@ -62,6 +64,8 @@ export interface GlazingDimension {
     cell_width?: number[];
     // ... other module-specific parameters
   };
+  title?: string; // Optional: frontend label (e.g. "Living room"); max 100 chars
+  color?: string; // Optional: hex (e.g. "#3B82F6"); backend uses default palette if omitted
 }
 
 export interface ProjectData {

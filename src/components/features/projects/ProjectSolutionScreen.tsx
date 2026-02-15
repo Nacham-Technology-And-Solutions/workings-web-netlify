@@ -54,6 +54,7 @@ interface ProjectSolutionScreenProps {
     projectMeasurement?: ProjectMeasurementData;
   };
   initialTab?: 'material' | 'cutting' | 'glass';
+  initialCalculationResult?: CalculationResult | null;
   draftProjectId?: number | null;
   onCreateQuote?: (materialCost?: number, calculationResult?: CalculationResult, projectMeasurement?: ProjectMeasurementData) => void;
   onProjectSaved?: () => void;
@@ -66,7 +67,7 @@ interface MaterialItem {
   unit: string;
 }
 
-const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, previousData, initialTab = 'material', draftProjectId, onCreateQuote, onProjectSaved }) => {
+const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onProjectSaved }) => {
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass'>(initialTab);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
@@ -218,13 +219,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     };
   }, []);
 
-  // Load calculation on mount if we have previous data
+  // Load calculation on mount: use initial result (View results) or run calculate
   useEffect(() => {
-    // Prevent duplicate calculations (React StrictMode runs effects twice in dev)
+    if (initialCalculationResult && Array.isArray(initialCalculationResult.materialList)) {
+      setCalculationResult(initialCalculationResult);
+      hasCalculatedRef.current = true;
+      return;
+    }
     if (hasCalculatedRef.current || calculationInProgressRef.current) {
       return;
     }
-    
     if (previousData?.projectDescription && previousData?.selectProject && previousData?.projectMeasurement) {
       handleCalculate();
     }
@@ -258,10 +262,17 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       // Convert to ProjectCart format
       const { projectCart, settings } = projectDataToProjectCart(projectData);
 
+      // Build elementDisplayOverrides from glazingDimensions (same order as projectCart)
+      const elementDisplayOverrides = projectData.glazingDimensions.map((dim) => ({
+        ...(dim.title != null && dim.title !== '' && { title: dim.title }),
+        ...(dim.color != null && dim.color !== '' && { color: dim.color }),
+      }));
+
       // Call calculation API
       const response = await calculationsService.calculate({
         projectCart,
         settings,
+        elementDisplayOverrides,
       });
 
       const normalizedResponse = normalizeApiResponse(response);

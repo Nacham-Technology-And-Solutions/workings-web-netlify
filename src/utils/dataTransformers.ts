@@ -75,12 +75,15 @@ export function convertDimensionItemToGlazingDimension(
     parameters.N_h = horizontalPanels;
   }
 
-  return {
+  const result: GlazingDimension = {
     glazingCategory: category,
     glazingType,
     moduleId,
     parameters,
   };
+  if (item.title !== undefined && item.title !== '') result.title = item.title;
+  if (item.color !== undefined && item.color !== '') result.color = item.color;
+  return result;
 }
 
 /**

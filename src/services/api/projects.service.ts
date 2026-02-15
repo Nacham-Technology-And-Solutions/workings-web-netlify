@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
 import type { ProjectData, GlazingDimension } from '@/types/project';
+import type { CalculationResult } from '@/types/calculations';
 
 export interface Project {
   id: number;
@@ -76,6 +77,12 @@ export interface ApiResponse<T> {
   response: T;
 }
 
+/** GET project response: project + optional last calculation result (when calculated) */
+export interface GetProjectByIdResponse {
+  project: Project;
+  lastCalculationResult: CalculationResult | null;
+}
+
 // Projects Service
 export const projectsService = {
   /**
@@ -102,10 +109,10 @@ export const projectsService = {
   },
 
   /**
-   * Get a single project by ID
+   * Get a single project by ID. When the project has been calculated, response includes lastCalculationResult.
    */
-  getById: async (projectId: number): Promise<ApiResponse<Project>> => {
-    const response = await apiClient.get<ApiResponse<Project>>(`/api/v1/projects/${projectId}`);
+  getById: async (projectId: number): Promise<ApiResponse<GetProjectByIdResponse>> => {
+    const response = await apiClient.get<ApiResponse<GetProjectByIdResponse>>(`/api/v1/projects/${projectId}`);
     return response.data;
   },
 

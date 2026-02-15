@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { projectsService } from '@/services/api';
 import type { Project as ApiProject } from '@/services/api/projects.service';
+import type { CalculationResult } from '@/types/calculations';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse } from '@/utils/apiResponseHelper';
@@ -10,8 +11,11 @@ interface ProjectDetailScreenProps {
   projectId: string;
   onBack: () => void;
   onEdit?: (projectId: string) => void;
+  onAddDimensions?: (projectId: string) => void;
   onDelete?: () => void;
   onCalculate?: (projectId: string) => void;
+  onViewResults?: (projectId: string, lastCalculationResult: CalculationResult) => void;
+  onModifyDimensionsRecalculate?: (projectId: string) => void;
   onEditCalculationSettings?: (projectId: string) => void;
 }
 
@@ -19,11 +23,15 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
   projectId,
   onBack,
   onEdit,
+  onAddDimensions,
   onDelete,
   onCalculate,
+  onViewResults,
+  onModifyDimensionsRecalculate,
   onEditCalculationSettings,
 }) => {
   const [project, setProject] = useState<ApiProject | null>(null);
+  const [lastCalculationResult, setLastCalculationResult] = useState<CalculationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -60,13 +68,12 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
       console.log('Normalized response:', normalizedResponse);
       
       if (normalizedResponse.success && normalizedResponse.response) {
-        // The API returns { response: { project: {...} } }
-        // So we need to extract the project from the nested structure
+        // The API returns { response: { project: {...}, lastCalculationResult?: ... } }
         const responseData = normalizedResponse.response as any;
         const projectData = responseData.project || responseData;
-        
-        console.log('Extracted project data:', projectData);
+        const lastResult = responseData.lastCalculationResult ?? null;
         setProject(projectData);
+        setLastCalculationResult(Array.isArray(lastResult?.materialList) ? lastResult : null);
       } else {
         setError(normalizedResponse.message || 'Failed to load project');
       }
@@ -116,8 +123,8 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-screen bg-white">
-        <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-col h-full min-h-0 bg-white">
+        <div className="flex-1 min-h-0 flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
             <p className="text-gray-500">Loading project...</p>
@@ -129,7 +136,7 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
 
   if (error && !project) {
     return (
-      <div className="flex flex-col h-screen bg-white">
+      <div className="flex flex-col h-full min-h-0 bg-white">
         <div className="p-4 border-b border-gray-200">
           <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
             <ChevronLeftIcon />
@@ -150,7 +157,7 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
 
   if (!project) {
     return (
-      <div className="flex flex-col h-screen bg-white">
+      <div className="flex flex-col h-full min-h-0 bg-white">
         <div className="p-4 border-b border-gray-200">
           <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
             <ChevronLeftIcon />
@@ -177,9 +184,9 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
   const statusBadgeClass = statusBadgeStyles[projectStatus] || statusBadgeStyles['draft'];
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-full min-h-0 bg-white">
       {/* Header */}
-      <header className="p-4 lg:p-6 bg-white border-b border-gray-200">
+      <header className="flex-shrink-0 p-4 lg:p-6 bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-4">
             <button 
@@ -198,8 +205,16 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
-            {onCalculate && (
+          <div className="flex gap-3 flex-wrap">
+            {onAddDimensions && (!project.glazingDimensions?.length || project.glazingDimensions.length === 0) && !project.calculated && (
+              <button
+                onClick={() => onAddDimensions(projectId)}
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
+              >
+                Add dimensions to calculate
+              </button>
+            )}
+            {onCalculate && project.glazingDimensions?.length > 0 && !project.calculated && (
               <button
                 onClick={() => onCalculate(projectId)}
                 className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
@@ -207,7 +222,23 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
                 Calculate
               </button>
             )}
-            {onEditCalculationSettings && (
+            {onViewResults && project.calculated && lastCalculationResult && (
+              <button
+                onClick={() => onViewResults(projectId, lastCalculationResult)}
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
+              >
+                View results
+              </button>
+            )}
+            {onModifyDimensionsRecalculate && project.calculated && (
+              <button
+                onClick={() => onModifyDimensionsRecalculate(projectId)}
+                className="px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm font-medium"
+              >
+                Modify dimensions & recalculate
+              </button>
+            )}
+            {onEditCalculationSettings && project.calculated && (
               <button
                 onClick={() => onEditCalculationSettings(projectId)}
                 className="px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm font-medium"
@@ -245,8 +276,8 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
         </div>
       )}
 
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-gray-50">
+      {/* Content - min-h-0 so flex-1 can shrink and scroll works within parent */}
+      <main className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-6 pb-10 lg:pb-12 bg-gray-50">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Project Information */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -327,7 +358,17 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
               Glazing Dimensions ({project.glazingDimensions?.length || 0})
             </h2>
             {!project.glazingDimensions || project.glazingDimensions.length === 0 ? (
-              <p className="text-gray-500">No glazing dimensions added yet.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-3">
+                <p className="text-gray-500">No glazing dimensions added yet.</p>
+                {onAddDimensions && !project.calculated && (
+                  <button
+                    onClick={() => onAddDimensions(projectId)}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium w-fit"
+                  >
+                    Add dimensions to calculate
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="space-y-3">
                 {project.glazingDimensions.map((dimension, index) => (
@@ -338,6 +379,22 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
                         <p className="text-sm text-gray-500">
                           {dimension.glazingCategory || 'N/A'} • {dimension.moduleId || 'N/A'}
                         </p>
+                        {(dimension.title || dimension.color) && (
+                          <div className="flex items-center gap-2 mt-2">
+                            {dimension.title && (
+                              <span className="text-sm text-gray-700">
+                                Label: <span className="font-medium">{dimension.title}</span>
+                              </span>
+                            )}
+                            {dimension.color && (
+                              <span
+                                className="inline-block w-4 h-4 rounded border border-gray-200 shrink-0"
+                                style={{ backgroundColor: dimension.color }}
+                                title={dimension.color}
+                              />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {dimension.parameters && Object.keys(dimension.parameters).length > 0 && (

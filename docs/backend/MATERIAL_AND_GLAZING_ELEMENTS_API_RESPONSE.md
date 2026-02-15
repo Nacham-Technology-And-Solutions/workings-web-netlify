@@ -43,10 +43,10 @@ GlazingElement[] = Array<{
 
 Material list is **retrieved** only (no body). The list is produced when you run **Project calculate** (see §5); these GET endpoints return the stored result.
 
-| Endpoint | Method | Path params | Body |
-|----------|--------|-------------|------|
-| By project (latest) | `GET` | `projectId` (number) | — |
-| By ID | `GET` | `materialListId` (number) | — |
+| Endpoint            | Method | Path params               | Body |
+| ------------------- | ------ | ------------------------- | ---- |
+| By project (latest) | `GET`  | `projectId` (number)      | —    |
+| By ID               | `GET`  | `materialListId` (number) | —    |
 
 - **Auth:** Required (session).
 - **Path:** `/api/v1/material-lists/project/:projectId` or `/api/v1/material-lists/:materialListId`.
@@ -91,13 +91,13 @@ Material list is **retrieved** only (no body). The list is produced when you run
 
 **Material list item shape** (`response.materialList.materialList[]`)
 
-| Field       | Type   | Description                                  |
-|------------|--------|----------------------------------------------|
-| `item`     | string | e.g. "Transom (55x55mm)", "Glass Sheet (...)" |
-| `units`    | number | Total quantity needed                        |
-| `type`     | string | `"Profile"` \| `"Accessory_Pair"` \| `"Sheet"` \| `"Roll"` \| `"Meter"` |
-| `unitPrice`| number?| Optional (quotes)                            |
-| `totalPrice`| number?| Optional (quotes)                           |
+| Field        | Type    | Description                                                             |
+| ------------ | ------- | ----------------------------------------------------------------------- |
+| `item`       | string  | e.g. "Transom (55x55mm)", "Glass Sheet (...)"                           |
+| `units`      | number  | Total quantity needed                                                   |
+| `type`       | string  | `"Profile"` \| `"Accessory_Pair"` \| `"Sheet"` \| `"Roll"` \| `"Meter"` |
+| `unitPrice`  | number? | Optional (quotes)                                                       |
+| `totalPrice` | number? | Optional (quotes)                                                       |
 
 ---
 
@@ -107,10 +107,10 @@ Material list is **retrieved** only (no body). The list is produced when you run
 
 Cutting list is **retrieved** only. It is produced when you run **Project calculate** (see §5); these GET endpoints return the stored result (including `elements`).
 
-| Endpoint | Method | Path params | Body |
-|----------|--------|-------------|------|
-| By project (latest) | `GET` | `projectId` (number) | — |
-| By ID | `GET` | `cuttingListId` (number) | — |
+| Endpoint            | Method | Path params              | Body |
+| ------------------- | ------ | ------------------------ | ---- |
+| By project (latest) | `GET`  | `projectId` (number)     | —    |
+| By ID               | `GET`  | `cuttingListId` (number) | —    |
 
 - **Auth:** Required (session).
 - **Path:** `/api/v1/cutting-lists/project/:projectId` or `/api/v1/cutting-lists/:cuttingListId`.
@@ -159,11 +159,11 @@ Cutting list is **retrieved** only. It is produced when you run **Project calcul
 
 **Cutting list item shape** (`response.cuttingList.cuttingList[]`)
 
-| Field          | Type   | Description |
-|----------------|--------|-------------|
-| `profile_name`| string | e.g. "Width Profile", "Transom (Sliding)" |
-| `stock_length`| number | Stock length in mm (e.g. 6000, 5850) |
-| `plan`        | array  | One entry per bar; see below |
+| Field          | Type   | Description                               |
+| -------------- | ------ | ----------------------------------------- |
+| `profile_name` | string | e.g. "Width Profile", "Transom (Sliding)" |
+| `stock_length` | number | Stock length in mm (e.g. 6000, 5850)      |
+| `plan`         | array  | One entry per bar; see below              |
 
 **Plan entry** (one object per bar): keys are cut labels, values are arrays of pieces.
 
@@ -182,10 +182,10 @@ Use `elementId` to look up title and color in `response.cuttingList.elements`.
 
 Glass cutting list is **retrieved** only. It is produced when you run **Project calculate** (see §5); these GET endpoints return the stored result (including `elements`).
 
-| Endpoint | Method | Path params | Body |
-|----------|--------|-------------|------|
-| By project (latest) | `GET` | `projectId` (number) | — |
-| By ID | `GET` | `glassCuttingListId` (number) | — |
+| Endpoint            | Method | Path params                   | Body |
+| ------------------- | ------ | ----------------------------- | ---- |
+| By project (latest) | `GET`  | `projectId` (number)          | —    |
+| By ID               | `GET`  | `glassCuttingListId` (number) | —    |
 
 - **Auth:** Required (session).
 - **Path:** `/api/v1/glass-cutting-lists/project/:projectId` or `/api/v1/glass-cutting-lists/:glassCuttingListId`.
@@ -213,12 +213,8 @@ Glass cutting list is **retrieved** only. It is produced when you run **Project 
         { "id": "el_0", "title": "Window 1", "color": "#3B82F6" },
         { "id": "el_1", "title": "Window 2", "color": "#10B981" }
       ],
-      "rubberTotals": [
-        { "name": "Frame rubber (Transom)", "total_meters": 12.5 }
-      ],
-      "accessoryTotals": [
-        { "name": "Tapping screw", "qty": 24, "unit": "pcs" }
-      ],
+      "rubberTotals": [{ "name": "Frame rubber (Transom)", "total_meters": 12.5 }],
+      "accessoryTotals": [{ "name": "Tapping screw", "qty": 24, "unit": "pcs" }],
       "createdAt": "2025-02-12T10:00:00.000Z",
       "updatedAt": "2025-02-12T10:00:00.000Z",
       "project": {
@@ -234,32 +230,32 @@ Glass cutting list is **retrieved** only. It is produced when you run **Project 
 
 **Glass list shape** (`response.glassCuttingList.glassList`)
 
-| Field         | Type   | Description |
-|---------------|--------|-------------|
-| `sheet_type`  | string | e.g. "3310x2140mm" |
-| `total_sheets`| number | Number of sheets needed |
-| `cuts`       | array  | See glass cut shape below |
+| Field          | Type   | Description               |
+| -------------- | ------ | ------------------------- |
+| `sheet_type`   | string | e.g. "3310x2140mm"        |
+| `total_sheets` | number | Number of sheets needed   |
+| `cuts`         | array  | See glass cut shape below |
 
 **Glass cut shape** (`glassList.cuts[]`)
 
-| Field      | Type    | Description |
-|------------|---------|-------------|
-| `h`        | number  | Height (mm) |
-| `w`        | number  | Width (mm)  |
-| `qty`      | number  | Quantity of this size |
-| `elementId`| string? | e.g. "el_0" for "Window 1 glass". Optional. |
+| Field       | Type    | Description                                 |
+| ----------- | ------- | ------------------------------------------- |
+| `h`         | number  | Height (mm)                                 |
+| `w`         | number  | Width (mm)                                  |
+| `qty`       | number  | Quantity of this size                       |
+| `elementId` | string? | e.g. "el_0" for "Window 1 glass". Optional. |
 
 **Rubber total shape** (`response.glassCuttingList.rubberTotals[]`)
 
 | Field          | Type   |
-|----------------|--------|
+| -------------- | ------ |
 | `name`         | string |
 | `total_meters` | number |
 
 **Accessory total shape** (`response.glassCuttingList.accessoryTotals[]`)
 
 | Field  | Type   |
-|--------|--------|
+| ------ | ------ | ------------------ |
 | `name` | string |
 | `qty`  | number |
 | `unit` | string | e.g. "pcs", "pair" |
@@ -274,38 +270,40 @@ This is the **request** that creates/updates the material list, cutting list, an
 
 ### Request
 
-| Item | Value |
-|------|--------|
-| **Method** | `POST` |
-| **Path** | `/api/v1/projects/:projectId/calculate` |
-| **Path params** | `projectId` (number) |
-| **Body** | None |
+| Item            | Value                                   |
+| --------------- | --------------------------------------- |
+| **Method**      | `POST`                                  |
+| **Path**        | `/api/v1/projects/:projectId/calculate` |
+| **Path params** | `projectId` (number)                    |
+| **Body**        | None                                    |
 
 - **Auth:** Required (session).
 - The project must already exist and have **glazingDimensions** (and optionally **calculationSettings**) set, e.g. via `POST /api/v1/projects` (create) or `PATCH /api/v1/projects/:projectId` (update).
 
 **Project input that drives the result** (set on the project before calling calculate):
 
-**Glazing dimensions** (array, one entry per glazing item — each becomes a glazing element “Window 1”, “Window 2”, …):
+**Glazing dimensions** (array, one entry per glazing item — each becomes a glazing element). The backend assigns **id** (`el_0`, `el_1`, …). The frontend can optionally supply **title** and **color** per item; if omitted, backend uses default title (“Window 1”, …) and a default color palette.
 
 ```ts
 glazingDimensions = Array<{
-  glazingCategory: "Window" | "Door" | "Net" | "Partition" | "Curtain Wall";
-  glazingType: string;   // e.g. "Casement D/Curve"
-  moduleId: string;      // e.g. "M1_Casement_DCurve", "M2_Sliding_2Sash"
+  glazingCategory: 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain Wall';
+  glazingType: string; // e.g. "Casement D/Curve"
+  moduleId: string; // e.g. "M1_Casement_DCurve", "M2_Sliding_2Sash"
   parameters: {
-    W?: number;          // Width (mm)
-    H?: number;          // Height (mm)
-    N?: number;          // Panels (1–5)
-    O?: number;          // Opening panels
-    qty?: number;        // Quantity
-    N_v?: number;        // Vertical panels (curtain wall)
-    N_h?: number;        // Horizontal panels (curtain wall)
+    W?: number; // Width (mm)
+    H?: number; // Height (mm)
+    N?: number; // Panels (1–5)
+    O?: number; // Opening panels
+    qty?: number; // Quantity
+    N_v?: number; // Vertical panels (curtain wall)
+    N_h?: number; // Horizontal panels (curtain wall)
     in_to_in_width?: number;
     in_to_in_height?: number;
     cell_heights?: number[];
     cell_width?: number[];
   };
+  title?: string;  // Optional: frontend label (e.g. "Living room", "Bedroom 1"); max 100 chars
+  color?: string;  // Optional: hex color (e.g. "#3B82F6"); backend uses default palette if omitted
 }>;
 ```
 
@@ -319,7 +317,7 @@ calculationSettings = {
 };
 ```
 
-**Example project payload** (for create/update) that would lead to a calculated result:
+**Example project payload** (for create/update) with optional frontend **title** and **color** per element:
 
 ```json
 {
@@ -331,18 +329,24 @@ calculationSettings = {
       "glazingCategory": "Window",
       "glazingType": "Casement D/Curve",
       "moduleId": "M1_Casement_DCurve",
-      "parameters": { "W": 1200, "H": 900, "N": 2, "qty": 1 }
+      "parameters": { "W": 1200, "H": 900, "N": 2, "qty": 1 },
+      "title": "Living room",
+      "color": "#3B82F6"
     },
     {
       "glazingCategory": "Window",
       "glazingType": "Sliding 2 Sash",
       "moduleId": "M2_Sliding_2Sash",
-      "parameters": { "W": 1500, "H": 1000, "qty": 1 }
+      "parameters": { "W": 1500, "H": 1000, "qty": 1 },
+      "title": "Bedroom 1",
+      "color": "#10B981"
     }
   ],
   "calculationSettings": { "stockLength": 6 }
 }
 ```
+
+If `title` or `color` are omitted for an item, the backend uses defaults (“Window 1”, “Window 2”, … and a palette color).
 
 After this project is created/updated, `POST /api/v1/projects/:projectId/calculate` uses it to produce the material list, cutting list (with elements), and glass cutting list (with elements).
 
@@ -380,13 +384,44 @@ After this project is created/updated, `POST /api/v1/projects/:projectId/calcula
 
 ---
 
+## 6. GET project (with optional last calculation result)
+
+**Endpoint:** `GET /api/v1/projects/:projectId`
+
+The response always includes `project`. When the project has been calculated at least once, the response also includes **`lastCalculationResult`** — a single object in **CalculationResult** shape (materialList, cuttingList, glassList, rubberTotals, accessoryTotals, elements). The frontend can use this when the user chooses “View results” without a separate request.
+
+- **When calculated:** `response.lastCalculationResult` is `{ materialList, cuttingList, glassList, rubberTotals, accessoryTotals, elements }` (same shape as §1–4).
+- **When not calculated (draft):** `response.lastCalculationResult` is `null`.
+
+**Example response (project already calculated):**
+
+```json
+{
+  "responseMessage": "Project retrieved successfully",
+  "response": {
+    "project": { "id": 1, "projectName": "...", "glazingDimensions": [...], "materialLists": [...], "cuttingLists": [...], "glassCuttingLists": [...] },
+    "lastCalculationResult": {
+      "materialList": [...],
+      "cuttingList": [...],
+      "glassList": { "sheet_type": "3310x2140mm", "total_sheets": 2, "cuts": [...] },
+      "rubberTotals": [...],
+      "accessoryTotals": [...],
+      "elements": [{ "id": "el_0", "title": "Window 1", "color": "#3B82F6" }, ...]
+    }
+  }
+}
+```
+
+---
+
 ## Summary table
 
-| API | Request | Response: main data | Response: glazing elements |
-|-----|---------|----------------------|----------------------------|
-| Material list | GET by `projectId` or `materialListId` (no body) | `materialList` (array) | — |
-| Cutting list | GET by `projectId` or `cuttingListId` (no body) | `cuttingList` (array), plan with `elementId` per piece | `elements` (array) |
-| Glass cutting list | GET by `projectId` or `glassCuttingListId` (no body) | `glassList`, `rubberTotals`, `accessoryTotals`; cuts may have `elementId` | `elements` (array) |
-| Project calculate | POST `/projects/:projectId/calculate` (no body). Project must have `glazingDimensions` (+ optional `calculationSettings`) set. | All of the above in `calculationResult` + `result` | `result.elements` and on each list |
+| API                | Request                                                                                                                        | Response: main data                                                       | Response: glazing elements         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ---------------------------------- |
+| Material list      | GET by `projectId` or `materialListId` (no body)                                                                               | `materialList` (array)                                                    | —                                  |
+| Cutting list       | GET by `projectId` or `cuttingListId` (no body)                                                                                | `cuttingList` (array), plan with `elementId` per piece                    | `elements` (array)                 |
+| Glass cutting list | GET by `projectId` or `glassCuttingListId` (no body)                                                                           | `glassList`, `rubberTotals`, `accessoryTotals`; cuts may have `elementId` | `elements` (array)                 |
+| **GET project**    | GET `/projects/:projectId` (no body)                                                                                          | `project`; `lastCalculationResult` (CalculationResult shape or `null`)    | `lastCalculationResult.elements`   |
+| Project calculate  | POST `/projects/:projectId/calculate` (no body). Project must have `glazingDimensions` (+ optional `calculationSettings`) set. | All of the above in `calculationResult` + `result`                        | `result.elements` and on each list |
 
 All glazing elements use the same format: `{ id, title, color }`. Use `id` (e.g. `"el_0"`) to match `elementId` on cutting plan pieces and glass cuts.

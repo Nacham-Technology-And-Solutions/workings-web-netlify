@@ -1,6 +1,6 @@
 /**
  * Validation error utilities for API ZodError responses.
- * Aligns with docs/dev docs/FRONTEND_ZOD_VALIDATION_ERROR_LIST.md.
+ * Aligns with docs/frontend/FRONTEND_ZOD_VALIDATION_ERROR_LIST.md.
  *
  * API returns 400 with:
  * { error: "ZodError(input validation error)", responseMessage: [ { code, path, message } ] }

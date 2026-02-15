@@ -18,9 +18,11 @@ interface ProjectMeasurementScreenProps {
   onNext: (data: ProjectMeasurementData) => void;
   previousData?: SelectProjectData;
   onNavigateToStep?: (step: string) => void;
+  /** When true, primary action shows "Recalculate" (e.g. after "Modify dimensions & recalculate") */
+  isRecalculate?: boolean;
 }
 
-const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onBack, onNext, previousData, onNavigateToStep }) => {
+const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onBack, onNext, previousData, onNavigateToStep, isRecalculate }) => {
   // Extract selected project data
   const selectProjectData = previousData || {
     windows: [],
@@ -103,9 +105,16 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   const [openingPanels, setOpeningPanels] = useState<string>('');
   const [verticalPanels, setVerticalPanels] = useState<string>('');
   const [horizontalPanels, setHorizontalPanels] = useState<string>('');
+  const [elementTitle, setElementTitle] = useState<string>('');
+  const [elementColor, setElementColor] = useState<string>('');
   const [dimensions, setDimensions] = useState<DimensionItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+
+  // Optional label/color palette for glazing elements (backend uses defaults if omitted)
+  const ELEMENT_COLOR_PRESETS = [
+    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+  ];
 
   // Get enabled categories from selected project data
   const enabledCategories = useMemo(() => {
@@ -217,6 +226,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     setOpeningPanels(dimension.openingPanels || '');
     setVerticalPanels(dimension.verticalPanels || '');
     setHorizontalPanels(dimension.horizontalPanels || '');
+    setElementTitle(dimension.title ?? '');
+    setElementColor(dimension.color ?? '');
     setEditingId(dimension.id);
   };
 
@@ -232,6 +243,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
         ...(openingPanels && { openingPanels }),
         ...(verticalPanels && { verticalPanels }),
         ...(horizontalPanels && { horizontalPanels }),
+        ...(elementTitle.trim() !== '' && { title: elementTitle.trim().slice(0, 100) }),
+        ...(elementColor !== '' && { color: elementColor }),
       };
 
       if (editingId) {
@@ -254,6 +267,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       setOpeningPanels('');
       setVerticalPanels('');
       setHorizontalPanels('');
+      setElementTitle('');
+      setElementColor('');
     }
   };
 
@@ -267,6 +282,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     setOpeningPanels('');
     setVerticalPanels('');
     setHorizontalPanels('');
+    setElementTitle('');
+    setElementColor('');
   };
 
   // Clear form when type changes
@@ -355,7 +372,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
             >
-              Calculate Now
+              {isRecalculate ? 'Recalculate' : 'Calculate Now'}
             </button>
           </div>
         </div>
@@ -543,7 +560,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                 })()}
               </div>
 
-              {/* Calculate Now Button - Below Canvas */}
+              {/* Calculate Now / Recalculate Button - Below Canvas */}
               <button
                 onClick={handleCalculateNow}
                 disabled={dimensions.length === 0}
@@ -552,7 +569,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
               >
-                Calculate Now
+                {isRecalculate ? 'Recalculate' : 'Calculate Now'}
               </button>
             </div>
 
@@ -755,6 +772,57 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                   </>
                 )}
 
+                {/* Optional: Label and color for this element (used in cutting list / glass list) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label htmlFor="elementTitle" className="block text-sm font-medium text-gray-600 mb-2">
+                      Label <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="elementTitle"
+                      value={elementTitle}
+                      onChange={(e) => setElementTitle(e.target.value)}
+                      placeholder="e.g. Living room, Bedroom 1"
+                      maxLength={100}
+                      className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">
+                      Color <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {ELEMENT_COLOR_PRESETS.map((hex) => (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => setElementColor(elementColor === hex ? '' : hex)}
+                          className={`w-8 h-8 rounded border-2 transition-all ${elementColor === hex ? 'border-gray-900 ring-2 ring-gray-400 scale-110' : 'border-gray-200 hover:border-gray-400'}`}
+                          style={{ backgroundColor: hex }}
+                          title={hex}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={elementColor || '#3B82F6'}
+                        onChange={(e) => setElementColor(e.target.value)}
+                        className="w-8 h-8 rounded border border-gray-300 cursor-pointer p-0"
+                        title="Custom color"
+                      />
+                      {elementColor && (
+                        <button
+                          type="button"
+                          onClick={() => setElementColor('')}
+                          className="text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Add/Update Dimension Button */}
                 <div className="flex gap-2">
                   <button
@@ -791,6 +859,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                         <tr className="border-b border-gray-200">
                           <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">S/N</th>
                           <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Dimension</th>
+                          <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Label</th>
+                          <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Color</th>
                           <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Panel</th>
                           <th className="py-2 px-3 text-left font-medium text-gray-700 text-xs">Qty</th>
                           <th className="py-2 px-3 text-center font-medium text-gray-700 text-xs">Action</th>
@@ -811,6 +881,14 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                               </div>
                               <div className="font-medium">{dim.width} x {dim.height}</div>
                               <div className="text-gray-500 text-[10px] mt-0.5">({dim.type})</div>
+                            </td>
+                            <td className="py-3 px-3 text-gray-900 text-xs">{dim.title || '—'}</td>
+                            <td className="py-3 px-3">
+                              {dim.color ? (
+                                <span className="inline-block w-5 h-5 rounded border border-gray-200" style={{ backgroundColor: dim.color }} title={dim.color} />
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
+                              )}
                             </td>
                             <td className="py-3 px-3 text-gray-900 text-xs">{dim.panel}</td>
                             <td className="py-3 px-3 text-gray-900 text-xs">{dim.quantity}</td>

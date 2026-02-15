@@ -149,6 +149,8 @@ const App: React.FC = () => {
   const [refreshQuotes, setRefreshQuotes] = useState(0);
   const [showLogViewer, setShowLogViewer] = useState(false);
   const [draftProjectId, setDraftProjectId] = useState<number | null>(null);
+  const [initialCalculationResult, setInitialCalculationResult] = useState<import('@/types/calculations').CalculationResult | null>(null);
+  const [projectWasCalculated, setProjectWasCalculated] = useState(false);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string>('Your session has expired. Please sign in again to continue.');
@@ -346,10 +348,12 @@ const App: React.FC = () => {
             ? projectData.glazingDimensions.map((dim: GlazingDimension, index: number) => ({
                 id: `dim-${index}`,
                 type: dim.glazingType,
-                width: dim.parameters.W?.toString() || '',
-                height: dim.parameters.H?.toString() || '',
+                width: (dim.parameters.W ?? dim.parameters.in_to_in_width)?.toString() || '',
+                height: (dim.parameters.H ?? dim.parameters.in_to_in_height)?.toString() || '',
                 quantity: dim.parameters.qty?.toString() || '',
                 panel: dim.parameters.N?.toString() || dim.parameters.O?.toString() || '1',
+                ...(dim.title !== undefined && dim.title !== '' && { title: dim.title }),
+                ...(dim.color !== undefined && dim.color !== '' && { color: dim.color }),
               }))
             : [],
           unit: 'mm',
@@ -387,6 +391,8 @@ const App: React.FC = () => {
         console.error('Invalid project ID:', projectId);
         return;
       }
+
+      setProjectWasCalculated(false);
 
       // Load project data from API
       const response = await projectsService.getById(projectIdNum);
@@ -455,6 +461,8 @@ const App: React.FC = () => {
             height: String(glazingDim.parameters?.H || glazingDim.parameters?.in_to_in_height || ''),
             quantity: String(glazingDim.parameters?.qty || 1),
             panel: String(glazingDim.parameters?.N || glazingDim.parameters?.O || 1),
+            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
+            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
           };
           dimensions.push(dimensionItem);
         });
@@ -473,13 +481,148 @@ const App: React.FC = () => {
         setDraftProjectId(apiProject.id);
       }
 
-      // Navigate to solution screen
+      // Navigate to solution screen (will run calculation on mount)
       navigate('projectSolution');
     } catch (error) {
       console.error('Error loading project for calculation:', error);
     }
   };
 
+  const handleViewResults = async (projectId: string, lastCalculationResult: import('@/types/calculations').CalculationResult) => {
+    try {
+      const projectIdNum = parseInt(projectId, 10);
+      if (isNaN(projectIdNum)) return;
+      const response = await projectsService.getById(projectIdNum);
+      const normalizedResponse = normalizeApiResponse(response);
+      if (!normalizedResponse.success || !normalizedResponse.response) return;
+      const responseData = normalizedResponse.response as any;
+      const apiProject = responseData.project || responseData;
+      if (!apiProject) return;
+      setProjectDescriptionData({
+        projectName: apiProject.projectName || '',
+        customerName: apiProject.customer?.name || '',
+        siteAddress: apiProject.siteAddress || '',
+        description: apiProject.description || '',
+      });
+      const selectProject: any = { windows: [], doors: [], skylights: [], glassPanels: [] };
+      const dimensions: any[] = [];
+      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
+        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
+          if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
+          else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
+          else if (glazingDim.glazingCategory === 'Net') selectProject.skylights.push('fixed-skylight');
+          else if (glazingDim.glazingCategory === 'Curtain Wall') selectProject.glassPanels.push('structural-glass');
+          dimensions.push({
+            id: `dim-${Date.now()}-${index}`,
+            type: glazingDim.glazingType || glazingDim.moduleId || '',
+            width: String(glazingDim.parameters?.W ?? glazingDim.parameters?.in_to_in_width ?? ''),
+            height: String(glazingDim.parameters?.H ?? glazingDim.parameters?.in_to_in_height ?? ''),
+            quantity: String(glazingDim.parameters?.qty ?? 1),
+            panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
+            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
+            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
+          });
+        });
+      }
+      setSelectProjectData(selectProject);
+      setProjectMeasurementData({ dimensions, unit: 'mm' });
+      setDraftProjectId(apiProject.id);
+      setInitialCalculationResult(lastCalculationResult);
+      navigate('projectSolution');
+    } catch (error) {
+      console.error('Error loading project for view results:', error);
+    }
+  };
+
+  const handleModifyDimensionsRecalculate = async (projectId: string) => {
+    try {
+      const projectIdNum = parseInt(projectId, 10);
+      if (isNaN(projectIdNum)) return;
+      const response = await projectsService.getById(projectIdNum);
+      const normalizedResponse = normalizeApiResponse(response);
+      if (!normalizedResponse.success || !normalizedResponse.response) return;
+      const responseData = normalizedResponse.response as any;
+      const apiProject = responseData.project || responseData;
+      setProjectDescriptionData({
+        projectName: apiProject.projectName || '',
+        customerName: apiProject.customer?.name || '',
+        siteAddress: apiProject.siteAddress || '',
+        description: apiProject.description || '',
+      });
+      const selectProject: any = { windows: [], doors: [], skylights: [], glassPanels: [] };
+      const dimensions: any[] = [];
+      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
+        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
+          if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
+          else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
+          else if (glazingDim.glazingCategory === 'Net') selectProject.skylights.push('fixed-skylight');
+          else if (glazingDim.glazingCategory === 'Curtain Wall') selectProject.glassPanels.push('structural-glass');
+          dimensions.push({
+            id: `dim-${Date.now()}-${index}`,
+            type: glazingDim.glazingType || glazingDim.moduleId || '',
+            width: String(glazingDim.parameters?.W ?? glazingDim.parameters?.in_to_in_width ?? ''),
+            height: String(glazingDim.parameters?.H ?? glazingDim.parameters?.in_to_in_height ?? ''),
+            quantity: String(glazingDim.parameters?.qty ?? 1),
+            panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
+            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
+            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
+          });
+        });
+      }
+      setSelectProjectData(selectProject);
+      setProjectMeasurementData({ dimensions, unit: 'mm' });
+      setDraftProjectId(apiProject.id);
+      setProjectWasCalculated(true);
+      navigate('projectMeasurement');
+    } catch (error) {
+      console.error('Error loading project for modify dimensions:', error);
+    }
+  };
+
+  /** Navigate to project measurement (dimensions) screen to add dimensions. Used when project has no dimensions yet. */
+  const handleAddDimensions = async (projectId: string) => {
+    try {
+      const projectIdNum = parseInt(projectId, 10);
+      if (isNaN(projectIdNum)) return;
+      const response = await projectsService.getById(projectIdNum);
+      const normalizedResponse = normalizeApiResponse(response);
+      if (!normalizedResponse.success || !normalizedResponse.response) return;
+      const responseData = normalizedResponse.response as any;
+      const apiProject = responseData.project || responseData;
+      setProjectDescriptionData({
+        projectName: apiProject.projectName || '',
+        customerName: apiProject.customer?.name || '',
+        siteAddress: apiProject.siteAddress || '',
+        description: apiProject.description || '',
+      });
+      const selectProject: any = { windows: [], doors: [], skylights: [], glassPanels: [] };
+      const dimensions: any[] = [];
+      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
+        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
+          if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
+          else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
+          else if (glazingDim.glazingCategory === 'Net') selectProject.skylights.push('fixed-skylight');
+          else if (glazingDim.glazingCategory === 'Curtain Wall') selectProject.glassPanels.push('structural-glass');
+          dimensions.push({
+            id: `dim-${Date.now()}-${index}`,
+            type: glazingDim.glazingType || glazingDim.moduleId || '',
+            width: String(glazingDim.parameters?.W ?? glazingDim.parameters?.in_to_in_width ?? ''),
+            height: String(glazingDim.parameters?.H ?? glazingDim.parameters?.in_to_in_height ?? ''),
+            quantity: String(glazingDim.parameters?.qty ?? 1),
+            panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
+            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
+            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
+          });
+        });
+      }
+      setSelectProjectData(selectProject);
+      setProjectMeasurementData({ dimensions, unit: 'mm' });
+      setDraftProjectId(apiProject.id);
+      navigate('selectProject');
+    } catch (error) {
+      console.error('Error loading project for add dimensions:', error);
+    }
+  };
 
   const handleDeleteProject = (projectId: string) => {
     // This will be handled by ProjectsScreen's delete handler
@@ -1465,7 +1608,6 @@ const App: React.FC = () => {
               onViewProject={handleViewProject}
               onEditProject={handleProjectEdit}
               onDeleteProject={handleDeleteProject}
-              onCalculateProject={handleProjectCalculate}
             />
           </div>
         </div>
@@ -1492,8 +1634,11 @@ const App: React.FC = () => {
                 navigate('projects');
               }}
               onEdit={handleProjectEdit}
+              onAddDimensions={handleAddDimensions}
               onDelete={handleProjectDeleted}
               onCalculate={handleProjectCalculate}
+              onViewResults={handleViewResults}
+              onModifyDimensionsRecalculate={handleModifyDimensionsRecalculate}
               onEditCalculationSettings={handleEditCalculationSettings}
             />
           </div>
@@ -1582,7 +1727,8 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <ProjectMeasurementScreen 
+            <ProjectMeasurementScreen
+              isRecalculate={projectWasCalculated}
               onBack={() => navigate('selectProject')}
               onNext={(data) => {
                 // Merge new dimensions with existing ones to preserve all dimensions
@@ -1623,10 +1769,14 @@ const App: React.FC = () => {
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectSolutionScreen
-              onBack={() => navigate('projectMeasurement')}
+              onBack={() => {
+                setInitialCalculationResult(null);
+                navigate('projectMeasurement');
+              }}
               onGenerate={handleProjectSolutionGenerate}
               onCreateQuote={handleCreateQuoteFromSolution}
               previousData={combinedData || undefined}
+              initialCalculationResult={initialCalculationResult}
               draftProjectId={draftProjectId}
               onProjectSaved={() => {
                 // Don't clear draftProjectId here - we need it for quote creation

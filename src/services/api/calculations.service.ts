@@ -1,9 +1,16 @@
 import apiClient from './apiClient';
 import type { ProjectCartItem, CalculationSettings, CalculationResult } from '@/types/calculations';
 
+export interface ElementDisplayOverride {
+  title?: string;
+  color?: string;
+}
+
 export interface CalculateRequest {
   projectCart: ProjectCartItem[];
   settings: CalculationSettings;
+  /** Optional display overrides per cart item (same order as projectCart). */
+  elementDisplayOverrides?: ElementDisplayOverride[];
 }
 
 export interface VerifyRequest {
