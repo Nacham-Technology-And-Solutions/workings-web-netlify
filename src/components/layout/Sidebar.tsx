@@ -130,9 +130,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<ProjectsIcon isActive={currentView === 'projects'} />} 
+                icon={<ProjectsIcon isActive={['projects', 'projectDetail', 'projectEdit', 'projectDescription', 'selectProject', 'projectMeasurement', 'projectSolution'].includes(currentView)} />} 
                 label="Projects" 
-                isActive={currentView === 'projects'} 
+                isActive={['projects', 'projectDetail', 'projectEdit', 'projectDescription', 'selectProject', 'projectMeasurement', 'projectSolution'].includes(currentView)} 
                 onClick={() => onNavigate('projects')}
                 isExpanded={isExpanded}
               />
@@ -144,9 +144,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<MaterialListIcon isActive={currentView === 'material-list'} />} 
+                icon={<MaterialListIcon isActive={['material-list', 'createMaterialList', 'materialListPreview'].includes(currentView)} />} 
                 label="Material List" 
-                isActive={currentView === 'material-list'} 
+                isActive={['material-list', 'createMaterialList', 'materialListPreview'].includes(currentView)} 
                 onClick={() => onNavigate('material-list')}
                 isExpanded={isExpanded}
               />

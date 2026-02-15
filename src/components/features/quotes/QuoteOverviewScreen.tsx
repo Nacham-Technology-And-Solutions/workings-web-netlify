@@ -7,31 +7,37 @@ interface QuoteOverviewScreenProps {
     onNext: (data: QuoteOverviewData) => void;
     previousData?: any;
     editingQuoteId?: string | null;
+    onNavigateToExtras?: (data?: QuoteOverviewData) => void;
+    onNavigateToItemList?: (data: QuoteOverviewData) => void;
 }
 
-const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNext, previousData, editingQuoteId }) => {
+const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNext, previousData, editingQuoteId, onNavigateToExtras, onNavigateToItemList }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'itemList' | 'extras'>('overview');
     const [customerName, setCustomerName] = useState(
         previousData?.overview?.customerName || 
         previousData?.projectDescription?.customerName || 
-        'Olumide Adewale'
+        ''
     );
     const [projectName, setProjectName] = useState(
         previousData?.overview?.projectName || 
         previousData?.projectDescription?.projectName || 
-        'Olumide Residence Renovation'
+        ''
     );
     const [siteAddress, setSiteAddress] = useState(
         previousData?.overview?.siteAddress || 
         previousData?.projectDescription?.siteAddress || 
-        'Lagos Island Apartment Refurbishment'
+        ''
     );
     const [quoteId] = useState(previousData?.overview?.quoteId || '#000045');
-    const [issueDate, setIssueDate] = useState(previousData?.overview?.issueDate || '');
+    const defaultIssueDate = (() => {
+        if (previousData?.overview?.issueDate) return previousData.overview.issueDate;
+        return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    })();
+    const [issueDate, setIssueDate] = useState(defaultIssueDate);
     const [paymentTerms, setPaymentTerms] = useState(previousData?.overview?.paymentTerms || '');
     const [showCalendar, setShowCalendar] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(
-        previousData?.overview?.issueDate ? new Date(previousData.overview.issueDate) : null
+        previousData?.overview?.issueDate ? new Date(previousData.overview.issueDate) : new Date()
     );
 
     const handleDateSelect = (date: Date) => {
@@ -51,16 +57,17 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
         setShowCalendar(false);
     };
 
+    const getOverviewData = (): QuoteOverviewData => ({
+        customerName,
+        projectName,
+        siteAddress,
+        quoteId,
+        issueDate,
+        paymentTerms
+    });
+
     const handleNext = () => {
-        const data: QuoteOverviewData = {
-            customerName,
-            projectName,
-            siteAddress,
-            quoteId,
-            issueDate,
-            paymentTerms
-        };
-        onNext(data);
+        onNext(getOverviewData());
     };
 
     return (
@@ -72,6 +79,14 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                         <span className="cursor-pointer hover:text-gray-600">Quotes</span>
                         <span>/</span>
                         <span className="cursor-pointer hover:text-gray-600">{editingQuoteId ? 'Edit Quote' : 'Create New Quote'}</span>
+                        {editingQuoteId && previousData?.overview?.projectName && previousData?.overview?.quoteId && (
+                            <>
+                                <span>/</span>
+                                <span className="cursor-pointer hover:text-gray-600">
+                                    {previousData.overview.projectName} - [{previousData.overview.quoteId}]
+                                </span>
+                            </>
+                        )}
                         <span>/</span>
                         <span className="text-gray-900 font-medium">Overview</span>
                     </div>
@@ -91,26 +106,28 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                             </div>
                         </div>
 
-                        {/* Action Buttons - Desktop */}
-                        <div className="hidden lg:flex items-center gap-3">
-                            <button
-                                onClick={handleNext}
-                                className="px-6 py-2.5 text-sm font-semibold rounded transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-                            >
-                                Edit
-                            </button>
-                            <button
-                                onClick={handleNext}
-                                className="px-6 py-2.5 text-sm font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
-                            >
-                                Download PDF
-                            </button>
-                            <button className="p-2 text-gray-600 hover:text-gray-900">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                                </svg>
-                            </button>
-                        </div>
+                        {/* Action Buttons - Desktop (only when editing existing quote) */}
+                        {/* {editingQuoteId && (
+                            <div className="hidden lg:flex items-center gap-3">
+                                <button
+                                    onClick={handleNext}
+                                    className="px-6 py-2.5 text-sm font-semibold rounded transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={handleNext}
+                                    className="px-6 py-2.5 text-sm font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                                >
+                                    Download PDF
+                                </button>
+                                <button className="p-2 text-gray-600 hover:text-gray-900">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )} */}
                     </div>
                 </div>
             </div>
@@ -134,7 +151,13 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                 )}
                             </button>
                             <button
-                                onClick={() => setActiveTab('itemList')}
+                                onClick={() => {
+                                    if (editingQuoteId) {
+                                        handleNext();
+                                    } else {
+                                        onNavigateToItemList?.(getOverviewData());
+                                    }
+                                }}
                                 className={`pb-4 px-0 text-sm font-medium transition-colors relative ${activeTab === 'itemList'
                                         ? 'text-gray-900'
                                         : 'text-gray-400 hover:text-gray-600'
@@ -146,7 +169,13 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                 )}
                             </button>
                             <button
-                                onClick={() => setActiveTab('extras')}
+                                onClick={() => {
+                                    if (editingQuoteId) {
+                                        onNavigateToExtras?.();
+                                    } else {
+                                        onNavigateToExtras?.(getOverviewData());
+                                    }
+                                }}
                                 className={`pb-4 px-0 text-sm font-medium transition-colors relative ${activeTab === 'extras'
                                         ? 'text-gray-900'
                                         : 'text-gray-400 hover:text-gray-600'
@@ -158,13 +187,6 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                 )}
                             </button>
 
-                            {/* Filter Button */}
-                            <button className="ml-auto pb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                                <span className="text-sm">Filter</span>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                            </button>
                         </div>
                     </div>
 
@@ -177,19 +199,12 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Customer's name
                                     </label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={customerName}
-                                            onChange={(e) => setCustomerName(e.target.value)}
-                                            className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                                        />
-                                        <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                        </button>
-                                    </div>
+                                    <input
+                                        type="text"
+                                        value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                    />
                                 </div>
 
                                 {/* Project name */}
@@ -250,18 +265,20 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                     />
                                 </div>
 
-                                {/* Quote ID */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Quote ID
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={quoteId}
-                                        readOnly
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-900 cursor-not-allowed"
-                                    />
-                                </div>
+                                {/* Quote ID - only shown in edit mode (ID is assigned on preview/draft) */}
+                                {editingQuoteId && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Quote ID
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={quoteId}
+                                            readOnly
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-900 cursor-not-allowed"
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Payment Terms */}
                                 <div>
@@ -309,21 +326,23 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                 </div>
             </main>
 
-            {/* Footer with Next Button */}
-            <div className="border-t border-gray-200 bg-white px-8 py-6">
-                <div className="max-w-7xl mx-auto">
-                    <button
-                        onClick={handleNext}
-                        disabled={!paymentTerms}
-                        className={`w-full py-4 font-semibold rounded transition-colors ${paymentTerms
-                                ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
-                                : 'bg-gray-400 text-white cursor-not-allowed'
-                            }`}
-                    >
-                        Next
-                    </button>
+            {/* Footer with Next Button (hidden when editing - use tabs to navigate) */}
+            {!editingQuoteId && (
+                <div className="border-t border-gray-200 bg-white px-8 py-6">
+                    <div className="max-w-7xl mx-auto">
+                        <button
+                            onClick={handleNext}
+                            disabled={!paymentTerms}
+                            className={`w-full py-4 font-semibold rounded transition-colors ${paymentTerms
+                                    ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
+                                    : 'bg-gray-400 text-white cursor-not-allowed'
+                                }`}
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

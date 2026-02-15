@@ -59,7 +59,7 @@ const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({ l
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+    <div className="flex flex-col h-full min-h-0 bg-white font-sans text-gray-800">
       {/* Success/Error Message */}
       {exportMessage && (
         <div
@@ -70,21 +70,26 @@ const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({ l
         </div>
       )}
 
-      <header className="p-4 flex items-center gap-4 sticky top-0 z-40 bg-white border-b border-gray-200">
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900" aria-label="Go back">
-          <ChevronLeftIcon />
-        </button>
-        <h1 className="text-xl font-bold text-gray-900 flex-1 truncate">{list.projectName}</h1>
-        <button
-          onClick={() => setShowExportModal(true)}
-          className="text-gray-600 hover:text-gray-900"
-          aria-label="Export options"
-        >
-          <MoreVerticalIcon />
-        </button>
-      </header>
-
-      <main className="flex-1 overflow-y-auto p-6 pb-28">
+      <main className="flex-1 min-h-0 overflow-y-auto p-6 pb-8">
+        {/* Top bar: back link + project name + export */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+            aria-label="Back to Create Material List"
+          >
+            <ChevronLeftIcon />
+            <span>Back</span>
+          </button>
+          <h1 className="text-lg font-bold text-gray-900 truncate flex-1 mx-4 text-center">{list.projectName}</h1>
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="text-gray-600 hover:text-gray-900 p-2"
+            aria-label="Export options"
+          >
+            <MoreVerticalIcon />
+          </button>
+        </div>
         <div className="space-y-4 text-sm mb-8">
           <div className="flex">
             <span className="w-1/3 text-gray-600">Project Name:</span>
@@ -149,7 +154,7 @@ const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({ l
         </div>
       </main>
 
-      <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200">
+      <footer className="flex-shrink-0 bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] border-t border-gray-200">
         <div className="max-w-3xl mx-auto">
           <button
             onClick={() => handleExportOption('pdf')}

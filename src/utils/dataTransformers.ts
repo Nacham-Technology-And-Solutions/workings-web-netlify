@@ -190,6 +190,7 @@ export function transformBackendQuoteToPreview(
     tax: number;
     total: number;
     project?: { projectName?: string; siteAddress?: string } | null;
+    paymentInfo?: { accountName?: string; accountNumber?: string; bankName?: string } | null;
   },
   quoteConfig?: {
     quoteName?: string;
@@ -259,11 +260,12 @@ export function transformBackendQuoteToPreview(
   const projectName = backendQuote.project?.projectName || quoteConfig?.quoteName || 'Project';
   const siteAddress = backendQuote.project?.siteAddress || backendQuote.customerAddress || quoteConfig?.siteAddress || '';
 
-  // Use account details from extrasNotesData if provided, otherwise use empty strings (user must provide)
+  // Prefer backend paymentInfo (from GET quote); fallback to extrasNotesData (e.g. after create)
+  const rawPayment = backendQuote.paymentInfo ?? extrasNotesData;
   const paymentInfo = {
-    accountName: extrasNotesData?.accountName || '',
-    accountNumber: extrasNotesData?.accountNumber || '',
-    bankName: extrasNotesData?.bankName || '',
+    accountName: (rawPayment?.accountName ?? extrasNotesData?.accountName ?? '').trim(),
+    accountNumber: (rawPayment?.accountNumber ?? extrasNotesData?.accountNumber ?? '').trim(),
+    bankName: (rawPayment?.bankName ?? extrasNotesData?.bankName ?? '').trim(),
   };
 
   return {
@@ -467,6 +469,7 @@ export function transformStandaloneQuoteToBackend(
   tax: number;
   total: number;
   status: 'draft' | 'sent';
+  paymentInfo?: { accountName?: string; accountNumber?: string; bankName?: string } | null;
 } {
   // Determine quote type based on projectId
   const quoteType: 'from_project' | 'standalone' = projectId ? 'from_project' : 'standalone';
@@ -514,6 +517,11 @@ export function transformStandaloneQuoteToBackend(
   // Calculate tax (difference between total and subtotal)
   const tax = Math.max(0, extrasNotesData.total - subtotal);
 
+  const accountName = extrasNotesData.accountName?.trim() || '';
+  const accountNumber = extrasNotesData.accountNumber?.trim() || '';
+  const bankName = extrasNotesData.bankName?.trim() || '';
+  const hasPaymentFields = !!(accountName || accountNumber || bankName);
+
   const result: {
     quoteType: 'from_project' | 'standalone';
     projectId?: number;
@@ -530,6 +538,7 @@ export function transformStandaloneQuoteToBackend(
     tax: number;
     total: number;
     status: 'draft' | 'sent';
+    paymentInfo?: { accountName?: string; accountNumber?: string; bankName?: string } | null;
   } = {
     quoteType,
     customerName: overviewData.customerName,
@@ -544,6 +553,17 @@ export function transformStandaloneQuoteToBackend(
   // Include projectId if quote is from a project
   if (quoteType === 'from_project' && projectId) {
     result.projectId = projectId;
+  }
+
+  // Include paymentInfo when user has entered at least one field; send null to clear on update
+  if (hasPaymentFields) {
+    result.paymentInfo = {
+      accountName: accountName || undefined,
+      accountNumber: accountNumber || undefined,
+      bankName: bankName || undefined,
+    };
+  } else {
+    result.paymentInfo = null;
   }
 
   return result;

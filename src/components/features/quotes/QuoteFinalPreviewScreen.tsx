@@ -5,13 +5,15 @@ interface QuoteFinalPreviewScreenProps {
     onEdit: () => void;
     onDownloadPDF: () => void;
     previousData?: any;
+    editingQuoteId?: string | null;
 }
 
 const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
     onBack,
     onEdit,
     onDownloadPDF,
-    previousData
+    previousData,
+    editingQuoteId
 }) => {
     // Use previousData (generatedQuote) instead of hardcoded sample data
     // Transform the data structure to match what the component expects
@@ -62,17 +64,26 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
         }
     };
 
+    const projectName = previousData?.projectName ?? '';
+    const quoteId = previousData?.quoteId ?? '';
+
     return (
-        <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+        <div className="flex flex-col h-full min-h-0 bg-white font-sans text-gray-800">
             {/* Header / Breadcrumbs */}
-            <div className="px-8 py-6 border-b border-gray-100">
+            <div className="px-8 py-6 border-b border-gray-100 flex-shrink-0">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-                        <span className="cursor-pointer hover:text-gray-600">Projects</span>
+                        <span className="cursor-pointer hover:text-gray-600">Quotes</span>
                         <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Glazing-Type</span>
-                        <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Create New Quote</span>
+                        <span className="cursor-pointer hover:text-gray-600">{editingQuoteId ? 'Edit Quote' : 'Create New Quote'}</span>
+                        {projectName && quoteId && (
+                            <>
+                                <span>/</span>
+                                <span className="cursor-pointer hover:text-gray-600">
+                                    {projectName} - [{quoteId}]
+                                </span>
+                            </>
+                        )}
                         <span>/</span>
                         <span className="text-gray-900 font-medium">Quote Preview</span>
                     </div>
@@ -113,7 +124,7 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto px-8 py-8 bg-gray-50">
+            <main className="flex-1 overflow-y-auto min-h-0 px-8 py-8 bg-gray-50">
                 <div className="max-w-5xl mx-auto">
                     {/* Quote Header Info */}
                     <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">

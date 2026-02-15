@@ -13,6 +13,7 @@ interface QuoteDetailScreenProps {
   onBack: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  isEditLoading?: boolean;
 }
 
 
@@ -24,7 +25,7 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 );
 
 
-const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, onEdit, onDelete }) => {
+const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, onEdit, onDelete, isEditLoading }) => {
   const [quote, setQuote] = useState<QuotePreviewData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,8 +88,8 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50 font-sans text-gray-800">
-        <header className="bg-white p-4 flex justify-between items-center sticky top-0 z-40 border-b border-gray-200">
+      <div className="flex flex-col h-full min-h-0 bg-gray-50 font-sans text-gray-800">
+        <header className="bg-white p-4 flex justify-between items-center sticky top-0 z-40 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2">
             <button onClick={onBack} className="p-2 -ml-2 text-gray-600 hover:text-gray-900" aria-label="Go back">
               <ChevronLeftIcon />
@@ -96,7 +97,7 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
             <h1 className="text-2xl font-bold">Quotes</h1>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
+        <main className="flex-1 overflow-y-auto min-h-0 p-6 flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
             <p className="text-gray-600">Loading quote...</p>
@@ -108,8 +109,8 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
 
   if (error || !quote) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50 font-sans text-gray-800">
-        <header className="bg-white p-4 flex justify-between items-center sticky top-0 z-40 border-b border-gray-200">
+      <div className="flex flex-col h-full min-h-0 bg-gray-50 font-sans text-gray-800">
+        <header className="bg-white p-4 flex justify-between items-center sticky top-0 z-40 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2">
             <button onClick={onBack} className="p-2 -ml-2 text-gray-600 hover:text-gray-900" aria-label="Go back">
               <ChevronLeftIcon />
@@ -117,7 +118,7 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
             <h1 className="text-2xl font-bold">Quotes</h1>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
+        <main className="flex-1 overflow-y-auto min-h-0 p-6 flex items-center justify-center">
           <div className="text-center">
             <p className="text-red-600 mb-4">{error || 'Quote not found'}</p>
             <button
@@ -169,8 +170,8 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
 
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 font-sans text-gray-800">
-      <header className="bg-white p-4 lg:p-6 flex justify-between items-center sticky top-0 z-40 border-b border-gray-200">
+    <div className="flex flex-col h-full min-h-0 bg-gray-50 font-sans text-gray-800">
+      <header className="bg-white p-4 lg:p-6 flex justify-between items-center sticky top-0 z-40 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-2">
           <button onClick={onBack} className="p-2 -ml-2 text-gray-600 hover:text-gray-900" aria-label="Go back">
             <ChevronLeftIcon />
@@ -181,11 +182,21 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
           {onEdit && (
             <button
               onClick={onEdit}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50"
+              disabled={isEditLoading}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-inherit"
               aria-label="Edit quote"
             >
-              <EditIcon />
-              <span>Edit</span>
+              {isEditLoading ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" aria-hidden />
+                  <span>Loading...</span>
+                </>
+              ) : (
+                <>
+                  <EditIcon />
+                  <span>Edit</span>
+                </>
+              )}
             </button>
           )}
           <button
@@ -240,7 +251,7 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
         </div>
       </header>
       
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+      <main className="flex-1 overflow-y-auto min-h-0 p-6 lg:p-8">
         <div className="max-w-7xl lg:mx-auto">
           {/* Breadcrumbs */}
           <div className="mb-6 text-sm text-gray-400">

@@ -152,6 +152,8 @@ const App: React.FC = () => {
   const [initialCalculationResult, setInitialCalculationResult] = useState<import('@/types/calculations').CalculationResult | null>(null);
   const [projectWasCalculated, setProjectWasCalculated] = useState(false);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isEditQuoteLoading, setIsEditQuoteLoading] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string>('Your session has expired. Please sign in again to continue.');
 
@@ -280,6 +282,8 @@ const App: React.FC = () => {
     // Clear all project data when starting a new project
     clearProjectFlow();
     setDraftProjectId(null);
+    setProjectWasCalculated(false);
+    setInitialCalculationResult(null);
     navigate('projectDescription');
   };
 
@@ -653,42 +657,41 @@ const App: React.FC = () => {
 
   const handleProjectDescriptionNext = async (data: any) => {
     setProjectDescriptionData(data);
-    
-    // Save project as draft when user completes project description
+
+    const descriptionPayload = {
+      projectName: data.projectName.trim(),
+      customer: { name: data.customerName.trim() },
+      siteAddress: data.siteAddress.trim(),
+      ...(data.description?.trim() ? { description: data.description.trim() } : {}),
+    };
+
     try {
-      const projectData: any = {
-        projectName: data.projectName.trim(),
-        customer: {
-          name: data.customerName.trim(),
-        },
-        siteAddress: data.siteAddress.trim(),
-        glazingDimensions: [], // Empty array for draft
-      };
-
-      // Only include description if it exists and is not empty
-      if (data.description && data.description.trim()) {
-        projectData.description = data.description.trim();
-      }
-
-      // Include calculation settings with defaults
-      projectData.calculationSettings = {
-        stockLength: 6,
-        bladeKerf: 5,
-        wasteThreshold: 200,
-      };
-
-      const response = await projectsService.create(projectData);
-      
-      // Store the draft project ID so we can update it later instead of creating a duplicate
-      // Use helper function to extract data, handling both response.response.project.id and response.response.id
-      const responseData = getApiResponseData(response) as any;
-      const projectId = responseData?.project?.id || responseData?.id;
-      
-      if (projectId) {
-        setDraftProjectId(projectId);
-        console.log('[App] Draft project created with ID:', projectId);
+      if (draftProjectId) {
+        // Returning to Project Description (back or breadcrumb): update existing draft, do not create a new one
+        await projectsService.update(draftProjectId, descriptionPayload);
+        console.log('[App] Draft project updated with ID:', draftProjectId);
       } else {
-        console.warn('[App] Could not extract project ID from response:', responseData);
+        // First time through: create new draft
+        const projectData: any = {
+          ...descriptionPayload,
+          glazingDimensions: [],
+          calculationSettings: {
+            stockLength: 6,
+            bladeKerf: 5,
+            wasteThreshold: 200,
+          },
+        };
+
+        const response = await projectsService.create(projectData);
+        const responseData = getApiResponseData(response) as any;
+        const projectId = responseData?.project?.id || responseData?.id;
+
+        if (projectId) {
+          setDraftProjectId(projectId);
+          console.log('[App] Draft project created with ID:', projectId);
+        } else {
+          console.warn('[App] Could not extract project ID from response:', responseData);
+        }
       }
     } catch (error: any) {
       // Log the full error for debugging
@@ -868,6 +871,7 @@ const App: React.FC = () => {
   };
 
   const handleEditQuote = async (quoteId: string) => {
+    setIsEditQuoteLoading(true);
     try {
       // Fetch quote data
       const response = await quotesService.getById(parseInt(quoteId));
@@ -924,6 +928,8 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error('[App] Error loading quote for edit:', error);
+    } finally {
+      setIsEditQuoteLoading(false);
     }
   };
 
@@ -946,7 +952,7 @@ const App: React.FC = () => {
 
   const handleQuoteExtrasNotesSaveDraft = async (data: any) => {
     updateStandaloneQuoteExtrasNotes(data);
-    
+    setIsSavingDraft(true);
     try {
       const overviewData = standaloneQuoteData?.overview;
       const itemListData = standaloneQuoteData?.itemList;
@@ -1014,6 +1020,8 @@ const App: React.FC = () => {
       console.error('[App] Error saving quote as draft:', error);
       const errorMessage = error?.response?.data?.message || error?.message || 'An unexpected error occurred';
       alert(`Error saving quote as draft: ${errorMessage}. Please try again.`);
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -1108,8 +1116,8 @@ const App: React.FC = () => {
         }
         
         clearStandaloneQuoteData();
-        setEditingQuoteId(null);
         setIsSavingQuote(false);
+        // Don't clear editingQuoteId yet - keep it so preview shows correct breadcrumb; clear when leaving preview
         // Don't clear generatedQuote - preserve it for navigation
         navigate('quoteFinalPreview');
       } else {
@@ -1353,6 +1361,7 @@ const App: React.FC = () => {
               onBack={() => navigate('quotes')}
               onEdit={() => handleEditQuote(selectedQuoteId)}
               onDelete={handleDeleteQuote}
+              isEditLoading={isEditQuoteLoading}
             />
           </div>
         </div>
@@ -1582,11 +1591,48 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'materialListPreview' && materialListPreviewData) {
-    return <MaterialListPreviewScreen list={materialListPreviewData} onBack={() => navigate('createMaterialList')} />;
+    return (
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
+        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            currentView="material-list"
+            onNavigate={handleNavigate}
+          />
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
+            <MaterialListPreviewScreen
+              list={materialListPreviewData}
+              onBack={() => navigate('createMaterialList')}
+            />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (currentView === 'createMaterialList') {
-    return <CreateMaterialListScreen onBack={() => navigate('material-list')} onPreview={handlePreviewMaterialList} onSaveDraft={handleSaveMaterialListDraft} />;
+    return (
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
+        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            currentView="material-list"
+            onNavigate={handleNavigate}
+          />
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
+            <CreateMaterialListScreen
+              onBack={() => navigate('material-list')}
+              onPreview={handlePreviewMaterialList}
+              onSaveDraft={handleSaveMaterialListDraft}
+            />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (currentView === 'projects') {
@@ -1685,7 +1731,7 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <ProjectDescriptionScreen onBack={goBack} onNext={handleProjectDescriptionNext} />
+            <ProjectDescriptionScreen onBack={goBack} onNext={handleProjectDescriptionNext} previousData={projectDescriptionData ?? undefined} />
           </div>
         </div>
       </div>
@@ -1729,6 +1775,7 @@ const App: React.FC = () => {
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectMeasurementScreen
               isRecalculate={projectWasCalculated}
+              initialMeasurementData={projectMeasurementData}
               onBack={() => navigate('selectProject')}
               onNext={(data) => {
                 // Merge new dimensions with existing ones to preserve all dimensions
@@ -1745,6 +1792,11 @@ const App: React.FC = () => {
                 } else {
                   handleProjectMeasurementNext(data);
                 }
+              }}
+              onRecalculate={(data) => {
+                setInitialCalculationResult(null);
+                setProjectMeasurementData(data);
+                navigate('projectSolution');
               }}
               previousData={selectProjectData}
               onNavigateToStep={(step) => navigate(step as any)}
@@ -1770,9 +1822,10 @@ const App: React.FC = () => {
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectSolutionScreen
               onBack={() => {
-                setInitialCalculationResult(null);
+                setProjectWasCalculated(true);
                 navigate('projectMeasurement');
               }}
+              onNavigateToStep={(step) => navigate(step as any)}
               onGenerate={handleProjectSolutionGenerate}
               onCreateQuote={handleCreateQuoteFromSolution}
               previousData={combinedData || undefined}
@@ -1785,6 +1838,7 @@ const App: React.FC = () => {
                 // Refresh projects list to update status from 'draft' to 'calculated'
                 setRefreshProjects(prev => prev + 1);
               }}
+              onCalculationComplete={(result) => setInitialCalculationResult(result)}
             />
           </div>
         </div>
@@ -1827,6 +1881,14 @@ const App: React.FC = () => {
               onNext={handleQuoteOverviewNext}
               previousData={standaloneQuoteData}
               editingQuoteId={editingQuoteId}
+              onNavigateToExtras={(data?) => {
+                if (data) updateStandaloneQuoteOverview(data);
+                navigate('quoteExtrasNotes');
+              }}
+              onNavigateToItemList={editingQuoteId ? undefined : (data) => {
+                updateStandaloneQuoteOverview(data);
+                navigate('quoteItemList');
+              }}
             />
           </div>
         </div>
@@ -1852,6 +1914,15 @@ const App: React.FC = () => {
               previousData={standaloneQuoteData}
               quoteType={draftProjectId ? 'from_project' : 'standalone'}
               materialCost={draftProjectId ? materialCostFromStep4 : undefined}
+              editingQuoteId={editingQuoteId}
+              onNavigateToOverview={(data) => {
+                updateStandaloneQuoteItemList(data);
+                navigate('quoteOverview');
+              }}
+              onNavigateToExtras={(data) => {
+                updateStandaloneQuoteItemList(data);
+                navigate('quoteExtrasNotes');
+              }}
             />
           </div>
         </div>
@@ -1877,6 +1948,17 @@ const App: React.FC = () => {
               onSaveDraft={handleQuoteExtrasNotesSaveDraft}
               previousData={standaloneQuoteData}
               onNavigate={handleNavigate}
+              editingQuoteId={editingQuoteId}
+              isPreviewLoading={isSavingQuote}
+              isSaveDraftLoading={isSavingDraft}
+              onNavigateToOverview={(data) => {
+                updateStandaloneQuoteExtrasNotes(data);
+                navigate('quoteOverview');
+              }}
+              onNavigateToItemList={(data) => {
+                updateStandaloneQuoteExtrasNotes(data);
+                navigate('quoteItemList');
+              }}
             />
           </div>
         </div>
@@ -1922,13 +2004,16 @@ const App: React.FC = () => {
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuoteFinalPreviewScreen
-              onBack={() => navigate('quotes')}
+              onBack={() => {
+                setEditingQuoteId(null);
+                navigate('quotes');
+              }}
               onEdit={() => {
                 // Navigate back to edit flow
                 if (selectedQuoteId) {
                   handleEditQuote(selectedQuoteId);
                 } else {
-                  navigate('quotes');
+                  navigate('quoteOverview');
                 }
               }}
               onDownloadPDF={() => {
@@ -1939,6 +2024,7 @@ const App: React.FC = () => {
                 }
               }}
               previousData={generatedQuote}
+              editingQuoteId={editingQuoteId}
             />
           </div>
         </div>

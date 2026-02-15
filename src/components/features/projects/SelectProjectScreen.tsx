@@ -156,11 +156,11 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Projects</span>
+            <span className="cursor-default text-gray-400">Projects</span>
             <span>/</span>
             <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Project Description</span>
             <span>/</span>
-            <span className="text-gray-900 font-medium">Select Glazing Category</span>
+            <span className="text-gray-900 font-medium">Glazing Category</span>
           </div>
 
           <div className="flex items-start justify-between">

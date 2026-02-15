@@ -16,15 +16,21 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
   const [customerName, setCustomerName] = useState(previousData?.customerName || '');
   const [siteAddress, setSiteAddress] = useState(previousData?.siteAddress || '');
   const [description, setDescription] = useState(previousData?.description || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleNext = () => {
-    if (projectName && customerName && siteAddress) {
-      onNext({
+  const handleNext = async () => {
+    if (!projectName || !customerName || !siteAddress || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const result = onNext({
         projectName,
         customerName,
         siteAddress,
         description: description.trim() || undefined
       });
+      await Promise.resolve(result);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -36,7 +42,7 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={onBack}>Projects</span>
+            <span className="cursor-default text-gray-400">Projects</span>
             <span>/</span>
             <span className="text-gray-900 font-medium">Project Description</span>
           </div>
@@ -140,13 +146,23 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
           <div className="pt-8">
             <button
               onClick={handleNext}
-              disabled={!isFormValid}
-              className={`w-full py-4 font-semibold rounded-lg transition-colors ${isFormValid
+              disabled={!isFormValid || isSubmitting}
+              className={`w-full py-4 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${isFormValid && !isSubmitting
                 ? 'bg-gray-900 text-white hover:bg-gray-800'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
             >
-              Next
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                'Next'
+              )}
             </button>
           </div>
         </div>

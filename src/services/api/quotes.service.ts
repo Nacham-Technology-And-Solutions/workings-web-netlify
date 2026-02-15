@@ -7,6 +7,12 @@ export interface QuoteItem {
   totalPrice: number;
 }
 
+export interface QuotePaymentInfo {
+  accountName?: string;
+  accountNumber?: string;
+  bankName?: string;
+}
+
 export interface CreateQuoteRequest {
   quoteType: 'from_project' | 'standalone';
   projectId?: number | null; // Optional - only for from_project type
@@ -18,6 +24,7 @@ export interface CreateQuoteRequest {
   tax: number;
   total: number;
   status: 'draft' | 'sent' | 'paid' | 'unpaid';
+  paymentInfo?: QuotePaymentInfo | null;
 }
 
 export interface Quote {
@@ -35,6 +42,7 @@ export interface Quote {
   total: number;
   status: 'draft' | 'sent' | 'paid' | 'unpaid';
   pdfUrl: string | null;
+  paymentInfo?: QuotePaymentInfo | null;
   createdAt: string;
   updatedAt: string;
   project: any | null;
@@ -89,6 +97,9 @@ export const quotesService = {
     }
     if (data.customerEmail) {
       requestData.customerEmail = data.customerEmail;
+    }
+    if (data.paymentInfo !== undefined) {
+      requestData.paymentInfo = data.paymentInfo;
     }
 
     const response = await apiClient.post<ApiResponse<CreateQuoteResponse>>('/api/v1/quotes', requestData);

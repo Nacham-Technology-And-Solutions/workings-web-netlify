@@ -61,8 +61,9 @@ export interface CuttingLayout {
   id?: string;
   layout: string;
   repetition: number;
-  cuts: { length: number; unit: string; elementTitle?: string }[];
+  cuts: { length: number; unit: string; elementTitle?: string; elementColor?: string }[];
   offCut: number;
+  stockLength?: number; // meters, for visual bar proportion
 }
 
 /** One profile's cutting data for a single PDF/Excel (all profiles in one file) */
@@ -122,55 +123,243 @@ export const exportMaterialListToPDF = (
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
+/** Hex to RGB tuple [r,g,b] for jsPDF */
+function hexToRgb(hex: string): [number, number, number] {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+    : [107, 158, 182]; // fallback grey-blue
+}
+
+/** Group cuts by (length mm, elementColor) for Cut/Length and Cut across repetition tables */
+function groupCutsForTables(cuts: { length: number; unit: string; elementTitle?: string; elementColor?: string }[], repetition: number) {
+  const map = new Map<string, { lengthMm: number; qtyPerBar: number; elementTitle?: string; elementColor?: string }>();
+  cuts.forEach((c) => {
+    const lengthMm = Math.round(c.length * 1000);
+    const key = `${lengthMm}_${c.elementColor ?? 'default'}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.qtyPerBar += 1;
+    } else {
+      map.set(key, {
+        lengthMm,
+        qtyPerBar: 1,
+        elementTitle: c.elementTitle,
+        elementColor: c.elementColor,
+      });
+    }
+  });
+  return Array.from(map.values()).map((row) => ({
+    ...row,
+    qtyAcrossRepetition: row.qtyPerBar * repetition,
+  }));
+}
+
 export const exportCuttingListToPDF = (
   sections: CuttingListSection[],
   projectName: string
 ) => {
   const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const footerHeight = 12;
+  const contentBottom = pageH - footerHeight;
+
+  const quoteFormat = useTemplateStore.getState().quoteFormat;
+  // Always show logo placeholder for Cutting List (matches destination layout)
+  const logoEnabled = true;
 
   let startY = 20;
 
   sections.forEach((section, sectionIndex) => {
+    // Profile header when multiple profiles or first section
     if (sectionIndex > 0) {
-      doc.addPage();
-      startY = 20;
+      if (startY > contentBottom - 100) {
+        doc.addPage();
+        startY = 20;
+      } else {
+        startY += 6;
+      }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(55, 65, 81);
+      doc.text(`Profile: ${section.profileName}`, margin, startY);
+      startY += 10;
     }
 
-    // Section header (profile name + material info)
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(section.profileName, 14, startY);
-    startY += 7;
+    section.layouts.forEach((layout, layoutIndex) => {
+      const isFirst = sectionIndex === 0 && layoutIndex === 0;
+      if (!isFirst && startY > contentBottom - 100) {
+        doc.addPage();
+        startY = 20;
+      } else if (!isFirst) {
+        startY += 8;
+      }
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Project: ${projectName}`, 14, startY);
-    startY += 6;
-    doc.text(`Material Length: ${section.materialLength} meters`, 14, startY);
-    startY += 6;
-    doc.text(`Quantity: ${section.totalQuantity} length`, 14, startY);
-    startY += 6;
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, startY);
-    startY += 10;
+      if (isFirst) {
+        // Header: CUTTING LIST left, Logo placeholder right
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(55, 65, 81);
+        doc.text('CUTTING LIST', margin, startY);
+        if (logoEnabled) {
+          doc.setFillColor(75, 85, 99);
+          doc.rect(pageW - margin - 30, startY - 6, 30, 12, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Logo', pageW - margin - 15, startY + 1, { align: 'center' });
+          doc.setTextColor(55, 65, 81);
+        }
+        startY += 12;
 
-    const tableData = section.layouts.map((layout) => [
-      layout.layout,
-      `${layout.repetition}X`,
-      layout.cuts.map(c => c.elementTitle ? `${c.length}${c.unit} (${c.elementTitle})` : `${c.length}${c.unit}`).join(', '),
-      `${layout.offCut}m`
-    ]);
+        // Project info
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Project: ${projectName}`, margin, startY);
+        startY += 6;
+        doc.text(`Material Length: ${section.materialLength} meters`, margin, startY);
+        startY += 6;
+        doc.text(`Quantity: ${section.totalQuantity} length`, margin, startY);
+        startY += 6;
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, startY);
+        startY += 12;
+      }
 
-    autoTable(doc, {
-      startY,
-      head: [['Layout', 'Repetition', 'Cuts', 'Off-cut']],
-      body: tableData,
-      theme: 'grid',
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' }
+      const stockLength = layout.stockLength ?? section.materialLength;
+      const cardPadding = 6;
+      const cardTop = startY;
+      const grouped = groupCutsForTables(layout.cuts, layout.repetition);
+
+      // Card background (white cards like destination)
+      const estimatedCardH = 62 + grouped.length * 10 + 26;
+      doc.setDrawColor(229, 231, 235);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(margin, cardTop - 2, pageW - 2 * margin, estimatedCardH, 2, 2, 'FD');
+
+      // Top row: Labels (Layout, Repetition, Off-cuts) then values
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.text('Layout', margin + cardPadding, startY + 3);
+      doc.text('Repetition', margin + 45, startY + 3);
+      doc.text('Off-cuts', margin + 85, startY + 3);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(55, 65, 81);
+      doc.text(layout.layout, margin + cardPadding, startY + 10);
+      doc.text(`${layout.repetition}X`, margin + 45, startY + 10);
+      doc.text(`${layout.offCut.toFixed(1)}m`, margin + 85, startY + 10);
+      startY += 18;
+
+      // Two tables side by side (Cut/Length | Cut across repetition) — match destination
+      const gap = 12;
+      const tableW = (pageW - 2 * margin - 2 * cardPadding - gap) / 2;
+      const col1X = margin + cardPadding;
+      const col2X = margin + cardPadding + tableW + gap;
+
+      const applyCellColor = (data: any, grp: typeof grouped) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          const rowIdx = data.row.index;
+          const color = grp[rowIdx]?.elementColor;
+          const [r, g, b] = color ? hexToRgb(color) : [147, 197, 253]; // light blue fallback when no element color
+          data.cell.styles.fillColor = [r, g, b];
+        }
+      };
+
+      autoTable(doc, {
+        startX: col1X,
+        startY,
+        head: [['Cut/Length']],
+        body: grouped.map((r) => [`${r.lengthMm} ${r.qtyPerBar} pcs`]),
+        theme: 'plain',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [229, 231, 235], fontStyle: 'bold', textColor: [55, 65, 81] },
+        columnStyles: { 0: { cellWidth: tableW - 8 } },
+        margin: { left: 0 },
+        tableWidth: tableW,
+        didParseCell: (data) => applyCellColor(data, grouped),
+      } as any);
+
+      const table1Bottom = (doc as any).lastAutoTable.finalY;
+
+      autoTable(doc, {
+        startX: col2X,
+        startY,
+        head: [['Cut across repetition']],
+        body: grouped.map((r) => [`${r.lengthMm} ${r.qtyAcrossRepetition} pcs`]),
+        theme: 'plain',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [229, 231, 235], fontStyle: 'bold', textColor: [55, 65, 81] },
+        columnStyles: { 0: { cellWidth: tableW - 8 } },
+        margin: { left: 0 },
+        tableWidth: tableW,
+        didParseCell: (data) => applyCellColor(data, grouped),
+      } as any);
+
+      const table2Bottom = (doc as any).lastAutoTable.finalY;
+      startY = Math.max(table1Bottom, table2Bottom) + 10;
+
+      // Visual bar
+      const barW = pageW - 2 * margin - 2 * cardPadding;
+      const barH = 10;
+      let barX = margin + cardPadding;
+      const barY = startY;
+
+      layout.cuts.forEach((c) => {
+        const segW = (c.length / stockLength) * barW;
+        const [r, g, b] = c.elementColor ? hexToRgb(c.elementColor) : [107, 158, 182];
+        doc.setFillColor(r, g, b);
+        doc.setDrawColor(100, 116, 139); // 1px solid outline (slate-600)
+        doc.setLineWidth(0.35); // ~1px
+        doc.rect(barX, barY, segW, barH, 'FD');
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text(c.unit, barX + segW / 2, barY + barH / 2 + 1.5, { align: 'center' });
+        doc.setTextColor(55, 65, 81);
+        barX += segW;
+      });
+
+      if (layout.offCut > 0) {
+        const offcutW = (layout.offCut / stockLength) * barW;
+        // Light grey dotted pattern for off-cut
+        doc.setFillColor(226, 232, 240);
+        doc.rect(barX, barY, offcutW, barH, 'F');
+        doc.setFillColor(203, 213, 225);
+        for (let i = 0; i < offcutW; i += 4) {
+          for (let j = 0; j < barH; j += 4) {
+            doc.rect(barX + i, barY + j, 1.5, 1.5, 'F');
+          }
+        }
+      }
+
+      startY += barH + 8;
     });
-
-    startY = (doc as any).lastAutoTable.finalY + 10;
   });
+
+  // Footer
+  doc.setFillColor(55, 65, 81);
+  doc.rect(0, pageH - footerHeight, pageW, footerHeight, 'F');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(255, 255, 255);
+
+  const footerContent = quoteFormat.footer?.content?.trim();
+  if (footerContent) {
+    const parts = footerContent.split(/\n|\|/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+      doc.text(parts[0], margin, pageH - footerHeight / 2 - 1, { align: 'left' });
+      doc.text(parts[1], pageW / 2, pageH - footerHeight / 2 - 1, { align: 'center' });
+      doc.text(parts[2], pageW - margin, pageH - footerHeight / 2 - 1, { align: 'right' });
+    } else if (parts.length === 2) {
+      doc.text(parts[0], margin, pageH - footerHeight / 2 - 1, { align: 'left' });
+      doc.text(parts[1], pageW - margin, pageH - footerHeight / 2 - 1, { align: 'right' });
+    } else if (parts.length === 1) {
+      doc.text(parts[0], pageW / 2, pageH - footerHeight / 2 - 1, { align: 'center' });
+    }
+  }
 
   doc.save(`Cutting-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };

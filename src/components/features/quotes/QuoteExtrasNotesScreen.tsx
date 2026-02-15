@@ -10,6 +10,11 @@ interface QuoteExtrasNotesScreenProps {
     onSaveDraft: (data: QuoteExtrasNotesData) => void;
     previousData?: any;
     onNavigate?: (view: string) => void;
+    editingQuoteId?: string | null;
+    isPreviewLoading?: boolean;
+    isSaveDraftLoading?: boolean;
+    onNavigateToOverview?: (data: QuoteExtrasNotesData) => void;
+    onNavigateToItemList?: (data: QuoteExtrasNotesData) => void;
 }
 
 const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
@@ -17,7 +22,12 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
     onPreview,
     onSaveDraft,
     previousData,
-    onNavigate
+    onNavigate,
+    editingQuoteId,
+    isPreviewLoading = false,
+    isSaveDraftLoading = false,
+    onNavigateToOverview,
+    onNavigateToItemList
 }) => {
     const { user } = useAuthStore();
     const { paymentMethods: templatePaymentMethods, getDefaultPaymentMethod } = useTemplateStore();
@@ -29,7 +39,9 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
     const [accountName, setAccountName] = useState(previousData?.extrasNotes?.accountName || '');
     const [accountNumber, setAccountNumber] = useState(previousData?.extrasNotes?.accountNumber || '');
     const [bankName, setBankName] = useState(previousData?.extrasNotes?.bankName || '');
-    const [addedCharges, setAddedCharges] = useState<Array<{ description: string; amount: number }>>([]);
+    const [addedCharges, setAddedCharges] = useState<Array<{ description: string; amount: number }>>(
+        previousData?.extrasNotes?.addedCharges ?? []
+    );
     const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(true);
 
     // Get subtotal from previous data (Item List)
@@ -74,24 +86,31 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                 const allMethods = [...templateMethods, ...userProfileMethods];
                 setPaymentMethods(allMethods);
 
+                const findMethodIndex = (name: string, number: string) =>
+                    allMethods.findIndex((m) => m.accountName === name && m.accountNumber === number);
+
                 // Auto-populate default payment method from template store if available
                 const defaultMethod = getDefaultPaymentMethod();
                 if (defaultMethod && !previousData?.extrasNotes?.accountName) {
                     setAccountName(defaultMethod.accountName);
                     setAccountNumber(defaultMethod.accountNumber);
                     setBankName(defaultMethod.bankName);
-                    setSelectedPaymentMethod('default');
+                    const idx = findMethodIndex(defaultMethod.accountName, defaultMethod.accountNumber);
+                    setSelectedPaymentMethod(idx >= 0 ? String(idx) : '0');
                 } else if (previousData?.extrasNotes?.accountName) {
-                    // Use previous data if available
                     setAccountName(previousData.extrasNotes.accountName);
                     setAccountNumber(previousData.extrasNotes.accountNumber);
                     setBankName(previousData.extrasNotes.bankName);
-                } else if (allMethods.length > 0 && !defaultMethod) {
-                    // If no default but methods exist, use first one
+                    const idx = findMethodIndex(
+                        previousData.extrasNotes.accountName,
+                        previousData.extrasNotes.accountNumber
+                    );
+                    setSelectedPaymentMethod(idx >= 0 ? String(idx) : '0');
+                } else if (allMethods.length > 0) {
                     setAccountName(allMethods[0].accountName);
                     setAccountNumber(allMethods[0].accountNumber);
                     setBankName(allMethods[0].bankName);
-                    setSelectedPaymentMethod('default');
+                    setSelectedPaymentMethod('0');
                 }
             } catch (error: any) {
                 console.error('[QuoteExtrasNotesScreen] Error loading payment methods:', error);
@@ -142,45 +161,70 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
         onPreview(data);
     };
 
+    const getExtrasNotesData = (): QuoteExtrasNotesData => ({
+        extraCharges: addedCharges.map(c => c.description).join(', '),
+        amount: addedCharges.reduce((sum, c) => sum + c.amount, 0),
+        additionalNotes,
+        accountName,
+        accountNumber,
+        bankName,
+        total,
+        addedCharges: addedCharges.length > 0 ? addedCharges : undefined
+    });
+
     const handleSaveDraft = () => {
-        const data: QuoteExtrasNotesData = {
-            extraCharges: addedCharges.map(c => c.description).join(', '),
-            amount: addedCharges.reduce((sum, c) => sum + c.amount, 0),
-            additionalNotes,
-            accountName,
-            accountNumber,
-            bankName,
-            total,
-            addedCharges: addedCharges.length > 0 ? addedCharges : undefined
-        };
-        onSaveDraft(data);
+        onSaveDraft(getExtrasNotesData());
+    };
+
+    const handleNavigateToOverview = () => {
+        if (onNavigateToOverview) {
+            onNavigateToOverview(getExtrasNotesData());
+        } else {
+            onBack();
+        }
+    };
+
+    const handleNavigateToItemList = () => {
+        if (onNavigateToItemList) {
+            onNavigateToItemList(getExtrasNotesData());
+        } else {
+            onBack();
+        }
     };
 
     return (
-        <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+        <div className="flex flex-col h-full min-h-0 bg-white font-sans text-gray-800">
             {/* Header / Breadcrumbs */}
             <div className="px-8 py-6 border-b border-gray-100">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-                        <span className="cursor-pointer hover:text-gray-600">Projects</span>
+                        <span className="cursor-pointer hover:text-gray-600">Quotes</span>
                         <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Glazing-Type</span>
-                        <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Create New Quote</span>
+                        <span className="cursor-pointer hover:text-gray-600">{editingQuoteId ? 'Edit Quote' : 'Create New Quote'}</span>
+                        {editingQuoteId && previousData?.overview?.projectName && previousData?.overview?.quoteId && (
+                            <>
+                                <span>/</span>
+                                <span className="cursor-pointer hover:text-gray-600">
+                                    {previousData.overview.projectName} - [{previousData.overview.quoteId}]
+                                </span>
+                            </>
+                        )}
                         <span>/</span>
                         <span className="text-gray-900 font-medium">Extra & Notes</span>
                     </div>
 
                     <div className="flex items-start justify-between">
                         <div className="flex items-start gap-4">
-                            <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mt-1">
+                            <button onClick={handleNavigateToItemList} className="text-gray-600 hover:text-gray-900 mt-1">
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
 
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 mb-1">Create New Quote</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                                    {editingQuoteId ? 'Edit Quote' : 'Create New Quote'}
+                                </h1>
                             </div>
                         </div>
                     </div>
@@ -188,19 +232,19 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto px-8 py-8">
+            <main className="flex-1 overflow-y-auto min-h-0 px-8 py-8">
                 <div className="max-w-7xl mx-auto">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
                         <div className="flex items-center gap-8">
                             <button
-                                onClick={onBack}
+                                onClick={handleNavigateToOverview}
                                 className="pb-4 px-0 text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors relative"
                             >
                                 Overview
                             </button>
                             <button
-                                onClick={onBack}
+                                onClick={handleNavigateToItemList}
                                 className="pb-4 px-0 text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors relative"
                             >
                                 Item List
@@ -210,14 +254,6 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                             >
                                 Extras & Notes
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>
-                            </button>
-
-                            {/* Filter Button */}
-                            <button className="ml-auto pb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                                <span className="text-sm">Filter</span>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
                             </button>
                         </div>
                     </div>
@@ -327,31 +363,60 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                             <select
                                                 value={selectedPaymentMethod}
                                                 onChange={(e) => {
-                                                    if (e.target.value === 'default' && paymentMethods[0]) {
-                                                        handlePaymentMethodChange(paymentMethods[0]);
-                                                        setSelectedPaymentMethod('default');
+                                                    const index = parseInt(e.target.value, 10);
+                                                    if (!isNaN(index) && paymentMethods[index]) {
+                                                        handlePaymentMethodChange(paymentMethods[index]);
+                                                        setSelectedPaymentMethod(e.target.value);
                                                     }
                                                 }}
                                                 className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg bg-white text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-gray-400"
                                             >
-                                                <option value="default">Default Payment Method</option>
-                                                {/* Future: Add more payment methods here */}
+                                                {paymentMethods.map((pm, index) => (
+                                                    <option key={index} value={String(index)}>
+                                                        {pm.accountName} – {pm.bankName}
+                                                        {pm.accountNumber ? ` (••••${pm.accountNumber.slice(-4)})` : ''}
+                                                    </option>
+                                                ))}
                                             </select>
                                         </div>
 
-                                        {/* Payment Details Display */}
+                                        {/* Editable account details for this quote (pre-filled from selection above) */}
                                         <div className="space-y-3 pt-2">
-                                            <div className="flex justify-between items-center py-2">
-                                                <span className="text-sm text-gray-600">Account Name:</span>
-                                                <span className="text-sm text-gray-900 font-medium">{accountName}</span>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Account Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={accountName}
+                                                    onChange={(e) => setAccountName(e.target.value)}
+                                                    placeholder="Enter account name"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                />
                                             </div>
-                                            <div className="flex justify-between items-center py-2">
-                                                <span className="text-sm text-gray-600">Account Number:</span>
-                                                <span className="text-sm text-gray-900 font-medium">{accountNumber}</span>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Account Number
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={accountNumber}
+                                                    onChange={(e) => setAccountNumber(e.target.value)}
+                                                    placeholder="Enter account number"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                />
                                             </div>
-                                            <div className="flex justify-between items-center py-2">
-                                                <span className="text-sm text-gray-600">Bank Name:</span>
-                                                <span className="text-sm text-gray-900 font-medium">{bankName}</span>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Bank Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={bankName}
+                                                    onChange={(e) => setBankName(e.target.value)}
+                                                    placeholder="Enter bank name"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -444,20 +509,39 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                             <div className="space-y-3 pt-4">
                                 <button
                                     onClick={handlePreview}
-                                    disabled={!accountName || !accountNumber || !bankName}
-                                    className={`w-full py-3 font-semibold rounded transition-colors ${
-                                        accountName && accountNumber && bankName
+                                    disabled={(!accountName || !accountNumber || !bankName) || isPreviewLoading || isSaveDraftLoading}
+                                    className={`w-full py-3 font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
+                                        accountName && accountNumber && bankName && !isPreviewLoading && !isSaveDraftLoading
                                             ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
                                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                     }`}
                                 >
-                                    Proceed to preview
+                                    {isPreviewLoading ? (
+                                        <>
+                                            <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+                                            Loading...
+                                        </>
+                                    ) : (
+                                        'Proceed to preview'
+                                    )}
                                 </button>
                                 <button
                                     onClick={handleSaveDraft}
-                                    className="w-full py-3 font-semibold rounded transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                    disabled={isSaveDraftLoading || isPreviewLoading}
+                                    className={`w-full py-3 font-semibold rounded transition-colors border-2 flex items-center justify-center gap-2 ${
+                                        isSaveDraftLoading || isPreviewLoading
+                                            ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
+                                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                    }`}
                                 >
-                                    Save as Draft
+                                    {isSaveDraftLoading ? (
+                                        <>
+                                            <span className="inline-block w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        'Save as Draft'
+                                    )}
                                 </button>
                             </div>
                         </div>

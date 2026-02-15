@@ -12,29 +12,36 @@ import {
   exportGlassCuttingListToExcel,
   shareData
 } from '@/services/export/exportService';
-import { calculationsService, projectsService } from '@/services/api';
-import { createProjectData, projectDataToProjectCart } from '@/utils/dataTransformers';
+import { projectsService } from '@/services/api';
+import { createProjectData } from '@/utils/dataTransformers';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
 
+/** True if the plan key or cut label denotes offcut/waste (should use checker style, not colored). */
+function isOffcutKey(cutKey: string): boolean {
+  const k = cutKey.toLowerCase();
+  return k.startsWith('offcut_') || k.startsWith('waste_');
+}
+
 /** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId). */
-function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): Array<{ length: number; label: string; elementId?: string }> {
-  const result: Array<{ length: number; label: string; elementId?: string }> = [];
+function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> {
+  const result: Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> = [];
   Object.keys(planEntry).forEach((cutKey) => {
     const raw = planEntry[cutKey];
     const lengthMatch = cutKey.match(/(\d+)mm/);
     const lengthMm = lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
     const lengthMeters = lengthMm / 1000;
     const label = lengthMeters ? `${lengthMeters.toFixed(1)}m` : cutKey;
+    const isOffcut = isOffcutKey(cutKey);
     if (!Array.isArray(raw) || raw.length === 0) return;
     const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
     if (isNewFormat) {
       (raw as CuttingPlanPiece[]).forEach((piece) => {
-        result.push({ length: lengthMeters, label, elementId: piece.elementId });
+        result.push({ length: lengthMeters, label, elementId: piece.elementId, isOffcut });
       });
     } else {
       (raw as string[]).forEach(() => {
-        result.push({ length: lengthMeters, label });
+        result.push({ length: lengthMeters, label, isOffcut });
       });
     }
   });
@@ -48,6 +55,7 @@ function getMaxRepetition(planEntry: { [key: string]: string[] | CuttingPlanPiec
 interface ProjectSolutionScreenProps {
   onBack: () => void;
   onGenerate: (materialCost: number) => void;
+  onNavigateToStep?: (step: string) => void;
   previousData?: {
     projectDescription?: ProjectDescriptionData;
     selectProject?: SelectProjectData;
@@ -58,6 +66,8 @@ interface ProjectSolutionScreenProps {
   draftProjectId?: number | null;
   onCreateQuote?: (materialCost?: number, calculationResult?: CalculationResult, projectMeasurement?: ProjectMeasurementData) => void;
   onProjectSaved?: () => void;
+  /** Called when calculation completes so parent can cache the result for "Return to Calculation Results" */
+  onCalculationComplete?: (result: CalculationResult) => void;
 }
 
 interface MaterialItem {
@@ -67,7 +77,7 @@ interface MaterialItem {
   unit: string;
 }
 
-const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onProjectSaved }) => {
+const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onProjectSaved, onCalculationComplete }) => {
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass'>(initialTab);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
@@ -259,98 +269,80 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         previousData.projectMeasurement
       );
 
-      // Convert to ProjectCart format
-      const { projectCart, settings } = projectDataToProjectCart(projectData);
-
-      // Build elementDisplayOverrides from glazingDimensions (same order as projectCart)
-      const elementDisplayOverrides = projectData.glazingDimensions.map((dim) => ({
-        ...(dim.title != null && dim.title !== '' && { title: dim.title }),
-        ...(dim.color != null && dim.color !== '' && { color: dim.color }),
-      }));
-
-      // Call calculation API
-      const response = await calculationsService.calculate({
-        projectCart,
-        settings,
-        elementDisplayOverrides,
-      });
-
-      const normalizedResponse = normalizeApiResponse(response);
-      
-      if (isApiResponseSuccess(response)) {
-        const responseData = getApiResponseData(response) as any;
-        
-        // Debug: Log the response structure
-        console.log('Calculation API response data:', responseData);
-        
-        // API response structure:
-        // {
-        //   responseMessage: "...",
-        //   response: {
-        //     result: { materialList: [...], cuttingList: [...], ... },
-        //     pointsDeducted: 5,
-        //     balanceAfter: 35
-        //   }
-        // }
-        // After normalizeApiResponse, responseData = { result: {...}, pointsDeducted: 5, balanceAfter: 35 }
-        // Extract the result object which contains the calculation data
-        const calculationData = responseData?.result;
-        
-        // Extract points information
-        const points = responseData?.pointsDeducted ?? null;
-        const balance = responseData?.balanceAfter ?? null;
-        const message = getApiResponseMessage(response) || null;
-        
-        setPointsDeducted(points);
-        setBalanceAfter(balance);
-        setResponseMessage(message);
-        
-        // Debug: Log the raw calculation data structure
-        console.log('Calculation result data:', calculationData);
-        console.log('Points deducted:', points);
-        console.log('Balance after:', balance);
-        
-        // Validate calculation data structure
-        if (!calculationData) {
-          setError('Invalid calculation response: No result data received');
-          console.error('Missing result in response:', responseData);
+      // Step 1: Create or update project with glazingDimensions so the backend has them stored
+      let projectId: number;
+      if (draftProjectId) {
+        await projectsService.update(draftProjectId, {
+          glazingDimensions: projectData.glazingDimensions,
+          calculationSettings: projectData.calculationSettings,
+          status: 'calculated',
+        });
+        projectId = draftProjectId; // Use the ID we already have
+      } else {
+        const createResponse = await projectsService.create({
+          projectName: projectData.projectName,
+          customer: projectData.customer,
+          siteAddress: projectData.siteAddress,
+          description: projectData.description,
+          glazingDimensions: projectData.glazingDimensions,
+          calculationSettings: projectData.calculationSettings,
+        });
+        const responseData = getApiResponseData(createResponse) as { project?: { id: number }; id?: number };
+        projectId = responseData?.project?.id ?? responseData?.id ?? 0;
+        if (!projectId) {
+          setError('Could not get project ID from create response');
           return;
         }
-        
-        // Extract all calculation result fields (API uses camelCase)
-        const materialListData = calculationData.materialList || [];
-        const cuttingListData = calculationData.cuttingList || [];
-        const glassListData = calculationData.glassList || { sheet_type: '', total_sheets: 0, cuts: [] };
-        const rubberTotalsData = calculationData.rubberTotals || [];
-        const accessoryTotalsData = calculationData.accessoryTotals || [];
-        const elementsData = calculationData.elements || [];
-        
-        // Debug: Log extracted data
-        console.log('Extracted materialList:', materialListData);
-        console.log('Extracted accessoryTotals:', accessoryTotalsData);
-        console.log('MaterialList length:', materialListData.length);
-        console.log('AccessoryTotals length:', accessoryTotalsData.length);
-        
-        // Ensure all required arrays exist with proper defaults
-        const validatedData: CalculationResult = {
-          materialList: Array.isArray(materialListData) ? materialListData : [],
-          cuttingList: Array.isArray(cuttingListData) ? cuttingListData : [],
-          glassList: glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] },
-          rubberTotals: Array.isArray(rubberTotalsData) ? rubberTotalsData : [],
-          accessoryTotals: Array.isArray(accessoryTotalsData) ? accessoryTotalsData : [],
-          elements: Array.isArray(elementsData) ? elementsData : [],
-        };
-        
-        console.log('Validated calculation data:', validatedData);
-        console.log('Profile items count:', validatedData.materialList.filter(item => item.type === 'Profile').length);
-        console.log('Accessory items count:', validatedData.accessoryTotals.length);
-        setCalculationResult(validatedData);
-        hasCalculatedRef.current = true;
-        
-        // Auto-save project after successful calculation (only once)
-        await handleSaveProject();
-      } else {
-        setError(getApiResponseMessage(response) || 'Calculation failed');
+      }
+
+      // Step 2: Call project calculate (uses stored glazingDimensions; results are saved on the project)
+      const calcResponse = await projectsService.calculate(projectId);
+      const calcData = getApiResponseData(calcResponse) as {
+        calculationResult: { result: Record<string, unknown> };
+        pointsDeducted?: number;
+        balanceAfter?: number;
+      };
+
+      const calculationData = calcData?.calculationResult?.result;
+      const points = calcData?.pointsDeducted ?? null;
+      const balance = calcData?.balanceAfter ?? null;
+      const message = getApiResponseMessage(calcResponse) || null;
+
+      setPointsDeducted(points);
+      setBalanceAfter(balance);
+      setResponseMessage(message);
+
+      if (!calculationData || typeof calculationData !== 'object') {
+        setError('Invalid calculation response: No result data received');
+        console.error('Missing result in response:', calcData);
+        return;
+      }
+
+      // Extract calculation result fields (API uses camelCase)
+      const materialListData = (calculationData as any).materialList || [];
+      const cuttingListData = (calculationData as any).cuttingList || [];
+      const glassListData = (calculationData as any).glassList || { sheet_type: '', total_sheets: 0, cuts: [] };
+      const rubberTotalsData = (calculationData as any).rubberTotals || [];
+      const accessoryTotalsData = (calculationData as any).accessoryTotals || [];
+      const elementsData = (calculationData as any).elements || [];
+
+      const validatedData: CalculationResult = {
+        materialList: Array.isArray(materialListData) ? materialListData : [],
+        cuttingList: Array.isArray(cuttingListData) ? cuttingListData : [],
+        glassList: glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] },
+        rubberTotals: Array.isArray(rubberTotalsData) ? rubberTotalsData : [],
+        accessoryTotals: Array.isArray(accessoryTotalsData) ? accessoryTotalsData : [],
+        elements: Array.isArray(elementsData) ? elementsData : [],
+      };
+
+      setCalculationResult(validatedData);
+      hasCalculatedRef.current = true;
+      setProjectSaved(true);
+      hasSavedRef.current = true;
+
+      onCalculationComplete?.(validatedData);
+      if (onProjectSaved) {
+        onProjectSaved();
       }
     } catch (err: any) {
       const errorMessage = extractErrorMessage(err);
@@ -510,9 +502,11 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             length: c.length,
             unit: c.label,
             elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
+            elementColor: c.elementId ? elMap[c.elementId]?.color : undefined,
           })),
           offCut: offcut,
           repetition: totalRepetition,
+          stockLength: stockLengthMeters,
         };
       });
       
@@ -633,9 +627,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-            <span className="cursor-pointer hover:text-gray-600" onClick={onBack}>Projects</span>
+            <span className="cursor-default text-gray-400">Projects</span>
             <span>/</span>
-            <span className="cursor-pointer hover:text-gray-600">{previousData?.projectDescription?.projectName || 'Project'}</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={() => { if (onNavigateToStep) onNavigateToStep('projectDescription'); else onBack(); }}>Project Description</span>
+            <span>/</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={() => { if (onNavigateToStep) onNavigateToStep('selectProject'); else onBack(); }}>Glazing Category</span>
+            <span>/</span>
+            <span className="cursor-pointer hover:text-gray-600 transition-colors" onClick={() => { if (onNavigateToStep) onNavigateToStep('projectMeasurement'); else onBack(); }}>Glazing Type</span>
             <span>/</span>
             <span className="text-gray-900 font-medium">Calculation Results</span>
           </div>
@@ -1223,19 +1221,28 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                 {layout.cuts.map((cut, cutIndex) => {
                                   const widthPercent = (cut.length / layout.stockLength) * 100;
                                   const isLastCut = cutIndex === layout.cuts.length - 1;
+                                  const isOffcut = cut.isOffcut === true;
                                   const element = cut.elementId ? elementsMap[cut.elementId] : undefined;
-                                  const bgColor = element?.color ?? '#6B9EB6';
                                   const titleAttr = element ? `${cut.label} — ${element.title}` : cut.label;
                                   return (
                                     <div
                                       key={cutIndex}
-                                      className="h-full flex items-center justify-center text-xs font-medium text-gray-900"
+                                      className={`h-full flex items-center justify-center text-xs font-medium ${isOffcut ? 'text-gray-600' : 'text-gray-900'}`}
                                       style={{
                                         width: `${widthPercent}%`,
-                                        backgroundColor: bgColor,
-                                        borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                                        ...(isOffcut
+                                          ? {
+                                              backgroundColor: 'transparent',
+                                              backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)',
+                                              backgroundSize: '4px 4px',
+                                              borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(0,0,0,0.08)' : 'none',
+                                            }
+                                          : {
+                                              backgroundColor: element?.color ?? '#6B9EB6',
+                                              borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                                            }),
                                       }}
-                                      title={titleAttr}
+                                      title={isOffcut ? `Off-cut: ${cut.label}` : titleAttr}
                                     >
                                       {cut.label}
                                     </div>

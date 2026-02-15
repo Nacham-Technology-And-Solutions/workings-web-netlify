@@ -83,6 +83,19 @@ export interface GetProjectByIdResponse {
   lastCalculationResult: CalculationResult | null;
 }
 
+/** Response from POST /projects/:projectId/calculate */
+export interface ProjectCalculateResponse {
+  project: Project;
+  calculationResult: {
+    materialList: { id: number; materialList: unknown[]; pointsCost?: number };
+    cuttingList: { id: number; cuttingList: unknown[]; elements?: { id: string; title: string; color: string }[] };
+    glassCuttingList: { id: number; glassList: unknown; rubberTotals?: unknown[]; accessoryTotals?: unknown[]; elements?: { id: string; title: string; color: string }[] };
+    result: CalculationResult;
+  };
+  pointsDeducted?: number;
+  balanceAfter?: number;
+}
+
 // Projects Service
 export const projectsService = {
   /**
@@ -133,10 +146,14 @@ export const projectsService = {
   },
 
   /**
-   * Run calculation on a project
+   * Run calculation on a project. Uses stored glazingDimensions and calculationSettings.
+   * Results are saved to the project and returned. GET project will include lastCalculationResult.
    */
-  calculate: async (projectId: number): Promise<ApiResponse<{ message: string }>> => {
-    const response = await apiClient.post<ApiResponse<{ message: string }>>(`/api/v1/projects/${projectId}/calculate`);
+  calculate: async (projectId: number): Promise<ApiResponse<ProjectCalculateResponse>> => {
+    const response = await apiClient.post<ApiResponse<ProjectCalculateResponse>>(
+      `/api/v1/projects/${projectId}/calculate`,
+      {}
+    );
     return response.data;
   },
 };

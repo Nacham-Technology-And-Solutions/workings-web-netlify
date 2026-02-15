@@ -8,9 +8,12 @@ interface QuoteItemListScreenProps {
     previousData?: any;
     quoteType?: 'standalone' | 'from_project';
     materialCost?: number;
+    editingQuoteId?: string | null;
+    onNavigateToExtras?: (data: QuoteItemListData) => void;
+    onNavigateToOverview?: (data: QuoteItemListData) => void;
 }
 
-const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData, quoteType = 'standalone', materialCost }) => {
+const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNext, previousData, quoteType = 'standalone', materialCost, editingQuoteId, onNavigateToExtras, onNavigateToOverview }) => {
     // Debug logging
     if (import.meta.env.DEV) {
         console.log('[QuoteItemListScreen] Component mounted with:', {
@@ -61,12 +64,9 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
             return previousData.itemList.items;
         }
         
-        // Default items for standalone quotes (only if not from project)
+        // Standalone new quote: start with empty list (no pre-populated items)
         if (quoteType === 'standalone') {
-            return [
-                { id: '1', description: '1200 x 1200', quantity: 10, unitPrice: 10000, total: 100000 },
-                { id: '2', description: '600 x 700', quantity: 4, unitPrice: 10000, total: 40000 },
-            ];
+            return [];
         }
         
         // Empty array for project quotes with no data
@@ -202,48 +202,65 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
         });
     };
 
+    const getItemListData = (): QuoteItemListData => ({
+        listType,
+        items,
+        subtotal: calculateSubtotal()
+    });
+
     const handleNext = () => {
-        const data: QuoteItemListData = {
-            listType,
-            items,
-            subtotal: calculateSubtotal()
-        };
-        onNext(data);
+        onNext(getItemListData());
+    };
+
+    const handleNavigateToOverview = () => {
+        if (onNavigateToOverview) {
+            onNavigateToOverview(getItemListData());
+        } else {
+            onBack();
+        }
     };
 
     return (
-        <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
+        <div className="flex flex-col h-full min-h-0 bg-white font-sans text-gray-800">
             {/* Header / Breadcrumbs */}
             <div className="px-8 py-6 border-b border-gray-100">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-                        <span className="cursor-pointer hover:text-gray-600">Projects</span>
+                        <span className="cursor-pointer hover:text-gray-600">Quotes</span>
                         <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Glazing-Type</span>
-                        <span>/</span>
-                        <span className="cursor-pointer hover:text-gray-600">Create New Quote</span>
+                        <span className="cursor-pointer hover:text-gray-600">{editingQuoteId ? 'Edit Quote' : 'Create New Quote'}</span>
+                        {editingQuoteId && previousData?.overview?.projectName && previousData?.overview?.quoteId && (
+                            <>
+                                <span>/</span>
+                                <span className="cursor-pointer hover:text-gray-600">
+                                    {previousData.overview.projectName} - [{previousData.overview.quoteId}]
+                                </span>
+                            </>
+                        )}
                         <span>/</span>
                         <span className="text-gray-900 font-medium">Item List</span>
                     </div>
 
                     <div className="flex items-start justify-between">
                         <div className="flex items-start gap-4">
-                            <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mt-1">
+                            <button onClick={handleNavigateToOverview} className="text-gray-600 hover:text-gray-900 mt-1">
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
 
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 mb-1">Create New Quote</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                                    {editingQuoteId ? 'Edit Quote' : 'Create New Quote'}
+                                </h1>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Warning Message */}
-            {showWarning && (
+            {/* Warning Message - only for project-initiated quotes (dimension/material list selection) */}
+            {quoteType === 'from_project' && showWarning && (
                 <div className="px-8 py-4 bg-yellow-50 border-b border-yellow-100">
                     <div className="max-w-7xl mx-auto flex items-start justify-between">
                         <div className="flex items-start gap-3">
@@ -265,13 +282,13 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
             )}
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto px-8 py-8">
+            <main className="flex-1 overflow-y-auto min-h-0 px-8 py-8">
                 <div className="max-w-7xl mx-auto">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
                         <div className="flex items-center gap-8">
                             <button
-                                onClick={onBack}
+                                onClick={handleNavigateToOverview}
                                 className="pb-4 px-0 text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors relative"
                             >
                                 Overview
@@ -283,17 +300,10 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>
                             </button>
                             <button
-                                className="pb-4 px-0 text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors relative"
+                                onClick={() => onNavigateToExtras?.(getItemListData())}
+                                className={`pb-4 px-0 text-sm font-medium transition-colors relative ${onNavigateToExtras ? 'cursor-pointer text-gray-400 hover:text-gray-600' : 'text-gray-400'}`}
                             >
                                 Extras & Notes
-                            </button>
-
-                            {/* Filter Button */}
-                            <button className="ml-auto pb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                                <span className="text-sm">Filter</span>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
                             </button>
                         </div>
                     </div>
@@ -463,17 +473,19 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                 </div>
             </main>
 
-            {/* Footer with Next Button */}
-            <div className="border-t border-gray-200 bg-white px-8 py-6">
-                <div className="max-w-7xl mx-auto">
-                    <button
-                        onClick={handleNext}
-                        className="w-full py-4 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
-                    >
-                        Next
-                    </button>
+            {/* Footer with Next Button (hidden when editing - use tabs to navigate) */}
+            {!editingQuoteId && (
+                <div className="border-t border-gray-200 bg-white px-8 py-6 flex-shrink-0">
+                    <div className="max-w-7xl mx-auto">
+                        <button
+                            onClick={handleNext}
+                            className="w-full py-4 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
