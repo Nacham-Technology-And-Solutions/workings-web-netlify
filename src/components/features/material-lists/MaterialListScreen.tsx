@@ -9,6 +9,7 @@ interface MaterialListScreenProps {
   onBack: () => void;
   onViewList: (listId: string) => void;
   onCreateNewList: () => void;
+  refreshTrigger?: number;
 }
 
 const statusStyles: Record<MaterialListStatus, string> = {
@@ -53,7 +54,7 @@ const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ l
   );
 };
 
-const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewList, onCreateNewList }) => {
+const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewList, onCreateNewList, refreshTrigger = 0 }) => {
   const [activeTab, setActiveTab] = useState<'All' | 'Draft'>('All');
   const [materialLists, setMaterialLists] = useState<MaterialList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -135,7 +136,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
     };
 
     fetchMaterialLists();
-  }, []);
+  }, [refreshTrigger]);
 
   const filteredLists = useMemo(() => {
     let result = materialLists;

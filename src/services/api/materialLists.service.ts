@@ -74,5 +74,15 @@ export const materialListsService = {
     );
     return response.data;
   },
+
+  /**
+   * Delete a material list
+   */
+  delete: async (materialListId: number): Promise<ApiResponse<{ message?: string }>> => {
+    const response = await apiClient.delete<ApiResponse<{ message?: string }>>(
+      `/api/v1/material-lists/${materialListId}`
+    );
+    return response.data;
+  },
 };
 

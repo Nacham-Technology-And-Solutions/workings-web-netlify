@@ -10,6 +10,7 @@ import {
   FilterIcon,
 } from '@/assets/icons/IconComponents';
 import CalendarModal from '@/components/common/CalendarModal';
+import { useMaterialListStore } from '@/stores';
 
 interface CreateMaterialListScreenProps {
   onBack: () => void;
@@ -41,6 +42,7 @@ const formatDisplayDate = (date: Date | null): string => {
 };
 
 const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onBack, onPreview, onSaveDraft }) => {
+  const { duplicateMaterialListData, setDuplicateMaterialListData } = useMaterialListStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'itemList'>('overview');
   const [projectName, setProjectName] = useState('Bello Office Window Installation');
   const [date, setDate] = useState<Date | null>(new Date('2025-06-14T00:00:00.000Z'));
@@ -57,6 +59,22 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
   const artisanDropdownRef = useRef<HTMLDivElement>(null);
 
   const artisanOptions = ['LEADS GLAZING', 'Tunde Builders', 'Chioma Interiors'];
+
+  // Initialize from duplicate data when present
+  useEffect(() => {
+    if (duplicateMaterialListData) {
+      setProjectName(duplicateMaterialListData.projectName);
+      setDate(duplicateMaterialListData.date ? new Date(duplicateMaterialListData.date) : null);
+      setPreparedBy(duplicateMaterialListData.preparedBy);
+      setItems(duplicateMaterialListData.items.map((item, i) => ({
+        id: item.id || `item-${i + 1}`,
+        description: item.description,
+        quantity: String(item.quantity),
+        unitPrice: String(item.unitPrice),
+      })));
+      setDuplicateMaterialListData(null);
+    }
+  }, [duplicateMaterialListData, setDuplicateMaterialListData]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -123,6 +123,71 @@ export const exportMaterialListToPDF = (
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
+/** Material list item format from FullMaterialList */
+interface FullMaterialListItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+/**
+ * Export material list to PDF (accepts FullMaterialList format with description, not name)
+ */
+export const exportFullMaterialListToPDF = (
+  items: FullMaterialListItem[],
+  projectName: string,
+  preparedBy: string,
+  grandTotal: number,
+  date?: string
+) => {
+  const materials: MaterialItem[] = items.map((item) => ({
+    id: item.id,
+    name: item.description,
+    quantity: item.quantity,
+    unit: 'pcs',
+    unitPrice: item.unitPrice,
+    total: item.total,
+  }));
+  const doc = new jsPDF();
+
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Material List', 14, 20);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Project: ${projectName}`, 14, 30);
+  doc.text(`Prepared by: ${preparedBy}`, 14, 36);
+  doc.text(`Date: ${date ? new Date(date).toLocaleDateString() : new Date().toLocaleDateString()}`, 14, 42);
+
+  const tableData = materials.map((item, index) => [
+    index + 1,
+    item.name,
+    item.quantity,
+    item.unit,
+    `₦${item.unitPrice.toLocaleString()}`,
+    `₦${item.total.toLocaleString()}`,
+  ]);
+
+  autoTable(doc, {
+    startY: 50,
+    head: [['S/N', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY || 50;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Grand Total: ₦${grandTotal.toLocaleString()}`, 14, finalY + 10);
+
+  doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
+};
+
 /** Hex to RGB tuple [r,g,b] for jsPDF */
 function hexToRgb(hex: string): [number, number, number] {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -585,15 +650,18 @@ export const exportGlassCuttingListToExcel = (
 
 export const shareData = async (
   type: 'material' | 'cutting',
-  data: any,
+  data: string | { text?: string; [key: string]: unknown },
   projectName: string
 ) => {
+  const shareText = typeof data === 'string' ? data : (data?.text as string) || JSON.stringify(data, null, 2);
+  const displayText = typeof data === 'string' ? data : (data?.text as string) || `View the ${type} list for project: ${projectName}`;
+
   // Check if Web Share API is available
   if (navigator.share) {
     try {
       await navigator.share({
         title: `${type === 'material' ? 'Material List' : 'Cutting List'} - ${projectName}`,
-        text: `View the ${type} list for project: ${projectName}`,
+        text: displayText,
         url: window.location.href
       });
       return { success: true, message: 'Shared successfully' };
@@ -603,12 +671,12 @@ export const shareData = async (
     }
   } else {
     // Fallback: Copy to clipboard
-    const text = type === 'material' 
-      ? `Material List for ${projectName}\n${JSON.stringify(data, null, 2)}`
-      : `Cutting List for ${projectName}\n${JSON.stringify(data, null, 2)}`;
-    
+    const clipboardText = type === 'material'
+      ? `Material List for ${projectName}\n\n${shareText}`
+      : `Cutting List for ${projectName}\n\n${shareText}`;
+
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(clipboardText);
       return { success: true, message: 'Copied to clipboard!' };
     } catch (error) {
       return { success: false, message: 'Could not copy to clipboard' };

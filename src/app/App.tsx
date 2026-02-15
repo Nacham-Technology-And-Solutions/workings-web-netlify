@@ -135,9 +135,11 @@ const App: React.FC = () => {
     selectedMaterialListId,
     materialListPreviewData,
     editingMaterialList,
+    duplicateMaterialListData,
     setSelectedMaterialListId,
     setMaterialListPreviewData,
     setEditingMaterialList,
+    setDuplicateMaterialListData,
   } = useMaterialListStore();
 
   const { initializeOnlineStatus } = useSyncStore();
@@ -147,6 +149,7 @@ const App: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [refreshProjects, setRefreshProjects] = useState(0);
   const [refreshQuotes, setRefreshQuotes] = useState(0);
+  const [refreshMaterialLists, setRefreshMaterialLists] = useState(0);
   const [showLogViewer, setShowLogViewer] = useState(false);
   const [draftProjectId, setDraftProjectId] = useState<number | null>(null);
   const [initialCalculationResult, setInitialCalculationResult] = useState<import('@/types/calculations').CalculationResult | null>(null);
@@ -1148,41 +1151,68 @@ const App: React.FC = () => {
       // Transform FullMaterialList to API format
       const requestData = {
         projectName: listData.projectName,
-        items: listData.items.map((item: any) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.total || (item.quantity * item.unitPrice),
-        })),
-        total: listData.total,
-        preparedBy: listData.preparedBy,
-        date: listData.date,
+        items: listData.items.map((item: any) => {
+          const quantity = typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity) || 0;
+          const unitPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice) || 0;
+          const totalPrice = item.total ?? (quantity * unitPrice);
+          return {
+            description: item.description || '',
+            quantity,
+            unitPrice,
+            totalPrice: typeof totalPrice === 'number' ? totalPrice : quantity * unitPrice,
+          };
+        }),
+        total: typeof listData.total === 'number' ? listData.total : parseFloat(String(listData.total)) || 0,
+        preparedBy: listData.preparedBy || '',
+        date: listData.date || new Date().toISOString(),
       };
 
       // Call API to save material list
       const response = await materialListsService.create(requestData);
       
-      // Check if save was successful
       const normalizedResponse = normalizeApiResponse(response);
       if (isApiResponseSuccess(normalizedResponse)) {
-        console.log('[App] Material list saved successfully');
-        // Navigate back to material list screen on success
+        setRefreshMaterialLists(prev => prev + 1);
         navigate('material-list');
       } else {
-        console.error('[App] Failed to save material list:', normalizedResponse.message);
-        // Still navigate but log the error
-        navigate('material-list');
+        const msg = (normalizedResponse as any)?.message || 'Failed to save material list';
+        alert(`Save failed: ${msg}. Please try again.`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[App] Error saving material list:', error);
-      // Navigate back even on error (user can try again)
-      navigate('material-list');
+      const msg = error?.response?.data?.message || error?.message || 'An unexpected error occurred';
+      alert(`Error saving draft: ${msg}. Please try again.`);
     }
   };
 
   const handlePreviewMaterialList = (listData: any) => {
     setMaterialListPreviewData(listData);
     navigate('materialListPreview');
+  };
+
+  const handleDeleteMaterialList = async (list: { id: string }) => {
+    const numId = parseInt(list.id, 10);
+    if (!isNaN(numId)) {
+      try {
+        await materialListsService.delete(numId);
+        setSelectedMaterialListId(null);
+        setRefreshMaterialLists(prev => prev + 1);
+        navigate('material-list');
+      } catch (error: any) {
+        console.error('[App] Error deleting material list:', error);
+        alert(`Failed to delete: ${error?.response?.data?.message || error?.message}. Please try again.`);
+      }
+    } else {
+      // Sample/demo data - just navigate back
+      setSelectedMaterialListId(null);
+      navigate('material-list');
+    }
+  };
+
+  const handleDuplicateMaterialList = (list: import('@/types').FullMaterialList) => {
+    setDuplicateMaterialListData({ ...list, id: `dup-${Date.now()}` });
+    setSelectedMaterialListId(null);
+    navigate('createMaterialList');
   };
 
   // Recalculate estimates when floorPlan changes
@@ -1524,7 +1554,7 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <MaterialListScreen onBack={() => navigate('home')} onViewList={handleViewMaterialList} onCreateNewList={handleCreateNewMaterialList} />
+            <MaterialListScreen onBack={() => navigate('home')} onViewList={handleViewMaterialList} onCreateNewList={handleCreateNewMaterialList} refreshTrigger={refreshMaterialLists} />
           </div>
         </div>
       </div>
@@ -1553,6 +1583,8 @@ const App: React.FC = () => {
                 setEditingMaterialList(displayData);
                 navigate('editMaterialList');
               }}
+              onDelete={() => handleDeleteMaterialList(displayData)}
+              onDuplicate={() => handleDuplicateMaterialList(displayData)}
             />
           </div>
         </div>
@@ -1605,6 +1637,10 @@ const App: React.FC = () => {
             <MaterialListPreviewScreen
               list={materialListPreviewData}
               onBack={() => navigate('createMaterialList')}
+              onDuplicate={() => {
+                setDuplicateMaterialListData({ ...materialListPreviewData!, id: `dup-${Date.now()}` });
+                navigate('createMaterialList');
+              }}
             />
           </div>
         </div>

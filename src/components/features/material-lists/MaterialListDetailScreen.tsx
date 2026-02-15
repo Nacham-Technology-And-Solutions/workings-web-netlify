@@ -2,12 +2,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import type { FullMaterialList } from '@/types';
-import { ChevronLeftIcon, MoreVerticalIcon } from '@/assets/icons/IconComponents';
+import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
+import { exportFullMaterialListToPDF } from '@/services/export/exportService';
+import { shareData } from '@/services/export/exportService';
 
 interface MaterialListDetailScreenProps {
   list: FullMaterialList;
   onBack: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
 }
 
 
@@ -18,9 +22,50 @@ const formatNumber = (amount: number) => {
   }).format(amount);
 };
 
-const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ list, onBack, onEdit }) => {
+const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ list, onBack, onEdit, onDelete, onDuplicate }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setActionMessage({ type, text });
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleDownloadPDF = () => {
+    try {
+      exportFullMaterialListToPDF(list.items, list.projectName, list.preparedBy, list.total, list.date);
+      showMessage('success', 'Material list exported as PDF successfully!');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      showMessage('error', 'Failed to export PDF. Please try again.');
+    }
+    setIsMenuOpen(false);
+  };
+
+  const handleShare = async () => {
+    try {
+      const shareText = `Material List: ${list.projectName}\nTotal: ${formatNaira(list.total)}\nPrepared by: ${list.preparedBy}\nDate: ${formattedDateWithSuffix}`;
+      const result = await shareData('material', { text: shareText }, list.projectName);
+      showMessage(result?.success ? 'success' : 'error', result?.message || (result?.success ? 'Shared successfully!' : 'Share failed.'));
+    } catch (error) {
+      console.error('Share error:', error);
+      showMessage('error', 'Failed to share. Please try again.');
+    }
+    setIsMenuOpen(false);
+  };
+
+  const handleDuplicate = () => {
+    onDuplicate?.();
+    setIsMenuOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm('Are you sure you want to delete this material list?')) {
+      onDelete?.();
+    }
+    setIsMenuOpen(false);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -55,6 +100,17 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
 
   return (
     <div className="flex flex-col h-full bg-white font-sans text-gray-800">
+      {/* Action message toast */}
+      {actionMessage && (
+        <div
+          className={`fixed top-4 left-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+            actionMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+          }`}
+        >
+          <p className="text-white font-medium text-center">{actionMessage.text}</p>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-gray-50 p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
@@ -95,12 +151,16 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
                 </button>
               )}
               
-              {/* Download PDF Button - Only show for completed */}
-              {isCompleted && (
-                <button className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors">
-                  Download PDF
-                </button>
-              )}
+              {/* Download PDF Button - Always show, works for both Draft and Completed */}
+              <button
+                onClick={handleDownloadPDF}
+                className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download PDF
+              </button>
               
               {/* More Options */}
               <div className="relative" ref={menuRef}>
@@ -122,17 +182,17 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
                   >
                     <ul className="py-1">
                       <li>
-                        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                        <button onClick={handleShare} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                           Share
                         </button>
                       </li>
                       <li>
-                        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                        <button onClick={handleDuplicate} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                           Duplicate
                         </button>
                       </li>
                       <li>
-                        <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">
+                        <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">
                           Delete
                         </button>
                       </li>
