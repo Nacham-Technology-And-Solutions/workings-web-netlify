@@ -153,8 +153,18 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
   return (
     <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
       {/* Header / Breadcrumbs */}
-      <div className="px-8 py-6 border-b border-gray-100">
+      <div className="px-4 md:px-8 py-4 md:py-6 border-b border-gray-100">
         <div className="max-w-6xl mx-auto">
+          {/* Mobile only: headline row = Back + "Projects" */}
+          <div className="flex md:hidden items-center gap-3 mb-4">
+            <button onClick={onBack} className="text-gray-600 hover:text-gray-900 p-1 -ml-1" aria-label="Go back">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h2 className="text-xl font-bold text-gray-900">Projects</h2>
+          </div>
+
           <div className="hidden md:block">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
             <span className="cursor-default text-gray-400">Projects</span>
@@ -165,9 +175,10 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
           </div>
           </div>
 
+          {/* Project info bar: back + progress + title + subtitle (back hidden on mobile) */}
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
-              <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mt-1">
+              <button onClick={onBack} className="hidden md:block text-gray-600 hover:text-gray-900 mt-1 flex-shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -200,7 +211,7 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
               </div>
 
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Select Glazing Category</h1>
+                <h1 className="text-lg md:text-2xl font-bold text-gray-900 mb-1">Select Glazing Category</h1>
                 <p className="text-gray-500 text-sm">What type of project are your measurements?</p>
               </div>
             </div>
