@@ -1,11 +1,9 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import type { MaterialListItem, FullMaterialList } from '@/types';
 import {
   ChevronLeftIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   TrashIcon,
   FilterIcon,
 } from '@/assets/icons/IconComponents';
@@ -44,21 +42,14 @@ const formatDisplayDate = (date: Date | null): string => {
 const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onBack, onPreview, onSaveDraft }) => {
   const { duplicateMaterialListData, setDuplicateMaterialListData } = useMaterialListStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'itemList'>('overview');
-  const [projectName, setProjectName] = useState('Bello Office Window Installation');
-  const [date, setDate] = useState<Date | null>(new Date('2025-06-14T00:00:00.000Z'));
-  const [preparedBy, setPreparedBy] = useState('LEADS GLAZING');
-  const [items, setItems] = useState<EditableMaterialItem[]>([
-    { id: '1', description: 'Low-Iron Glass', quantity: '6', unitPrice: '12000' },
-    { id: '2', description: 'EPDM Glazing Tape (per roll)', quantity: '2', unitPrice: '4000' },
-  ]);
+  const [projectName, setProjectName] = useState('');
+  const [date, setDate] = useState<Date | null>(null);
+  const [preparedBy, setPreparedBy] = useState('');
+  const [items, setItems] = useState<EditableMaterialItem[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<{ description: string; quantity: string; unitPrice: string } | null>(null);
 
   const [showCalendar, setShowCalendar] = useState(false);
-  const [isArtisanDropdownOpen, setIsArtisanDropdownOpen] = useState(false);
-  const artisanDropdownRef = useRef<HTMLDivElement>(null);
-
-  const artisanOptions = ['LEADS GLAZING', 'Tunde Builders', 'Chioma Interiors'];
 
   // Initialize from duplicate data when present
   useEffect(() => {
@@ -75,16 +66,6 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
       setDuplicateMaterialListData(null);
     }
   }, [duplicateMaterialListData, setDuplicateMaterialListData]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (artisanDropdownRef.current && !artisanDropdownRef.current.contains(event.target as Node)) {
-        setIsArtisanDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const total = useMemo(() => {
     return items.reduce((sum, item) => {
@@ -328,36 +309,13 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
                 {/* Prepared by (Artisan's name) */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Prepared by (Artisan&apos;s name)</label>
-                  <div className="relative" ref={artisanDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setIsArtisanDropdownOpen(!isArtisanDropdownOpen)}
-                      className="w-full flex justify-between items-center px-4 py-3 text-left bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
-                    >
-                      <span className={preparedBy ? 'text-gray-900' : 'text-gray-400'}>
-                        {preparedBy || 'Select an artisan'}
-                      </span>
-                      {isArtisanDropdownOpen ? <ChevronUpIcon className="text-gray-500" /> : <ChevronDownIcon className="text-gray-500" />}
-                    </button>
-                    {isArtisanDropdownOpen && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
-                        <ul className="py-1 max-h-60 overflow-y-auto">
-                          {artisanOptions.map((option) => (
-                            <li
-                              key={option}
-                              onClick={() => {
-                                setPreparedBy(option);
-                                setIsArtisanDropdownOpen(false);
-                              }}
-                              className="px-4 py-2 text-gray-800 hover:bg-gray-100 cursor-pointer"
-                            >
-                              {option}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    value={preparedBy}
+                    onChange={(e) => setPreparedBy(e.target.value)}
+                    placeholder="Enter artisan's name"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent text-gray-900 placeholder-gray-400"
+                  />
                 </div>
               </div>
             </div>

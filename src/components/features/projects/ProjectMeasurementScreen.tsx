@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectMeasurementData, DimensionItem, SelectProjectData } from '@/types';
@@ -290,6 +290,21 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     setElementColor('');
   };
 
+  /** Prefill the glazing dimension form with this category and type when user clicks a Selected Glazing Type */
+  const handleSelectGlazingTypeForForm = (item: { category: string; label: string; value: string }) => {
+    setSelectedCategory(item.category);
+    setType(item.value);
+    setEditingId(null); // Ensure we're in "add" mode, not editing
+    formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleRemoveDimension = (dimension: DimensionItem) => {
+    setDimensions(prev => prev.filter(d => d.id !== dimension.id));
+    if (editingId === dimension.id) {
+      handleCancelEdit();
+    }
+  };
+
   // Clear form when user changes type in dropdown (not when loading for edit)
   useEffect(() => {
     if (type && !editingId) {
@@ -305,6 +320,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   }, [type, editingId]);
 
   const [showRecalculateConfirm, setShowRecalculateConfirm] = useState(false);
+  const formContainerRef = useRef<HTMLDivElement>(null);
 
   const doCalculate = (isRecalc: boolean) => {
     if (dimensions.length > 0) {
@@ -400,7 +416,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                 <p className="text-gray-500 text-sm">What type of project are your measurements?</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Desktop only: buttons in project info bar; on mobile they're in the bottom bar */}
+            <div className="hidden md:flex items-center gap-3 flex-shrink-0">
               {isRecalculate && onNavigateToStep && (
                 <button
                   onClick={() => onNavigateToStep('projectSolution')}
@@ -454,49 +471,65 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       )}
 
       {/* Main Content - Two Column Layout */}
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8">
         <div className="max-w-7xl mx-auto">
-          {/* Selected Glazing Types Display */}
+          {/* Selected Glazing Types Display - mobile: card list; desktop: pills */}
           {selectedItemsForDisplay.length > 0 && (
-            <div className="mb-6 flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Selected Glazing Types</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedItemsForDisplay.map((item, index) => (
-                    <div
-                      key={`${item.category}-${item.value}-${index}`}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-700 rounded-full border border-teal-200"
-                    >
-                      <span className="text-xs font-medium text-teal-600">{item.category}:</span>
-                      <span className="text-sm font-medium">{item.label}</span>
-                    </div>
-                  ))}
+            <div className="mb-6">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Selected Glazing Types</h3>
+                  {/* Mobile: vertical cards - clickable to prefill form */}
+                  <div className="md:hidden space-y-3">
+                    {selectedItemsForDisplay.map((item, index) => (
+                      <button
+                        type="button"
+                        key={`${item.category}-${item.value}-${index}`}
+                        onClick={() => handleSelectGlazingTypeForForm(item)}
+                        className="w-full text-left rounded-xl border border-teal-200 bg-teal-50/80 px-4 py-3 hover:bg-teal-100/80 hover:border-teal-300 active:bg-teal-200/80 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2"
+                        aria-label={`Use ${item.category} – ${item.label} in form`}
+                      >
+                        <div className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">{item.category}</div>
+                        <div className="text-sm font-medium text-teal-800 leading-snug">{item.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {/* Desktop: inline pills - clickable to prefill form */}
+                  <div className="hidden md:flex flex-wrap gap-2">
+                    {selectedItemsForDisplay.map((item, index) => (
+                      <button
+                        type="button"
+                        key={`${item.category}-${item.value}-${index}`}
+                        onClick={() => handleSelectGlazingTypeForForm(item)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-700 rounded-full border border-teal-200 hover:bg-teal-100 hover:border-teal-300 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2"
+                        aria-label={`Use ${item.category} – ${item.label} in form`}
+                      >
+                        <span className="text-xs font-medium text-teal-600">{item.category}:</span>
+                        <span className="text-sm font-medium">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <button
+                  onClick={() => {
+                    if (dimensions.length > 0) {
+                      const currentMeasurementData: ProjectMeasurementData = {
+                        dimensions,
+                        unit
+                      };
+                      onNext(currentMeasurementData);
+                    }
+                    if (onNavigateToStep) {
+                      onNavigateToStep('selectProject');
+                    } else {
+                      onBack();
+                    }
+                  }}
+                  className="md:ml-4 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex-shrink-0 w-full md:w-auto"
+                >
+                  + Add Category/Type
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  // Save current dimensions to preserve them when navigating back
-                  // This ensures dimensions are not lost when adding more categories/types
-                  if (dimensions.length > 0) {
-                    const currentMeasurementData: ProjectMeasurementData = {
-                      dimensions,
-                      unit
-                    };
-                    // Call onNext to save current state before navigating
-                    // This will preserve dimensions in the parent component's state
-                    onNext(currentMeasurementData);
-                  }
-                  // Navigate back to SelectProjectScreen
-                  if (onNavigateToStep) {
-                    onNavigateToStep('selectProject');
-                  } else {
-                    onBack();
-                  }
-                }}
-                className="ml-4 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-              >
-                + Add Category/Type
-              </button>
             </div>
           )}
 
@@ -635,11 +668,11 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                 })()}
               </div>
 
-              {/* Calculate Now / Recalculate Button - Below Canvas */}
+              {/* Calculate Now / Recalculate Button - Below Canvas (desktop only; on mobile it's in the bottom bar) */}
               <button
                 onClick={handleCalculateNow}
                 disabled={dimensions.length === 0}
-                className={`w-full py-4 font-semibold rounded transition-colors ${dimensions.length > 0
+                className={`hidden md:block w-full py-4 font-semibold rounded transition-colors ${dimensions.length > 0
                   ? 'bg-gray-900 text-white hover:bg-gray-800'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
@@ -649,7 +682,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
             </div>
 
             {/* Right Column - Form */}
-            <div className="flex flex-col">
+            <div ref={formContainerRef} className="flex flex-col">
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 {/* Unit Dropdown */}
                 <div className="mb-6">
@@ -924,11 +957,62 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                 </div>
               </div>
 
-              {/* Preview Table */}
+              {/* Preview Table / Mobile card list */}
               {dimensions.length > 0 && (
-                <div className="mt-6 bg-white border border-gray-200 rounded-lg p-6">
+                <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4 md:p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Preview</h3>
-                  <div className="overflow-hidden">
+
+                  {/* Card list for small/medium viewports so Action is never clipped; table only at lg+ */}
+                  <div className="lg:hidden space-y-3">
+                    {dimensions.map((dim, index) => {
+                      const dimensionCategory = glazingTypes.find(t => t.value === dim.type)?.category || 'Unknown';
+                      return (
+                        <div key={dim.id} className="flex items-start justify-between gap-3 p-4 rounded-xl border border-gray-200 bg-gray-50/50">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-gray-500">{index + 1}.</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                                {dimensionCategory}
+                              </span>
+                            </div>
+                            <div className="font-medium text-gray-900 text-sm">{dim.width} × {dim.height}</div>
+                            <div className="text-gray-500 text-xs mt-0.5 truncate" title={dim.type}>{dim.type}</div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-600">
+                              <span>Label: {dim.title || '—'}</span>
+                              <span>Qty: {dim.quantity}</span>
+                              {dim.panel && <span>Panel: {dim.panel}</span>}
+                            </div>
+                            {dim.color && (
+                              <span className="inline-block w-4 h-4 rounded border border-gray-200 mt-1.5" style={{ backgroundColor: dim.color }} title={dim.color} aria-hidden />
+                            )}
+                          </div>
+                          <div className="flex flex-shrink-0 items-center gap-1">
+                            <button
+                              onClick={() => handleEditDimension(dim)}
+                              className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                              aria-label="Edit dimension"
+                            >
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleRemoveDimension(dim)}
+                              className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              aria-label="Remove dimension"
+                            >
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop: table */}
+                  <div className="hidden md:block overflow-hidden">
                     <table className="w-full">
                       <thead className="bg-gray-50">
                         <tr className="border-b border-gray-200">
@@ -943,7 +1027,6 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                       </thead>
                       <tbody>
                         {dimensions.map((dim, index) => {
-                          // Determine category for this dimension type
                           const dimensionCategory = glazingTypes.find(t => t.value === dim.type)?.category || 'Unknown';
                           return (
                           <tr key={dim.id} className="border-b border-gray-100 last:border-b-0">
@@ -968,15 +1051,26 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                             <td className="py-3 px-3 text-gray-900 text-xs">{dim.panel}</td>
                             <td className="py-3 px-3 text-gray-900 text-xs">{dim.quantity}</td>
                             <td className="py-3 px-3 text-center">
-                              <button
-                                onClick={() => handleEditDimension(dim)}
-                                className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                                aria-label="Edit dimension"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => handleEditDimension(dim)}
+                                  className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                  aria-label="Edit dimension"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveDimension(dim)}
+                                  className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  aria-label="Remove dimension"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                           );
@@ -990,6 +1084,28 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
           </div>
         </div>
       </main>
+
+      {/* Mobile only: Calculate Now at the very end (after dimensions list) */}
+      <div className="md:hidden flex-shrink-0 p-4 bg-white border-t border-gray-200 space-y-2">
+        {isRecalculate && onNavigateToStep && (
+          <button
+            onClick={() => onNavigateToStep('projectSolution')}
+            className="w-full py-3 font-semibold rounded-lg transition-colors bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Return to Calculation Results
+          </button>
+        )}
+        <button
+          onClick={handleCalculateNow}
+          disabled={dimensions.length === 0}
+          className={`w-full py-3.5 font-semibold rounded-lg transition-colors ${dimensions.length > 0
+            ? 'bg-gray-900 text-white hover:bg-gray-800'
+            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+            }`}
+        >
+          {isRecalculate ? 'Recalculate' : 'Calculate Now'}
+        </button>
+      </div>
     </div>
   );
 };

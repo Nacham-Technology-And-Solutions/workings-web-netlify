@@ -16,7 +16,6 @@ interface ProjectDetailScreenProps {
   onCalculate?: (projectId: string) => void;
   onViewResults?: (projectId: string, lastCalculationResult: CalculationResult) => void;
   onModifyDimensionsRecalculate?: (projectId: string) => void;
-  onEditCalculationSettings?: (projectId: string) => void;
 }
 
 const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
@@ -28,7 +27,6 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
   onCalculate,
   onViewResults,
   onModifyDimensionsRecalculate,
-  onEditCalculationSettings,
 }) => {
   const [project, setProject] = useState<ApiProject | null>(null);
   const [lastCalculationResult, setLastCalculationResult] = useState<CalculationResult | null>(null);
@@ -36,6 +34,8 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  /** 'view' | 'modify' when View results or Modify dimensions is clicked; other buttons disabled and this one shows loading */
+  const [actionLoading, setActionLoading] = useState<'view' | 'modify' | null>(null);
 
   useEffect(() => {
     fetchProject();
@@ -209,7 +209,8 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
             {onAddDimensions && (!project.glazingDimensions?.length || project.glazingDimensions.length === 0) && !project.calculated && (
               <button
                 onClick={() => onAddDimensions(projectId)}
-                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
+                disabled={actionLoading !== null}
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Add dimensions to calculate
               </button>
@@ -217,46 +218,63 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
             {onCalculate && project.glazingDimensions?.length > 0 && !project.calculated && (
               <button
                 onClick={() => onCalculate(projectId)}
-                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
+                disabled={actionLoading !== null}
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Calculate
               </button>
             )}
             {onViewResults && project.calculated && lastCalculationResult && (
               <button
-                onClick={() => onViewResults(projectId, lastCalculationResult)}
-                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
+                onClick={() => {
+                  setActionLoading('view');
+                  onViewResults(projectId, lastCalculationResult);
+                }}
+                disabled={actionLoading !== null}
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
               >
-                View results
+                {actionLoading === 'view' ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+                    Loading...
+                  </>
+                ) : (
+                  'View results'
+                )}
               </button>
             )}
             {onModifyDimensionsRecalculate && project.calculated && (
               <button
-                onClick={() => onModifyDimensionsRecalculate(projectId)}
-                className="px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm font-medium"
+                onClick={() => {
+                  setActionLoading('modify');
+                  onModifyDimensionsRecalculate(projectId);
+                }}
+                disabled={actionLoading !== null}
+                className="px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
               >
-                Modify dimensions & recalculate
-              </button>
-            )}
-            {onEditCalculationSettings && project.calculated && (
-              <button
-                onClick={() => onEditCalculationSettings(projectId)}
-                className="px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm font-medium"
-              >
-                Edit Calculation Settings
+                {actionLoading === 'modify' ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-blue-700 border-t-transparent rounded-full animate-spin" aria-hidden />
+                    Loading...
+                  </>
+                ) : (
+                  'Modify dimensions & recalculate'
+                )}
               </button>
             )}
             {onEdit && (
               <button
                 onClick={() => onEdit(projectId)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm font-medium"
+                disabled={actionLoading !== null}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Edit
               </button>
             )}
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="px-4 py-2 bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors text-sm font-medium"
+              disabled={actionLoading !== null}
+              className="px-4 py-2 bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Delete
             </button>

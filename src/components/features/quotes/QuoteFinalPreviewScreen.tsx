@@ -70,7 +70,7 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
     return (
         <div className="flex flex-col h-full min-h-0 bg-white font-sans text-gray-800">
             {/* Header / Breadcrumbs */}
-            <div className="px-8 py-6 border-b border-gray-100 flex-shrink-0">
+            <div className="px-4 md:px-8 py-6 border-b border-gray-100 flex-shrink-0">
                 <div className="max-w-7xl mx-auto">
                     <div className="hidden md:block">
                     <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
@@ -103,20 +103,23 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                             </div>
                         </div>
 
-                        {/* Action Buttons */}
+                        {/* Action Buttons: mobile = Edit only (minimal style); desktop = Edit + Download PDF */}
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={onEdit}
-                                className="flex items-center gap-2 px-6 py-3 font-semibold rounded transition-colors border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors"
+                                aria-label="Edit quote"
                             >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                                Edit
+                                <span className="inline-flex items-center justify-center w-9 h-9 rounded border border-gray-300 bg-white">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </span>
+                                <span className="text-sm font-medium">Edit</span>
                             </button>
                             <button
                                 onClick={onDownloadPDF}
-                                className="px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                                className="hidden md:inline-flex px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
                             >
                                 Download PDF
                             </button>
@@ -125,8 +128,8 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                 </div>
             </div>
 
-            {/* Main Content */}
-            <main className="flex-1 overflow-y-auto min-h-0 px-8 py-8 bg-gray-50">
+            {/* Main Content - extra bottom padding on mobile for fixed Download PDF bar */}
+            <main className="flex-1 overflow-y-auto min-h-0 px-4 md:px-8 py-8 pb-24 md:pb-8 bg-gray-50">
                 <div className="max-w-5xl mx-auto">
                     {/* Quote Header Info */}
                     <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
@@ -260,6 +263,16 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                     </div>
                 </div>
             </main>
+
+            {/* Mobile: fixed bottom bar with Download PDF */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3">
+                <button
+                    onClick={onDownloadPDF}
+                    className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                >
+                    Download PDF
+                </button>
+            </div>
         </div>
     );
 };

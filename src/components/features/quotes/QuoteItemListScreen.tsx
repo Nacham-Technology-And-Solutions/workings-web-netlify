@@ -31,21 +31,28 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
         previousData?.itemList?.listType || 'dimension'
     );
 
-    // Initialize items: prioritize project data for project quotes, otherwise use previous data or defaults
+    // Initialize items: prefer saved itemList (persists prices when navigating away), then project data, then defaults
     const getInitialItems = (currentListType: 'dimension' | 'material'): QuoteItemRow[] => {
-        // For project quotes, prioritize project data over saved itemList
+        // Prefer saved itemList so that prices and edits persist when user leaves and returns
+        if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
+            const savedListType = previousData.itemList.listType;
+            if (savedListType === currentListType) {
+                return previousData.itemList.items;
+            }
+        }
+
+        // For project quotes, use project data when no saved item list
         if (quoteType === 'from_project' && previousData?.projectData) {
             const projectItems = getInitialQuoteItems(
                 currentListType,
                 previousData.projectData.projectMeasurement,
                 previousData.projectData.calculationResult
             );
-            
+
             if (projectItems.length > 0) {
                 return projectItems;
             }
-            
-            // Fallback to material cost if no project items
+
             if (materialCost !== undefined && materialCost > 0) {
                 return [
                     {
@@ -58,18 +65,11 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                 ];
             }
         }
-        
-        // Use saved itemList if it exists and has items (for editing existing quotes)
-        if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
-            return previousData.itemList.items;
-        }
-        
-        // Standalone new quote: start with empty list (no pre-populated items)
+
         if (quoteType === 'standalone') {
             return [];
         }
-        
-        // Empty array for project quotes with no data
+
         return [];
     };
 
@@ -83,41 +83,36 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
         return false;
     });
 
-    // Update items when list type changes for project quotes, or when project data becomes available
+    // Update items when list type changes for project quotes, or when project data becomes available.
+    // Do not overwrite when user has a saved itemList (persists prices when navigating away).
     useEffect(() => {
         if (quoteType === 'from_project' && previousData?.projectData) {
-            // Debug logging
+            const hasSavedItemList = previousData?.itemList?.items && previousData.itemList.items.length > 0;
+            const savedMatchesListType = previousData?.itemList?.listType === listType;
+            if (hasSavedItemList && savedMatchesListType) {
+                setItems(previousData.itemList.items);
+                setShowWarning(false);
+                return;
+            }
+
             if (import.meta.env.DEV) {
                 console.log('[QuoteItemListScreen] useEffect triggered:', {
                     listType,
                     hasProjectData: !!previousData.projectData,
-                    hasProjectMeasurement: !!previousData.projectData.projectMeasurement,
-                    hasCalculationResult: !!previousData.projectData.calculationResult,
-                    projectMeasurementType: typeof previousData.projectData.projectMeasurement,
-                    calculationResultType: typeof previousData.projectData.calculationResult,
-                    projectDataKeys: Object.keys(previousData.projectData || {}),
-                    projectData: previousData.projectData
+                    hasSavedItemList,
                 });
             }
-            
+
             const projectItems = getInitialQuoteItems(
                 listType,
                 previousData.projectData.projectMeasurement,
                 previousData.projectData.calculationResult
             );
-            
-            if (import.meta.env.DEV) {
-                console.log('[QuoteItemListScreen] getInitialQuoteItems returned:', {
-                    itemCount: projectItems.length,
-                    items: projectItems.slice(0, 3) // Log first 3 items to avoid console spam
-                });
-            }
-            
+
             if (projectItems.length > 0) {
                 setItems(projectItems);
                 setShowWarning(false);
             } else {
-                // Check if we have material cost as fallback
                 if (materialCost !== undefined && materialCost > 0 && listType === 'material') {
                     setItems([{
                         id: '1',
@@ -133,7 +128,6 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                 }
             }
         } else if (quoteType === 'from_project' && !previousData?.projectData) {
-            // Project data not available yet, show warning
             setShowWarning(true);
         }
     }, [listType, quoteType, previousData, materialCost]);
@@ -341,8 +335,99 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                         </div>
                     )}
 
-                    {/* Items Table */}
-                    <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+                    {/* Items: card list on mobile (no clipping), table on desktop */}
+                    <div className="lg:hidden space-y-4 mb-6">
+                        {items.map((item) => {
+                            const isEditing = editingItemId === item.id;
+                            return (
+                                <div key={item.id} className="border border-gray-200 rounded-lg bg-white p-4 shadow-sm">
+                                    <div className="flex justify-between items-start gap-2 mb-3">
+                                        <span className="text-xs font-medium text-gray-500 uppercase">S/N</span>
+                                        <span className="text-sm font-semibold text-gray-900">#{item.id}</span>
+                                    </div>
+                                    <div className="space-y-2 mb-3">
+                                        <div>
+                                            <span className="text-xs text-gray-500 block mb-0.5">Description</span>
+                                            {isEditing && editFormData ? (
+                                                <input
+                                                    type="text"
+                                                    value={editFormData.description}
+                                                    onChange={(e) => handleEditFormChange('description', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <p className="text-sm text-gray-900 break-words">{item.description}</p>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <span className="text-xs text-gray-500 block mb-0.5">Quantity</span>
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="number"
+                                                        value={editFormData.quantity}
+                                                        onChange={(e) => handleEditFormChange('quantity', parseInt(e.target.value) || 0)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                    />
+                                                ) : (
+                                                    <p className="text-sm text-gray-900">{item.quantity}</p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-gray-500 block mb-0.5">Unit Price (₦)</span>
+                                                {isEditing && editFormData ? (
+                                                    <input
+                                                        type="number"
+                                                        value={editFormData.unitPrice}
+                                                        onChange={(e) => handleEditFormChange('unitPrice', parseFloat(e.target.value) || 0)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                    />
+                                                ) : (
+                                                    <p className="text-sm text-gray-900">{item.unitPrice.toLocaleString()}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="pt-2 border-t border-gray-100">
+                                            <span className="text-xs text-gray-500 block mb-0.5">Total (₦)</span>
+                                            <p className="text-base font-semibold text-gray-900">
+                                                ₦ {isEditing && editFormData
+                                                    ? (editFormData.quantity * editFormData.unitPrice).toLocaleString()
+                                                    : item.total.toLocaleString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                                        {isEditing ? (
+                                            <>
+                                                <button onClick={handleSaveEdit} className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100" title="Save">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                    Save
+                                                </button>
+                                                <button onClick={handleCancelEdit} className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200" title="Cancel">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                    Cancel
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button onClick={() => handleEditItem(item)} className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100" title="Edit">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                                    Edit
+                                                </button>
+                                                <button onClick={() => handleDeleteItem(item.id)} className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100" title="Delete">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    Delete
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="hidden lg:block border border-gray-200 rounded-lg overflow-hidden mb-6">
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>

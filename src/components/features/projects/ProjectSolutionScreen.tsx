@@ -23,25 +23,27 @@ function isOffcutKey(cutKey: string): boolean {
   return k.startsWith('offcut_') || k.startsWith('waste_');
 }
 
-/** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId). */
+/** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId).
+ * Backend may include offcut as a key (e.g. offcut_5492mm); we skip those so offcut is computed as
+ * stockLength - sum(real cuts) to avoid mm rounding errors. */
 function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> {
   const result: Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> = [];
   Object.keys(planEntry).forEach((cutKey) => {
+    if (isOffcutKey(cutKey)) return; // Exclude backend offcut; we compute offcut = stockLength - total cuts
     const raw = planEntry[cutKey];
     const lengthMatch = cutKey.match(/(\d+)mm/);
     const lengthMm = lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
     const lengthMeters = lengthMm / 1000;
     const label = lengthMeters ? `${lengthMeters.toFixed(1)}m` : cutKey;
-    const isOffcut = isOffcutKey(cutKey);
     if (!Array.isArray(raw) || raw.length === 0) return;
     const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
     if (isNewFormat) {
       (raw as CuttingPlanPiece[]).forEach((piece) => {
-        result.push({ length: lengthMeters, label, elementId: piece.elementId, isOffcut });
+        result.push({ length: lengthMeters, label, elementId: piece.elementId, isOffcut: false });
       });
     } else {
       (raw as string[]).forEach(() => {
-        result.push({ length: lengthMeters, label, isOffcut });
+        result.push({ length: lengthMeters, label, isOffcut: false });
       });
     }
   });
@@ -117,6 +119,10 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   
   // Export dropdown states
   const [showExportDropdown, setShowExportDropdown] = useState<'cutting' | 'glass' | null>(null);
+  /** Mobile: filters panel open (All Profiles / All elements behind a button) */
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  /** Cutting list: full-screen expanded card { profileIndex (in filtered list), layoutIndex } */
+  const [expandedCuttingCard, setExpandedCuttingCard] = useState<{ profileIndex: number; layoutIndex: number } | null>(null);
   
   // Save prices to localStorage when they change
   useEffect(() => {
@@ -228,6 +234,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       return false;
     };
   }, []);
+
+  const filteredCuttingList = useMemo(() => {
+    if (!calculationResult?.cuttingList) return [];
+    return calculationResult.cuttingList
+      .filter((item) => cuttingFilter === 'all' || item.profile_name === cuttingFilter)
+      .filter((item) => cuttingElementFilter === 'all' || cuttingItemHasElement(item, cuttingElementFilter));
+  }, [calculationResult?.cuttingList, cuttingFilter, cuttingElementFilter, cuttingItemHasElement]);
 
   // Load calculation on mount: use initial result (View results) or run calculate
   useEffect(() => {
@@ -650,14 +663,22 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           </div>
           </div>
 
-          {/* Project info bar: back + progress + title + subtitle (back hidden on mobile) */}
+          {/* Project info bar: back + progress (4 of 4) + title + subtitle (back hidden on mobile) */}
           <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-4 flex-1 min-w-0">
               <button onClick={onBack} className="hidden md:block text-gray-600 hover:text-gray-900 mt-1 flex-shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
+              {/* Progress Circle - 4 of 4 */}
+              <div className="relative w-12 h-12 flex-shrink-0">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle cx="24" cy="24" r="22" stroke="#E5E7EB" strokeWidth="2" fill="none" />
+                  <circle cx="24" cy="24" r="22" stroke="#1F2937" strokeWidth="2" fill="none" strokeDasharray="138" strokeDashoffset="0" />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-gray-600">4 of 4</div>
+              </div>
 
               <div>
                 <h1 className="text-lg md:text-2xl font-bold text-gray-900 mb-1">Project Calculation Results</h1>
@@ -665,9 +686,10 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               </div>
             </div>
 
-            {/* Action Buttons - Show after calculation completes */}
+            {/* Action Buttons (desktop only) - Show after calculation; one button per active tab */}
             {!isLoading && !error && calculationResult && (
-              <div className="flex items-center gap-3">
+              <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+                {activeTab === 'material' && (
                 <button
                   onClick={() => {
                     // Debug logging
@@ -691,10 +713,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                     }
                   }}
                   disabled={isSaving}
-                  className="px-6 py-3 font-semibold rounded transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Generate Quote
                 </button>
+                )}
+                {activeTab === 'cutting' && (
                 <div className="relative export-dropdown-container">
                   <button
                     onClick={() => setShowExportDropdown(showExportDropdown === 'cutting' ? null : 'cutting')}
@@ -722,6 +746,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                     </div>
                   )}
                 </div>
+                )}
+                {activeTab === 'glass' && (
                 <div className="relative export-dropdown-container">
                   <button
                     onClick={() => setShowExportDropdown(showExportDropdown === 'glass' ? null : 'glass')}
@@ -749,6 +775,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                     </div>
                   )}
                 </div>
+                )}
               </div>
             )}
           </div>
@@ -818,8 +845,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      {/* Main Content - pb for mobile fixed action bar */}
+      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8 pb-24 md:pb-8">
         <div className="max-w-7xl mx-auto">
           {/* Tabs */}
           <div className="mb-8 border-b border-gray-200">
@@ -861,8 +888,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 )}
               </button>
 
-              {/* Filter Dropdowns */}
-              <div className="ml-auto pb-4 flex items-center gap-4">
+              {/* Filter Dropdowns - desktop: inline; mobile: behind Filters button */}
+              <div className="ml-auto pb-4 hidden md:flex items-center gap-4">
                 {activeTab === 'material' && (
                   <div className="flex items-center gap-2">
                     <select
@@ -937,6 +964,97 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 )}
               </div>
             </div>
+            {/* Mobile: Filters button - below nav tabs */}
+            <div className="md:hidden pt-3 pb-2">
+              <button
+                type="button"
+                onClick={() => setShowMobileFilters((v) => !v)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                aria-expanded={showMobileFilters}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+              </button>
+            </div>
+            {/* Mobile: collapsible filter panel */}
+            {showMobileFilters && (
+              <div className="md:hidden py-4 px-2 space-y-4 border-b border-gray-100">
+                {activeTab === 'material' && (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={materialFilter}
+                      onChange={(e) => setMaterialFilter(e.target.value as 'all' | 'Profile' | 'Accessory_Pair')}
+                      className="text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white w-full"
+                    >
+                      <option value="all">All Types</option>
+                      <option value="Profile">Profile</option>
+                      <option value="Accessory_Pair">Accessory</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Search materials..."
+                      value={materialSearch}
+                      onChange={(e) => setMaterialSearch(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white w-full"
+                    />
+                  </div>
+                )}
+                {activeTab === 'cutting' && calculationResult?.cuttingList && (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={cuttingFilter}
+                      onChange={(e) => setCuttingFilter(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white w-full"
+                    >
+                      <option value="all">All Profiles</option>
+                      {calculationResult.cuttingList.map((item, index) => (
+                        <option key={index} value={item.profile_name}>{item.profile_name}</option>
+                      ))}
+                    </select>
+                    {calculationResult.elements && calculationResult.elements.length > 0 && (
+                      <select
+                        value={cuttingElementFilter}
+                        onChange={(e) => setCuttingElementFilter(e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white w-full"
+                      >
+                        <option value="all">All elements</option>
+                        {calculationResult.elements.map((el) => (
+                          <option key={el.id} value={el.id}>{el.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+                {activeTab === 'glass' && (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={glassFilter}
+                      onChange={(e) => setGlassFilter(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white w-full"
+                    >
+                      <option value="all">All Sheets</option>
+                      {calculationResult?.glassList && Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => (
+                        <option key={index} value={`sheet${index + 1}`}>Sheet {index + 1}</option>
+                      ))}
+                    </select>
+                    {calculationResult?.elements && calculationResult.elements.length > 0 && (
+                      <select
+                        value={glassElementFilter}
+                        onChange={(e) => setGlassElementFilter(e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white w-full"
+                      >
+                        <option value="all">All elements</option>
+                        {calculationResult.elements.map((el) => (
+                          <option key={el.id} value={el.id}>{el.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Loading State */}
@@ -1165,11 +1283,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           {/* Cutting List Content */}
           {!isLoading && !error && activeTab === 'cutting' && (
             <div>
-              {calculationResult?.cuttingList && calculationResult.cuttingList.length > 0 ? (
-                calculationResult.cuttingList
-                  .filter((item) => cuttingFilter === 'all' || item.profile_name === cuttingFilter)
-                  .filter((item) => cuttingElementFilter === 'all' || cuttingItemHasElement(item, cuttingElementFilter))
-                  .map((cuttingItem, profileIndex) => {
+              {filteredCuttingList.length > 0 ? (
+                filteredCuttingList.map((cuttingItem, profileIndex) => {
                   const stockLengthMeters = cuttingItem.stock_length / 1000; // Convert mm to meters
                   
                   // Parse cutting plans (supports legacy string[] and new CuttingPlanPiece[] with elementId)
@@ -1209,14 +1324,19 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         </div>
                       </div>
 
-                      {/* Layouts Grid - Always 2 columns per row (left-to-right flow) */}
-                      <div className="grid grid-cols-2 gap-6">
+                      {/* Layouts Grid - one per row on mobile, 2 columns on desktop */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {layouts.map((layout, layoutIndex) => {
                           const layoutLetter = String.fromCharCode(65 + layoutIndex); // A, B, C, etc.
                           const totalCutsWidth = layout.cuts.reduce((sum, cut) => sum + (cut.length / layout.stockLength * 100), 0);
                           
                           return (
-                            <div key={layoutIndex} className="bg-white border border-gray-200 rounded-lg p-6">
+                            <button
+                              key={layoutIndex}
+                              type="button"
+                              onClick={() => setExpandedCuttingCard({ profileIndex, layoutIndex })}
+                              className="w-full text-left bg-white border border-gray-200 rounded-lg p-6 hover:border-gray-300 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 cursor-pointer"
+                            >
                               <div className="flex justify-between items-start mb-6">
                                 <div>
                                   <span className="text-xs text-gray-500 uppercase block mb-1">Layout</span>
@@ -1228,12 +1348,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                 </div>
                               </div>
 
-                              {/* Visual Bar - Cuts fill left to right, offcut always on right */}
+                              {/* Visual Bar - Cuts fill left to right, offcut always on right; visible dividing lines */}
                               <div className="flex h-12 mb-2">
                                 {/* All cuts displayed as individual segments from left */}
                                 {layout.cuts.map((cut, cutIndex) => {
                                   const widthPercent = (cut.length / layout.stockLength) * 100;
-                                  const isLastCut = cutIndex === layout.cuts.length - 1;
+                                  const showRightBorder = cutIndex < layout.cuts.length - 1 || layout.offcut > 0;
                                   const isOffcut = cut.isOffcut === true;
                                   const element = cut.elementId ? elementsMap[cut.elementId] : undefined;
                                   const titleAttr = element ? `${cut.label} — ${element.title}` : cut.label;
@@ -1243,16 +1363,15 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                       className={`h-full flex items-center justify-center text-xs font-medium ${isOffcut ? 'text-gray-600' : 'text-gray-900'}`}
                                       style={{
                                         width: `${widthPercent}%`,
+                                        borderRight: showRightBorder ? '2px solid rgba(0,0,0,0.2)' : undefined,
                                         ...(isOffcut
                                           ? {
                                               backgroundColor: 'transparent',
                                               backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)',
                                               backgroundSize: '4px 4px',
-                                              borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(0,0,0,0.08)' : 'none',
                                             }
                                           : {
                                               backgroundColor: element?.color ?? '#6B9EB6',
-                                              borderRight: !isLastCut || layout.offcut > 0 ? '1px solid rgba(255,255,255,0.2)' : 'none',
                                             }),
                                       }}
                                       title={isOffcut ? `Off-cut: ${cut.label}` : titleAttr}
@@ -1265,15 +1384,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                 {/* Offcut section - always on the right */}
                                 {layout.offcut > 0 && (
                                   <div 
-                                    className="h-full bg-gray-100 flex items-center justify-center relative" 
+                                    className="h-full bg-gray-100 flex items-center justify-center relative border-l-2 border-gray-300" 
                                     style={{ 
                                       width: `${(layout.offcut / layout.stockLength) * 100}%`,
                                       backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)',
                                       backgroundSize: '4px 4px'
                                     }}
-                                  >
-                                    <div className="absolute inset-0 border-l border-gray-300"></div>
-                                  </div>
+                                  />
                                 )}
                               </div>
                               
@@ -1283,7 +1400,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                   {layout.offcut > 0 ? `${layout.offcut.toFixed(2)}m` : '0m'}
                                 </span>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1298,7 +1415,119 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             </div>
           )}
 
-
+          {/* Cutting List - Full-screen card overlay */}
+          {activeTab === 'cutting' && expandedCuttingCard !== null && filteredCuttingList[expandedCuttingCard.profileIndex] && (() => {
+            const cuttingItem = filteredCuttingList[expandedCuttingCard.profileIndex];
+            const stockLengthMeters = cuttingItem.stock_length / 1000;
+            const layouts = cuttingItem.plan.map((planEntry: Record<string, string[] | CuttingPlanPiece[]>) => {
+              const individualCuts = normalizePlanEntryToCuts(planEntry);
+              const totalRepetition = getMaxRepetition(planEntry);
+              const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
+              const offcut = stockLengthMeters - totalUsed;
+              return { cuts: individualCuts, offcut, repetition: totalRepetition, totalUsed, stockLength: stockLengthMeters };
+            });
+            const layout = layouts[expandedCuttingCard.layoutIndex];
+            if (!layout) return null;
+            const layoutLetter = String.fromCharCode(65 + expandedCuttingCard.layoutIndex);
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+                onClick={() => setExpandedCuttingCard(null)}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Cutting list card full screen"
+              >
+<div
+                  className="bg-white rounded-xl shadow-2xl w-full max-w-[calc(100vw-2rem)] md:max-w-4xl max-h-[90vh] overflow-auto flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Mobile: hint to rotate to landscape for a longer stock bar view */}
+                  <div className="md:hidden px-4 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-2 text-amber-800 text-sm">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m-4 8h2a2 2 0 002-2v-2" />
+                    </svg>
+                    <span>Rotate to landscape for a longer view of the stock bar.</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">{cuttingItem.profile_name}</h3>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedCuttingCard(null)}
+                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label="Close"
+                    >
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-6 flex-1">
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <span className="text-sm text-gray-500 uppercase block mb-1">Layout</span>
+                        <span className="text-2xl font-semibold text-gray-900">{layoutLetter}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm text-gray-500 uppercase block mb-1">Repetition</span>
+                        <span className="text-2xl font-semibold text-gray-900">{layout.repetition}X</span>
+                      </div>
+                    </div>
+                    <div className="mb-2 text-sm text-gray-600">
+                      Material length: {layout.stockLength.toFixed(1)}m
+                    </div>
+                    {/* Visual Bar - larger on desktop, with dividing lines between cuts */}
+                    <div className="flex h-20 md:h-28 mb-4 rounded overflow-hidden border border-gray-200">
+                      {layout.cuts.map((cut, cutIndex) => {
+                        const widthPercent = (cut.length / layout.stockLength) * 100;
+                        const isOffcut = cut.isOffcut === true;
+                        const element = cut.elementId ? elementsMap[cut.elementId] : undefined;
+                        const showRightBorder = cutIndex < layout.cuts.length - 1 || layout.offcut > 0;
+                        return (
+                          <div
+                            key={cutIndex}
+                            className={`h-full flex items-center justify-center text-sm font-medium ${isOffcut ? 'text-gray-600' : 'text-white'}`}
+                            style={{
+                              width: `${widthPercent}%`,
+                              borderRight: showRightBorder ? '2px solid rgba(0,0,0,0.2)' : undefined,
+                              ...(isOffcut
+                                ? {
+                                    backgroundImage: 'radial-gradient(#94A3B8 1.5px, transparent 1.5px)',
+                                    backgroundSize: '6px 6px',
+                                    backgroundColor: '#f1f5f9',
+                                  }
+                                : { backgroundColor: element?.color ?? '#6B9EB6' }),
+                            }}
+                            title={element ? `${cut.label} — ${element.title}` : cut.label}
+                          >
+                            {cut.label}
+                          </div>
+                        );
+                      })}
+                      {layout.offcut > 0 && (
+                        <div
+                          className="h-full flex items-center justify-center text-sm font-medium text-gray-600 border-l-2 border-gray-300"
+                          style={{
+                            width: `${(layout.offcut / layout.stockLength) * 100}%`,
+                            backgroundImage: 'radial-gradient(#94A3B8 1.5px, transparent 1.5px)',
+                            backgroundSize: '6px 6px',
+                            backgroundColor: '#f1f5f9',
+                          }}
+                        >
+                          Off-cut
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-gray-500">Off-cut: </span>
+                      <span className="text-base font-semibold text-gray-900">
+                        {layout.offcut > 0 ? `${layout.offcut.toFixed(2)}m` : '0m'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Glass Cutting List Content */}
           {!isLoading && !error && activeTab === 'glass' && (
@@ -1563,9 +1792,68 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         </div>
       </main>
 
-      {/* Footer with Grand Total - Show on all tabs */}
+      {/* Mobile: fixed bottom bar - single action per tab */}
       {!isLoading && !error && calculationResult && (
-        <div className="border-t border-gray-200 bg-white px-8 py-6">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3 safe-area-pb">
+          {activeTab === 'material' && (
+            <button
+              onClick={() => {
+                if (onCreateQuote) {
+                  onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
+                } else {
+                  onGenerate(grandTotal);
+                }
+              }}
+              disabled={isSaving}
+              className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Generate Quote
+            </button>
+          )}
+          {activeTab === 'cutting' && (
+            <div className="relative export-dropdown-container">
+              <button
+                onClick={() => setShowExportDropdown(showExportDropdown === 'cutting' ? null : 'cutting')}
+                className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800"
+              >
+                <span>Export Cutting List</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+              {showExportDropdown === 'cutting' && (
+                <div className="absolute left-0 right-0 bottom-full mb-2 py-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <button onClick={() => handleExportCuttingList('pdf')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg">Export as PDF</button>
+                  <button onClick={() => handleExportCuttingList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg">Export as Excel</button>
+                </div>
+              )}
+            </div>
+          )}
+          {activeTab === 'glass' && (
+            <div className="relative export-dropdown-container">
+              <button
+                onClick={() => setShowExportDropdown(showExportDropdown === 'glass' ? null : 'glass')}
+                className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800"
+              >
+                <span>Export Glass List</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+              {showExportDropdown === 'glass' && (
+                <div className="absolute left-0 right-0 bottom-full mb-2 py-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <button onClick={() => handleExportGlassCuttingList('pdf')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg">Export as PDF</button>
+                  <button onClick={() => handleExportGlassCuttingList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg">Export as Excel</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer with Grand Total - Material List tab only; extra bottom padding on mobile for fixed bar */}
+      {!isLoading && !error && calculationResult && activeTab === 'material' && (
+        <div className="border-t border-gray-200 bg-white px-4 md:px-8 py-6 pb-20 md:pb-6">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold text-gray-900">Grand Total</span>

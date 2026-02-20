@@ -233,3 +233,22 @@ export function getModuleIdForType(category: GlazingCategory, typeValue: string)
   return type?.moduleId ?? null;
 }
 
+/**
+ * Returns the first enabled type value for a category (for use when mapping API data to select project).
+ * Use this instead of hardcoded legacy values like 'fixed-skylight' that may not exist in MODULE_CONFIG.
+ */
+export function getDefaultTypeForCategory(category: GlazingCategory): string | null {
+  const types = getEnabledTypesForCategory(category);
+  return types.length > 0 ? types[0].value : null;
+}
+
+/**
+ * Returns a valid type for a category: prefers the API type if it's enabled, otherwise the first enabled type.
+ */
+export function resolveTypeForCategory(category: GlazingCategory, apiType: string | undefined): string | null {
+  const enabled = getEnabledTypesForCategory(category);
+  if (enabled.length === 0) return null;
+  const match = apiType && enabled.find((t) => t.value === apiType);
+  return match ? match.value : enabled[0].value;
+}
+

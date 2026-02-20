@@ -61,6 +61,8 @@ import { projectsService, quotesService, materialListsService } from '../service
 import { getApiResponseData, normalizeApiResponse, isApiResponseSuccess } from '../utils/apiResponseHelper';
 import { transformQuoteDataToBackend, transformBackendQuoteToPreview, transformStandaloneQuoteToBackend } from '../utils/dataTransformers';
 import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
+import { resolveTypeForCategory } from '../utils/moduleConfig';
+import type { GlazingCategory } from '../utils/moduleMapping';
 
 // Import types and constants
 import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
@@ -154,6 +156,8 @@ const App: React.FC = () => {
   const [draftProjectId, setDraftProjectId] = useState<number | null>(null);
   const [initialCalculationResult, setInitialCalculationResult] = useState<import('@/types/calculations').CalculationResult | null>(null);
   const [projectWasCalculated, setProjectWasCalculated] = useState(false);
+  /** When true, user entered project flow from project detail (View results / Recalculate); back should go to projectDetail. */
+  const [projectFlowFromDetail, setProjectFlowFromDetail] = useState(false);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isEditQuoteLoading, setIsEditQuoteLoading] = useState(false);
@@ -286,6 +290,7 @@ const App: React.FC = () => {
     clearProjectFlow();
     setDraftProjectId(null);
     setProjectWasCalculated(false);
+    setProjectFlowFromDetail(false);
     setInitialCalculationResult(null);
     navigate('projectDescription');
   };
@@ -299,96 +304,6 @@ const App: React.FC = () => {
     setSelectedProjectId(null);
     setRefreshProjects(prev => prev + 1);
     navigate('projects');
-  };
-
-  const handleEditCalculationSettings = async (projectId: string) => {
-    try {
-      const projectIdNum = parseInt(projectId, 10);
-      if (isNaN(projectIdNum)) {
-        console.error('Invalid project ID for editing calculation settings:', projectId);
-        return;
-      }
-
-      const response = await projectsService.getById(projectIdNum);
-      const normalizedResponse = normalizeApiResponse(response);
-
-      if (normalizedResponse.success && normalizedResponse.response) {
-        // Extract project data from response (handle both response.project and direct response)
-        const responseData = normalizedResponse.response as any;
-        const projectData = responseData.project || responseData;
-        
-        // Load project data into flow state
-        setProjectDescriptionData({
-          projectName: projectData.projectName,
-          customerName: projectData.customer?.name || '',
-          siteAddress: projectData.siteAddress,
-          description: projectData.description,
-        });
-
-        // Reconstruct selectProjectData from glazingDimensions
-        const newSelectProjectData: SelectProjectData = {
-          windows: [],
-          doors: [],
-          skylights: [],
-          glassPanels: [],
-        };
-
-        // Safely handle glazingDimensions - check if it exists and is an array
-        if (projectData.glazingDimensions && Array.isArray(projectData.glazingDimensions)) {
-          projectData.glazingDimensions.forEach((dim: GlazingDimension) => {
-            if (dim.glazingCategory === 'Window' && !newSelectProjectData.windows.includes(dim.glazingType)) {
-              newSelectProjectData.windows.push(dim.glazingType);
-            } else if (dim.glazingCategory === 'Door' && !newSelectProjectData.doors.includes(dim.glazingType)) {
-              newSelectProjectData.doors.push(dim.glazingType);
-            } else if (dim.glazingCategory === 'Net' && !newSelectProjectData.skylights.includes(dim.glazingType)) {
-              newSelectProjectData.skylights.push(dim.glazingType);
-            } else if (dim.glazingCategory === 'Curtain Wall' && !newSelectProjectData.glassPanels.includes(dim.glazingType)) {
-              newSelectProjectData.glassPanels.push(dim.glazingType);
-            }
-          });
-        }
-        setSelectProjectData(newSelectProjectData);
-
-        // Reconstruct projectMeasurementData
-        const newMeasurementData: ProjectMeasurementData = {
-          dimensions: (projectData.glazingDimensions && Array.isArray(projectData.glazingDimensions))
-            ? projectData.glazingDimensions.map((dim: GlazingDimension, index: number) => ({
-                id: `dim-${index}`,
-                type: dim.glazingType,
-                width: (dim.parameters.W ?? dim.parameters.in_to_in_width)?.toString() || '',
-                height: (dim.parameters.H ?? dim.parameters.in_to_in_height)?.toString() || '',
-                quantity: dim.parameters.qty?.toString() || '',
-                panel: dim.parameters.N?.toString() || dim.parameters.O?.toString() || '1',
-                ...(dim.title !== undefined && dim.title !== '' && { title: dim.title }),
-                ...(dim.color !== undefined && dim.color !== '' && { color: dim.color }),
-              }))
-            : [],
-          unit: 'mm',
-        };
-        setProjectMeasurementData(newMeasurementData);
-
-        // Store calculation settings for editing (they can be modified in the flow)
-        // The calculation settings will be used when recalculating
-        
-        // Set draftProjectId
-        setDraftProjectId(projectIdNum);
-
-        // Show warning and navigate to project solution where they can edit settings
-        const confirmed = window.confirm(
-          'You are about to edit calculation settings and recalculate the project. ' +
-          'This will update the project with new calculation results. Continue?'
-        );
-        
-        if (confirmed) {
-          // Navigate to project solution - they can modify settings there before recalculating
-          navigate('projectSolution');
-        }
-      } else {
-        console.error('Failed to load project for editing calculation settings:', normalizedResponse.message);
-      }
-    } catch (error) {
-      console.error('Error loading project for editing calculation settings:', error);
-    }
   };
 
   const handleProjectCalculate = async (projectId: string) => {
@@ -455,9 +370,11 @@ const App: React.FC = () => {
           } else if (category === 'Door') {
             selectProject.doors.push('sliding-door'); // Default
           } else if (category === 'Net') {
-            selectProject.skylights.push('fixed-skylight'); // Default
+            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
+            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
           } else if (category === 'Curtain Wall') {
-            selectProject.glassPanels.push('structural-glass'); // Default
+            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
+            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
           }
 
           // Convert GlazingDimension to DimensionItem
@@ -517,8 +434,13 @@ const App: React.FC = () => {
         apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
           if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
           else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
-          else if (glazingDim.glazingCategory === 'Net') selectProject.skylights.push('fixed-skylight');
-          else if (glazingDim.glazingCategory === 'Curtain Wall') selectProject.glassPanels.push('structural-glass');
+          else if (glazingDim.glazingCategory === 'Net') {
+            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
+            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
+          } else if (glazingDim.glazingCategory === 'Curtain Wall') {
+            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
+            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
+          }
           dimensions.push({
             id: `dim-${Date.now()}-${index}`,
             type: glazingDim.glazingType || glazingDim.moduleId || '',
@@ -535,6 +457,7 @@ const App: React.FC = () => {
       setProjectMeasurementData({ dimensions, unit: 'mm' });
       setDraftProjectId(apiProject.id);
       setInitialCalculationResult(lastCalculationResult);
+      setProjectFlowFromDetail(true);
       navigate('projectSolution');
     } catch (error) {
       console.error('Error loading project for view results:', error);
@@ -562,8 +485,13 @@ const App: React.FC = () => {
         apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
           if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
           else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
-          else if (glazingDim.glazingCategory === 'Net') selectProject.skylights.push('fixed-skylight');
-          else if (glazingDim.glazingCategory === 'Curtain Wall') selectProject.glassPanels.push('structural-glass');
+          else if (glazingDim.glazingCategory === 'Net') {
+            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
+            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
+          } else if (glazingDim.glazingCategory === 'Curtain Wall') {
+            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
+            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
+          }
           dimensions.push({
             id: `dim-${Date.now()}-${index}`,
             type: glazingDim.glazingType || glazingDim.moduleId || '',
@@ -580,6 +508,7 @@ const App: React.FC = () => {
       setProjectMeasurementData({ dimensions, unit: 'mm' });
       setDraftProjectId(apiProject.id);
       setProjectWasCalculated(true);
+      setProjectFlowFromDetail(true);
       navigate('projectMeasurement');
     } catch (error) {
       console.error('Error loading project for modify dimensions:', error);
@@ -608,8 +537,13 @@ const App: React.FC = () => {
         apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
           if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
           else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
-          else if (glazingDim.glazingCategory === 'Net') selectProject.skylights.push('fixed-skylight');
-          else if (glazingDim.glazingCategory === 'Curtain Wall') selectProject.glassPanels.push('structural-glass');
+          else if (glazingDim.glazingCategory === 'Net') {
+            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
+            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
+          } else if (glazingDim.glazingCategory === 'Curtain Wall') {
+            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
+            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
+          }
           dimensions.push({
             id: `dim-${Date.now()}-${index}`,
             type: glazingDim.glazingType || glazingDim.moduleId || '',
@@ -739,6 +673,9 @@ const App: React.FC = () => {
     calculationResult?: any,
     projectMeasurement?: ProjectMeasurementData
   ) => {
+    // Ensure we're in "Create New Quote" mode, not "Edit Quote" (e.g. user came from project Generate Quote)
+    setEditingQuoteId(null);
+
     // Debug logging
     if (import.meta.env.DEV) {
       console.log('[App] handleCreateQuoteFromSolution called with:', {
@@ -1753,7 +1690,6 @@ const App: React.FC = () => {
               onCalculate={handleProjectCalculate}
               onViewResults={handleViewResults}
               onModifyDimensionsRecalculate={handleModifyDimensionsRecalculate}
-              onEditCalculationSettings={handleEditCalculationSettings}
             />
           </div>
         </div>
@@ -1803,7 +1739,17 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <ProjectDescriptionScreen onBack={goBack} onNext={handleProjectDescriptionNext} previousData={projectDescriptionData ?? undefined} />
+            <ProjectDescriptionScreen
+              onBack={() => {
+                if (projectFlowFromDetail && selectedProjectId) {
+                  navigate('projectDetail');
+                } else {
+                  goBack();
+                }
+              }}
+              onNext={handleProjectDescriptionNext}
+              previousData={projectDescriptionData ?? undefined}
+            />
           </div>
         </div>
       </div>
@@ -1824,9 +1770,15 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <SelectProjectScreen 
-              onBack={() => navigate('projectDescription')} 
-              onNext={handleSelectProjectNext} 
+            <SelectProjectScreen
+              onBack={() => {
+                if (projectFlowFromDetail && selectedProjectId) {
+                  navigate('projectDetail');
+                } else {
+                  navigate('projectDescription');
+                }
+              }}
+              onNext={handleSelectProjectNext}
               previousData={selectProjectData}
             />
           </div>
@@ -1852,7 +1804,13 @@ const App: React.FC = () => {
             <ProjectMeasurementScreen
               isRecalculate={projectWasCalculated}
               initialMeasurementData={projectMeasurementData}
-              onBack={() => navigate('selectProject')}
+              onBack={() => {
+                if (projectFlowFromDetail && selectedProjectId) {
+                  navigate('projectDetail');
+                } else {
+                  navigate('selectProject');
+                }
+              }}
               onNext={(data) => {
                 // Merge new dimensions with existing ones to preserve all dimensions
                 const existingData = projectMeasurementData;
@@ -1900,8 +1858,12 @@ const App: React.FC = () => {
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectSolutionScreen
               onBack={() => {
-                setProjectWasCalculated(true);
-                navigate('projectMeasurement');
+                if (projectFlowFromDetail && selectedProjectId) {
+                  navigate('projectDetail');
+                } else {
+                  setProjectWasCalculated(true);
+                  navigate('projectMeasurement');
+                }
               }}
               onNavigateToStep={(step) => navigate(step as any)}
               onGenerate={handleProjectSolutionGenerate}

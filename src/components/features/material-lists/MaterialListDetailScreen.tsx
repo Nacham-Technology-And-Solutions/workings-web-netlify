@@ -111,8 +111,8 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-gray-50 p-6 lg:p-8">
+      {/* Main Content - extra bottom padding on mobile for fixed Download PDF bar (match quote preview) */}
+      <main className="flex-1 overflow-y-auto min-h-0 bg-gray-50 p-6 lg:p-8 pb-24 md:pb-8">
         <div className="max-w-7xl mx-auto">
           {/* Breadcrumbs - hidden on mobile */}
           <div className="hidden md:block">
@@ -123,7 +123,7 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
           </div>
           </div>
 
-          {/* Page Title and Action Buttons */}
+          {/* Page Title and Action Buttons - Edit style and Download PDF location match quote preview (mobile: Edit only in header; Download PDF in fixed bar) */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <button 
@@ -137,30 +137,27 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Edit Button - Always visible, but more prominent for drafts */}
+              {/* Edit Button - quote-style: icon in box + Edit text */}
               {onEdit && (
                 <button 
                   onClick={onEdit}
-                  className={`px-4 py-2 border border-gray-300 bg-white text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                    isDraft ? 'border-gray-400' : ''
-                  }`}
+                  className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors"
                   aria-label="Edit"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit
+                  <span className="inline-flex items-center justify-center w-9 h-9 rounded border border-gray-300 bg-white">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </span>
+                  <span className="text-sm font-medium">Edit</span>
                 </button>
               )}
               
-              {/* Download PDF Button - Always show, works for both Draft and Completed */}
+              {/* Download PDF - desktop only in header; mobile uses fixed bottom bar */}
               <button
                 onClick={handleDownloadPDF}
-                className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
+                className="hidden md:inline-flex px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
                 Download PDF
               </button>
               
@@ -295,6 +292,16 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
           </div>
         </div>
       </main>
+
+      {/* Mobile: fixed bottom bar with Download PDF (match quote preview) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3">
+        <button
+          onClick={handleDownloadPDF}
+          className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+        >
+          Download PDF
+        </button>
+      </div>
     </div>
   );
 };

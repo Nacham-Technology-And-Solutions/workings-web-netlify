@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import type { FullMaterialList, MaterialListItem } from '@/types';
 import { ChevronLeftIcon, CalendarIcon, PlusIcon } from '@/assets/icons/IconComponents';
@@ -51,9 +51,7 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
   const [issueDate, setIssueDate] = useState<Date | null>(new Date(list.date));
   const [preparedBy, setPreparedBy] = useState(list.preparedBy);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showPreparedByDropdown, setShowPreparedByDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   // Initialize items from list
   const [items, setItems] = useState<EditableItem[]>(
     list.items.map((item, index) => ({
@@ -63,23 +61,6 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
       unitPrice: item.unitPrice.toString(),
     }))
   );
-
-  // Sample artisans list
-  const artisans = ['LEADS GLAZING', 'ARTISAN 1', 'ARTISAN 2', 'ARTISAN 3'];
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowPreparedByDropdown(false);
-      }
-    };
-    if (showPreparedByDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showPreparedByDropdown]);
 
   const handleDateSelect = (date: Date) => {
     setIssueDate(date);
@@ -224,46 +205,17 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
               </div>
 
               {/* Prepared by (Artisan's name) */}
-              <div className="relative" ref={dropdownRef}>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Prepared by (Artisan's name)
                 </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowPreparedByDropdown(!showPreparedByDropdown)}
-                    className="w-full px-4 py-3.5 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent bg-white text-left flex items-center justify-between"
-                  >
-                    <span className={preparedBy ? 'text-gray-900' : 'text-gray-400'}>
-                      {preparedBy || 'Select artisan'}
-                    </span>
-                    <svg 
-                      className={`w-5 h-5 text-gray-400 transition-transform ${showPreparedByDropdown ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showPreparedByDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-auto">
-                      {artisans.map((artisan) => (
-                        <button
-                          key={artisan}
-                          type="button"
-                          onClick={() => {
-                            setPreparedBy(artisan);
-                            setShowPreparedByDropdown(false);
-                          }}
-                          className="w-full px-4 py-3 text-left text-gray-900 hover:bg-gray-50 first:rounded-t-xl last:rounded-b-xl"
-                        >
-                          {artisan}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  value={preparedBy}
+                  onChange={(e) => setPreparedBy(e.target.value)}
+                  placeholder="Enter artisan's name"
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
+                />
               </div>
             </div>
           )}

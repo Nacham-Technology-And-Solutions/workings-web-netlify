@@ -183,25 +183,29 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
             <button
               onClick={onEdit}
               disabled={isEditLoading}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-inherit"
+              className="flex items-center gap-2 text-gray-700 hover:text-gray-900 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               aria-label="Edit quote"
             >
               {isEditLoading ? (
                 <>
-                  <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" aria-hidden />
-                  <span>Loading...</span>
+                  <span className="inline-flex items-center justify-center w-9 h-9 rounded border border-gray-300 bg-white">
+                    <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" aria-hidden />
+                  </span>
+                  <span className="text-sm font-medium">Loading...</span>
                 </>
               ) : (
                 <>
-                  <EditIcon />
-                  <span>Edit</span>
+                  <span className="inline-flex items-center justify-center w-9 h-9 rounded border border-gray-300 bg-white">
+                    <EditIcon className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm font-medium">Edit</span>
                 </>
               )}
             </button>
           )}
           <button
             onClick={handleDownloadPDF}
-            className="px-6 py-2 bg-gray-900 text-white text-sm font-semibold rounded hover:bg-gray-800 flex items-center gap-2"
+            className="hidden md:flex items-center gap-2 px-6 py-2 bg-gray-900 text-white text-sm font-semibold rounded hover:bg-gray-800"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -251,7 +255,7 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
         </div>
       </header>
       
-      <main className="flex-1 overflow-y-auto min-h-0 p-6 lg:p-8">
+      <main className="flex-1 overflow-y-auto min-h-0 p-6 lg:p-8 pb-24 md:pb-8">
         <div className="max-w-7xl lg:mx-auto">
           {/* Breadcrumbs - hidden on mobile */}
           <div className="hidden md:block mb-6 text-sm text-gray-400">
@@ -378,6 +382,19 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
           </div>
         </div>
       </main>
+
+      {/* Mobile: fixed bottom bar with Download PDF */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3">
+        <button
+          onClick={handleDownloadPDF}
+          className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download PDF
+        </button>
+      </div>
     </div>
   );
 };

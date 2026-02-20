@@ -231,7 +231,7 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                         type="text"
                                         value={siteAddress}
                                         onChange={(e) => setSiteAddress(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
                                     />
                                 </div>
 
