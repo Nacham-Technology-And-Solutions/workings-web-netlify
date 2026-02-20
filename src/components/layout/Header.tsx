@@ -50,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 min-h-32 max-h-32 h-32 flex items-center sticky top-0 z-40 px-4 lg:px-6 w-full">
+    <header className="bg-white border-b border-gray-200 h-16 min-h-16 max-h-16 lg:h-32 lg:min-h-32 lg:max-h-32 flex items-center sticky top-0 z-40 px-4 lg:px-6 w-full">
       <div className="flex items-center justify-between w-full gap-4">
         {/* Logo - Left Edge */}
         <div className="flex items-center gap-2 flex-shrink-0">
