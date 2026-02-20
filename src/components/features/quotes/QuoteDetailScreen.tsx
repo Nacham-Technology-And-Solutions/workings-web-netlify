@@ -253,8 +253,8 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
       
       <main className="flex-1 overflow-y-auto min-h-0 p-6 lg:p-8">
         <div className="max-w-7xl lg:mx-auto">
-          {/* Breadcrumbs */}
-          <div className="mb-6 text-sm text-gray-400">
+          {/* Breadcrumbs - hidden on mobile */}
+          <div className="hidden md:block mb-6 text-sm text-gray-400">
             <span className="cursor-pointer hover:text-gray-600">Quotes</span>
             <span className="mx-2">/</span>
             <span className="text-gray-900 font-medium">Quote Details</span>

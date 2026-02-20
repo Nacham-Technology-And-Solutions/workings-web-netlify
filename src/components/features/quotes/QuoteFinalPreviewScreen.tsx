@@ -72,6 +72,7 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
             {/* Header / Breadcrumbs */}
             <div className="px-8 py-6 border-b border-gray-100 flex-shrink-0">
                 <div className="max-w-7xl mx-auto">
+                    <div className="hidden md:block">
                     <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
                         <span className="cursor-pointer hover:text-gray-600">Quotes</span>
                         <span>/</span>
@@ -86,6 +87,7 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                         )}
                         <span>/</span>
                         <span className="text-gray-900 font-medium">Quote Preview</span>
+                    </div>
                     </div>
 
                     <div className="flex items-start justify-between">

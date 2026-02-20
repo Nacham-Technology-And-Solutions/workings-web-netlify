@@ -1328,7 +1328,9 @@ const App: React.FC = () => {
           onNavigate={handleNavigate}
         />
         <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-20">
+          <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
           <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
           <NewProjectScreen onBack={goBack} onGenerateQuote={handleGenerateQuote} />
         </div>
       </div>
@@ -1338,7 +1340,9 @@ const App: React.FC = () => {
   if (currentView === 'quotes') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1377,7 +1381,9 @@ const App: React.FC = () => {
   if (currentView === 'quoteDetail' && selectedQuoteId) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1402,7 +1408,9 @@ const App: React.FC = () => {
   if (currentView === 'settings') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1422,7 +1430,9 @@ const App: React.FC = () => {
   if (currentView === 'creditsHistory') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1443,7 +1453,9 @@ const App: React.FC = () => {
     const targetSection = currentView === 'subscriptionPlans' ? 'subscriptionPlans' : currentView === 'exportSettings' ? 'exportSettings' : 'profile';
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1485,7 +1497,9 @@ const App: React.FC = () => {
   if (currentView === 'templates') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1507,7 +1521,9 @@ const App: React.FC = () => {
   if (currentView === 'help') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1526,7 +1542,9 @@ const App: React.FC = () => {
   if (currentView === 'feedback') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1545,7 +1563,9 @@ const App: React.FC = () => {
   if (currentView === 'material-list') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1567,7 +1587,9 @@ const App: React.FC = () => {
     const displayData = listData || sampleFullMaterialLists[0];
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1595,7 +1617,9 @@ const App: React.FC = () => {
   if (currentView === 'editMaterialList' && editingMaterialList) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1625,7 +1649,9 @@ const App: React.FC = () => {
   if (currentView === 'materialListPreview' && materialListPreviewData) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1651,7 +1677,9 @@ const App: React.FC = () => {
   if (currentView === 'createMaterialList') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1674,7 +1702,9 @@ const App: React.FC = () => {
   if (currentView === 'projects') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1700,7 +1730,9 @@ const App: React.FC = () => {
   if (currentView === 'projectDetail' && selectedProjectId) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1732,7 +1764,9 @@ const App: React.FC = () => {
   if (currentView === 'projectEdit' && selectedProjectId) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1758,7 +1792,9 @@ const App: React.FC = () => {
   if (currentView === 'projectDescription') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1777,7 +1813,9 @@ const App: React.FC = () => {
   if (currentView === 'selectProject') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1800,7 +1838,9 @@ const App: React.FC = () => {
   if (currentView === 'projectMeasurement') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1847,7 +1887,9 @@ const App: React.FC = () => {
     const combinedData = getCombinedProjectData();
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1903,7 +1945,9 @@ const App: React.FC = () => {
   if (currentView === 'quoteOverview') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1935,7 +1979,9 @@ const App: React.FC = () => {
   if (currentView === 'quoteItemList') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -1969,7 +2015,9 @@ const App: React.FC = () => {
   if (currentView === 'quoteExtrasNotes') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -2006,7 +2054,9 @@ const App: React.FC = () => {
   if (isSavingQuote) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -2030,7 +2080,9 @@ const App: React.FC = () => {
   if (currentView === 'quoteFinalPreview' && generatedQuote) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
@@ -2071,7 +2123,9 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
       {/* Header - Full width, aligned with sidebar */}
-      <Header onMenuClick={() => setSidebarOpen(true)} />
+      <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}

@@ -120,8 +120,8 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
 
   return (
     <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
-      {/* Breadcrumbs Header */}
-      <div className="px-6 lg:px-8 py-3 bg-white border-b border-gray-200">
+      {/* Breadcrumbs Header - hidden on mobile */}
+      <div className="hidden md:block px-6 lg:px-8 py-3 bg-white border-b border-gray-200">
         <div className="max-w-7xl lg:mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <span>Material List</span>

@@ -41,10 +41,12 @@ const ProjectDescriptionScreen: React.FC<ProjectDescriptionScreenProps> = ({ onB
       {/* Header / Breadcrumbs */}
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="max-w-5xl mx-auto">
+          <div className="hidden md:block">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
             <span className="cursor-default text-gray-400">Projects</span>
             <span>/</span>
             <span className="text-gray-900 font-medium">Project Description</span>
+          </div>
           </div>
 
           <div className="flex items-start gap-4">

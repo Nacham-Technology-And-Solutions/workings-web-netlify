@@ -117,13 +117,15 @@ const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({ l
       {/* Main Content - Layout matching MaterialListDetailScreen (image 2) */}
       <main className="flex-1 overflow-y-auto bg-gray-50 p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
-          {/* Breadcrumbs */}
+          {/* Breadcrumbs - hidden on mobile */}
+          <div className="hidden md:block">
           <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
             <span className="cursor-pointer hover:text-gray-900" onClick={onBack}>Material List</span>
             <span>/</span>
             <span>Create Material List</span>
             <span>/</span>
             <span className="text-gray-900 font-medium">Preview</span>
+          </div>
           </div>
 
           {/* Page Title and Action Buttons - matching image 2 */}

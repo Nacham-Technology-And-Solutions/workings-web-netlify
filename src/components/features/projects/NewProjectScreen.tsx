@@ -705,8 +705,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
 
     return (
         <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
-            {/* Breadcrumbs */}
-            <div className="px-8 py-4 bg-white border-b border-gray-200">
+            {/* Breadcrumbs - hidden on mobile */}
+            <div className="hidden md:block px-8 py-4 bg-white border-b border-gray-200">
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                     <span className="cursor-default text-gray-400">Projects</span>
                     <span>/</span>
