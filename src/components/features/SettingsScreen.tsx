@@ -76,7 +76,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
       {/* Page Header - responsive padding */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 sm:px-6 sm:py-5">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">Settings</h1>
-        <p className="text-sm sm:text-base text-gray-600">Manage and track all your estimation projects</p>
+        <p className="text-sm sm:text-base text-gray-600">Manage your profile, billing, and app preferences</p>
       </div>
 
       {/* Mobile: Horizontal tab bar (scrollable) */}

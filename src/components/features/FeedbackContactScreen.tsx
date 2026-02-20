@@ -42,7 +42,7 @@ const FeedbackContactScreen: React.FC<FeedbackContactScreenProps> = ({ onBack, o
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Feedback & Contact Us</h1>
-          <p className="text-sm lg:text-base text-gray-600 mt-1">
+          <p className="hidden md:block text-sm lg:text-base text-gray-600 mt-1">
             Share feedback, report issues, or get in touch. We read every message.
           </p>
         </div>

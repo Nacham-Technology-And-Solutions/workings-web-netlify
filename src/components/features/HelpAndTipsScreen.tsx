@@ -144,7 +144,7 @@ const HelpAndTipsScreen: React.FC<HelpAndTipsScreenProps> = ({ onBack }) => {
         </button>
         <div className="flex-1">
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Help & Tips</h1>
-          <p className="text-sm lg:text-base text-gray-600 mt-1">Manage and track all your estimation projects.</p>
+          <p className="hidden md:block text-sm lg:text-base text-gray-600 mt-1">Get started and find answers to common questions.</p>
         </div>
       </header>
 

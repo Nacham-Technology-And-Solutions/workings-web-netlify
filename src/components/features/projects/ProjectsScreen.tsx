@@ -356,23 +356,32 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
                   Projects
                 </h1>
-                <p className="text-sm lg:text-base text-gray-700">
-                  Manage and track all your estimation projects
+                <p className="hidden md:block text-sm lg:text-base text-gray-700">
+                  Create and manage your projects, run calculations, and generate quotes
                 </p>
               </div>
             </div>
             {onNewProject && (
-              <button
-                onClick={onNewProject}
-                className="px-4 py-2 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
-              >
-                Create New Project
-              </button>
+              <>
+                <button
+                  onClick={() => setShowSearch(true)}
+                  className="md:hidden p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+                  aria-label="Search and filter projects"
+                >
+                  <SearchIcon className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={onNewProject}
+                  className="hidden md:inline-flex px-4 py-2 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
+                >
+                  Create New Project
+                </button>
+              </>
             )}
           </div>
 
           {/* Tabs */}
-          <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
+          <div className="w-full flex justify-center md:w-auto md:inline-flex md:justify-start bg-gray-100 p-1 rounded-full space-x-1">
             {tabs.map(tab => (
               <button
                 key={tab}
@@ -461,7 +470,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                   {onNewProject && (
                     <button
                       onClick={onNewProject}
-                      className="w-16 h-16 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
+                      className="hidden md:flex w-16 h-16 bg-gray-800 text-white rounded-full items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
                       aria-label="Create new project"
                     >
                       <PlusIcon className="w-8 h-8" />
@@ -488,11 +497,11 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
         </div>
       </main>
 
-      {/* Floating Action Button - Only show when there are projects */}
-      {onNewProject && filteredProjects.length > 0 && !isLoading && (
+      {/* Floating Action Button - always on mobile; on desktop only when there are projects */}
+      {onNewProject && !isLoading && (
         <button
           onClick={onNewProject}
-          className="fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
+          className={`fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20 ${filteredProjects.length === 0 ? 'md:hidden' : ''}`}
           aria-label="Create new project"
         >
           <div className="lg:scale-125">

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { sampleQuotes } from '@/constants';
 import QuoteCard from '@/components/features/quotes/QuoteCard';
-import { PlusIcon, ChevronLeftIcon } from '@/assets/icons/IconComponents';
+import { PlusIcon, ChevronLeftIcon, SearchIcon, CloseIcon } from '@/assets/icons/IconComponents';
 import EmptyState from '@/components/common/EmptyState';
 import type { Quote } from '@/types';
 import { quotesService } from '@/services/api';
@@ -26,6 +26,8 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Transform backend quote to frontend Quote format
   const transformBackendQuote = (backendQuote: any): Quote => {
@@ -97,22 +99,31 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
   }, [refreshTrigger]); // Refetch when refreshTrigger changes
 
   const filteredQuotes = useMemo(() => {
-    if (activeTab === 'All') {
-      return quotes;
+    let result = quotes;
+    if (activeTab !== 'All') {
+      result = result.filter(quote => {
+        switch (activeTab) {
+          case 'Draft':
+            return quote.status === 'Draft';
+          case 'Paid':
+            return quote.status === 'Paid';
+          case 'Unpaid':
+            return quote.status === 'Sent' || quote.status === 'Accepted';
+          default:
+            return true;
+        }
+      });
     }
-    return quotes.filter(quote => {
-      switch (activeTab) {
-        case 'Draft':
-          return quote.status === 'Draft';
-        case 'Paid':
-          return quote.status === 'Paid';
-        case 'Unpaid':
-          return quote.status === 'Sent' || quote.status === 'Accepted';
-        default:
-          return true;
-      }
-    });
-  }, [activeTab, quotes]);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(quote =>
+        (quote.quoteNumber && quote.quoteNumber.toLowerCase().includes(q)) ||
+        (quote.projectName && quote.projectName.toLowerCase().includes(q)) ||
+        (quote.customerName && quote.customerName.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [activeTab, quotes, searchQuery]);
   
   const getEmptyStateContent = () => {
       switch (activeTab) {
@@ -198,19 +209,26 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
                     <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
                       Quotes
                     </h1>
-                    <p className="text-sm lg:text-base text-gray-700 mt-1">
+                    <p className="hidden md:block text-sm lg:text-base text-gray-700 mt-1">
                       Create, send, and track quotes for your projects.
                     </p>
                   </div>
                 </div>
                 <button
+                  onClick={() => setShowSearch(true)}
+                  className="md:hidden p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+                  aria-label="Search quotes"
+                >
+                  <SearchIcon className="w-6 h-6" />
+                </button>
+                <button
                   onClick={onNewQuote}
-                  className="px-4 py-2 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
+                  className="hidden md:inline-flex px-4 py-2 bg-gray-800 text-white font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
                 >
                   Create New Quote
                 </button>
             </div>
-            <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
+            <div className="w-full flex justify-center md:w-auto md:inline-flex md:justify-start bg-gray-100 p-1 rounded-full space-x-1">
                 {tabs.map(tab => (
                     <button
                         key={tab}
@@ -279,7 +297,67 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
             </div>
         </main>
 
-        
+      {/* Floating Action Button - always on mobile; on desktop only when there are quotes */}
+      {!isLoading && (
+        <button
+          onClick={onNewQuote}
+          className={`fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform hover:scale-110 z-20 ${filteredQuotes.length === 0 ? 'md:hidden' : ''}`}
+          aria-label="Create new quote"
+        >
+          <div className="lg:scale-125">
+            <PlusIcon className="w-8 h-8" />
+          </div>
+        </button>
+      )}
+
+      {/* Search Modal - mobile only */}
+      {showSearch && (
+        <div className="fixed inset-0 bg-white z-50 flex flex-col md:hidden">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center gap-3 mb-4">
+              <button onClick={() => setShowSearch(false)} className="text-gray-600 hover:text-gray-900" aria-label="Close search">
+                <ChevronLeftIcon />
+              </button>
+              <h2 className="text-xl font-bold text-gray-900">Search Quotes</h2>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by quote number, project, or customer..."
+                className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800"
+                autoFocus
+              />
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 opacity-60" />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <CloseIcon />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <p className="text-sm text-gray-600 mb-3">Results ({filteredQuotes.length})</p>
+            {filteredQuotes.length === 0 ? (
+              <p className="text-gray-500 py-4">No quotes match your search.</p>
+            ) : (
+              <div className="space-y-3">
+                {filteredQuotes.map(quote => (
+                  <QuoteCard
+                    key={quote.id}
+                    quote={quote}
+                    activeTab={activeTab}
+                    onViewQuote={() => { setShowSearch(false); onViewQuote(quote.id); }}
+                    onEdit={onEditQuote ? () => { setShowSearch(false); onEditQuote(quote.id); } : undefined}
+                    onDelete={onDeleteQuote ? () => { setShowSearch(false); onDeleteQuote(quote.id); } : undefined}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

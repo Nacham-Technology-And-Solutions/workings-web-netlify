@@ -88,7 +88,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ onBack, onNavigate })
               </button>
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Templates</h1>
-                <p className="text-sm lg:text-base text-gray-600 mt-1">
+                <p className="hidden md:block text-sm lg:text-base text-gray-600 mt-1">
                   Pre-built app defaults and your saved templates. Open Export settings to edit quote format and PDF export.
                 </p>
               </div>
@@ -103,7 +103,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ onBack, onNavigate })
           </div>
 
           {/* Tabs: Pre-built Templates | Saved Templates */}
-          <div className="mt-4 bg-gray-100 p-1 rounded-full inline-flex space-x-1">
+          <div className="mt-4 w-full flex justify-center md:w-auto md:inline-flex md:justify-start bg-gray-100 p-1 rounded-full space-x-1">
             <button
               type="button"
               onClick={() => setActiveTab('prebuilt')}

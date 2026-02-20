@@ -246,19 +246,26 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
               )}
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Material List</h1>
-                <p className="text-sm lg:text-base text-gray-600">Manage and track all your estimation projects</p>
+                <p className="hidden md:block text-sm lg:text-base text-gray-600">Create and manage material lists from your projects</p>
               </div>
             </div>
             <button
+              onClick={() => setShowSearch(true)}
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+              aria-label="Search material lists"
+            >
+              <SearchIcon className="w-6 h-6" />
+            </button>
+            <button
               onClick={onCreateNewList}
-              className="px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
+              className="hidden md:inline-flex px-4 py-2 lg:px-6 lg:py-2.5 bg-gray-800 text-white text-sm lg:text-base font-semibold rounded hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0"
             >
               Create New List
             </button>
           </div>
 
           {/* Filter Tabs */}
-          <div className="bg-gray-100 p-1 rounded-full inline-flex space-x-1">
+          <div className="w-full flex justify-center md:w-auto md:inline-flex md:justify-start bg-gray-100 p-1 rounded-full space-x-1">
             <button
               onClick={() => setActiveTab('All')}
               className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${activeTab === 'All' ? 'bg-gray-800 text-white' : 'text-gray-500'}`}
@@ -355,7 +362,7 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
 
               <button
                 onClick={onCreateNewList}
-                className=" w-16 h-16 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
+                className="hidden md:flex w-16 h-16 bg-gray-800 text-white rounded-full items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110 z-20"
                 aria-label="Create new material list"
               >
                 <div className="lg:scale-125">
@@ -367,7 +374,18 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
         </div>
       </main>
 
-
+      {/* Floating Action Button - always on mobile; on desktop only when there are lists */}
+      {!isLoading && (
+        <button
+          onClick={onCreateNewList}
+          className={`fixed bottom-8 right-8 w-16 h-16 lg:w-20 lg:h-20 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-700 transition-transform hover:scale-110 z-20 ${filteredLists.length === 0 ? 'md:hidden' : ''}`}
+          aria-label="Create new material list"
+        >
+          <div className="lg:scale-125">
+            <PlusIcon />
+          </div>
+        </button>
+      )}
 
       {/* Search Modal */}
       {showSearch && (
