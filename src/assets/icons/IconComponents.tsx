@@ -10,7 +10,7 @@ export const HeaderLogo: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (
   <img
     src={`${APP_LOGOS_BASE}/app-primary-logo.svg`}
     alt="Workings"
-    className="h-11 md:h-14 w-auto object-contain"
+    className="h-16 md:h-20 w-auto object-contain"
     {...props}
   />
 );
