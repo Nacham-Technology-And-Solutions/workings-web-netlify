@@ -216,11 +216,11 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
               </div>
             </div>
 
-            {/* Next Button (Top Right) */}
+            {/* Next Button (Top Right) - desktop only; on mobile it's in the bottom bar */}
             <button
               onClick={handleNext}
               disabled={!isFormValid}
-              className={`px-8 py-3 font-semibold rounded-lg transition-colors ${isFormValid
+              className={`hidden md:inline-flex px-8 py-3 font-semibold rounded-lg transition-colors ${isFormValid
                 ? 'bg-gray-900 text-white hover:bg-gray-800'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
@@ -231,8 +231,8 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
         </div>
       </div>
 
-      {/* Main Content - Horizontal Accordions */}
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      {/* Main Content - Vertical on mobile, horizontal accordions on desktop */}
+      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8">
         <div className="max-w-6xl mx-auto">
           {/* Selected Items as Chips */}
           {isFormValid && (
@@ -263,20 +263,20 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
             </div>
           )}
 
-          <div className="flex bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="flex flex-col md:flex-row bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             {allCategories.map((category, index) => {
               const isOpen = openAccordions[category.id];
               const isLast = index === allCategories.length - 1;
 
               return (
-                <div key={category.id} className={`flex-1 relative ${!isLast ? 'border-r border-gray-200' : ''}`}>
+                <div key={category.id} className={`flex-1 flex flex-col min-w-0 ${!isLast ? 'border-b md:border-b-0 md:border-r border-gray-200' : ''}`}>
                   <button
                     onClick={() => toggleAccordion(category.id)}
-                    className="w-full flex justify-between items-center py-6 px-6 hover:bg-gray-50 transition-colors first:rounded-l-xl last:rounded-r-xl"
+                    className="w-full flex justify-between items-center py-6 px-6 hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl md:first:rounded-t-none md:first:rounded-l-xl md:last:rounded-r-xl md:last:rounded-b-none flex-shrink-0"
                   >
                     <span className="text-gray-700 font-medium text-base">{category.name}</span>
                     <svg
-                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
                       fill="none"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -288,9 +288,9 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
                     </svg>
                   </button>
 
-                  {/* Dropdown Content */}
+                  {/* Options panel - in-flow so not clipped by overflow-hidden (fixes desktop + Curtain Wall on mobile) */}
                   {isOpen && (
-                    <div className="absolute top-full left-0 right-0 z-10 bg-white border border-gray-200 shadow-xl rounded-b-lg mt-1 min-w-[200px]">
+                    <div className="flex-1 min-h-0 border-t border-gray-200 bg-gray-50/50 overflow-y-auto">
                       <div className="py-2">
                         {category.options.map((option) => {
                           const isSelected = (selectedValues[category.id as keyof SelectProjectData] || []).includes(option.value);
@@ -298,13 +298,13 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
                             <button
                               key={option.value}
                               onClick={() => handleSelect(category.id as keyof SelectProjectData, option.value)}
-                              className={`w-full text-left px-6 py-3 hover:bg-gray-50 flex items-center justify-between group`}
+                              className="w-full text-left px-6 py-3 hover:bg-gray-50 flex items-center justify-between group"
                             >
-                              <span className={`text-sm ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
+                              <span className={`text-sm truncate ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
                                 {option.label}
                               </span>
                               {isSelected && (
-                                <svg className="w-4 h-4 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="w-4 h-4 text-gray-900 flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                               )}
@@ -320,6 +320,20 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
           </div>
         </div>
       </main>
+
+      {/* Mobile only: Next button at bottom */}
+      <div className="md:hidden flex-shrink-0 p-4 bg-white border-t border-gray-200">
+        <button
+          onClick={handleNext}
+          disabled={!isFormValid}
+          className={`w-full py-3.5 font-semibold rounded-lg transition-colors ${isFormValid
+            ? 'bg-gray-900 text-white hover:bg-gray-800'
+            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 };
