@@ -1,19 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { CheckIcon } from '@/assets/icons/IconComponents';
+import { ChevronRightIcon } from '@/assets/icons/IconComponents';
 import { subscriptionsService, type SubscriptionPlan, type PaymentProvider, type BillingCycle } from '@/services/api/subscriptions.service';
 
 interface SubscriptionPlansContentProps {
   onBack?: () => void;
 }
-
-const BoxIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 sm:w-14 sm:h-14" {...props}>
-    <path d="M50.6667 21.3333H13.3333C11.4924 21.3333 10 22.8257 10 24.6667V48C10 49.8409 11.4924 51.3333 13.3333 51.3333H50.6667C52.5076 51.3333 54 49.8409 54 48V24.6667C54 22.8257 52.5076 21.3333 50.6667 21.3333Z" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M32 51.3333V21.3333" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M54 24.6667L32 12.6667L10 24.6667" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M42.6667 33.3333C42.6667 31.8123 42.0696 30.3529 41.0068 29.2901C39.944 28.2273 38.4846 27.6302 37 27.6302L28.3333 21.3333L19.6667 27.6302C18.182 27.6302 16.7226 28.2273 15.66 29.2901C14.5971 30.3529 14 31.8123 14 33.3333C14 34.8544 14.5971 36.3138 15.66 37.3766C16.7226 38.4394 18.182 39.0365 19.6667 39.0365H42.6667" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
@@ -36,62 +27,87 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, billingCycle, currentPlanId, 
   };
 
   return (
-    <div className="bg-gray-100 border border-gray-200 rounded-2xl p-4 sm:p-6 flex flex-col h-full relative">
-      {/* Icon in top-right corner - aligned with price */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
-        <BoxIcon />
-      </div>
-
-      {/* Price, Name, Description */}
-      <div className="pr-16 sm:pr-28 mb-4 sm:mb-6">
-        <div className="text-2xl sm:text-4xl font-black text-gray-900 mb-2 leading-tight">
-          {isFreePlan ? '₦0' : `₦${formatPrice(price)}`}
+    <article
+      className="flex flex-col h-full overflow-visible min-w-0 pb-6"
+      aria-labelledby={`plan-${plan.id}-name`}
+    >
+      {/* Card box: height from content only */}
+      <div className="flex flex-col rounded-lg bg-[#F8FBFC] border border-[#E5E5E5] p-4 sm:p-5 pb-3">
+        {/* Top row: price/name/description | icon */}
+        <div className="grid grid-cols-[1fr_auto] gap-3 sm:gap-4 items-start min-w-0 mb-5 sm:mb-6">
+          <div className="min-w-0">
+            <div className="text-2xl sm:text-3xl font-black text-gray-900 mb-1.5 leading-tight break-words" id={`plan-${plan.id}-price`}>
+              {isFreePlan ? '₦0' : `₦${formatPrice(price)}`}
+            </div>
+            <p id={`plan-${plan.id}-name`} className="text-base sm:text-lg font-bold text-gray-900 mb-0.5">
+              {plan.name}
+            </p>
+            <p className="text-xs sm:text-sm text-gray-500">
+              {plan.projectsLimit === null ? 'Unlimited projects' : `${plan.projectsLimit} projects/month`}
+              {plan.pointsPerMonth > 0 && ` • ${plan.pointsPerMonth} points/month`}
+            </p>
+          </div>
+          <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 lg:w-[100px] lg:h-[100px]" aria-hidden>
+            <img
+              src="/icons/subscription-package-icon.svg"
+              alt=""
+              className="w-full h-full object-contain"
+              aria-hidden
+            />
+          </div>
         </div>
-        <p className="text-base sm:text-lg font-bold text-gray-900 mb-1">{plan.name}</p>
-        <p className="text-xs sm:text-sm text-gray-500">
-          {plan.projectsLimit === null ? 'Unlimited projects' : `${plan.projectsLimit} projects/month`}
-          {plan.pointsPerMonth > 0 && ` • ${plan.pointsPerMonth} points/month`}
-        </p>
+
+        {/* Dashed divider — design: #7FB1C7 */}
+        <div className="border-t border-dashed border-[#7FB1C7] mb-5 sm:mb-6" aria-hidden />
+
+        {/* Features list */}
+        <div className="flex-grow mb-5 sm:mb-6">
+          <ul className="space-y-3 sm:space-y-3.5" role="list">
+            {plan.features.map((feature, idx) => (
+              <li key={idx} className="flex items-start gap-2.5 sm:gap-3">
+                <img src="/icons/settings-screen-icons-double-tick.svg" alt="" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 mt-0.5" aria-hidden />
+                <span className="text-xs sm:text-sm text-gray-700 leading-snug">{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      {/* Dashed Blue Divider */}
-      <div className="border-t-2 border-dashed border-blue-400 mb-4 sm:mb-6"></div>
-
-      {/* Features List - flex-grow to take available space */}
-      <div className="flex-grow mb-4 sm:mb-6">
-        <ul className="space-y-2 sm:space-y-2.5">
-          {plan.features.map((feature, idx) => (
-            <li key={idx} className="flex items-start gap-2 sm:gap-2.5">
-              <CheckIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
-              <span className="text-xs sm:text-sm text-gray-700">{feature}</span>
-            </li>
-          ))}
-        </ul>
+      {/* CTA — Button.svg: 242×55, #1A323C pill; text + arrows in one line */}
+      <div className="flex justify-center -mt-4 mx-4 sm:mx-5">
+        <button
+          type="button"
+          onClick={() => !isCurrentPlan && !isLoading && !isFreePlan && onSubscribe(plan.id)}
+          disabled={isCurrentPlan || isLoading || isFreePlan}
+          className={`inline-flex items-center justify-center gap-1.5 h-[55px] px-6 min-w-[10rem] w-full max-w-[242px] rounded-full text-sm font-semibold text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#1A323C] focus:ring-offset-2 focus:ring-offset-[#F8FBFC] shadow-md whitespace-nowrap ${
+            isCurrentPlan
+              ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+              : isFreePlan
+              ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+              : isLoading
+              ? 'bg-gray-400 text-white cursor-not-allowed'
+              : 'bg-[#1A323C] hover:opacity-90'
+          }`}
+          aria-disabled={isCurrentPlan || isLoading || isFreePlan}
+        >
+          <span>
+            {isCurrentPlan
+              ? 'Current Plan'
+              : isFreePlan
+              ? 'Continue with plan'
+              : isLoading
+              ? 'Processing...'
+              : 'Subscribe Now'}
+          </span>
+          {!isLoading && (
+            <span className="inline-flex items-center shrink-0 -mr-0.5" aria-hidden>
+              <ChevronRightIcon className="w-4 h-4 text-current" strokeWidth={2} />
+              <ChevronRightIcon className="w-4 h-4 text-current -ml-1.5" strokeWidth={2} />
+            </span>
+          )}
+        </button>
       </div>
-
-      {/* CTA Button - mt-auto pushes to bottom */}
-      <button
-        onClick={() => !isCurrentPlan && !isLoading && !isFreePlan && onSubscribe(plan.id)}
-        disabled={isCurrentPlan || isLoading || isFreePlan}
-        className={`w-full mt-auto py-2.5 sm:py-3 px-4 text-sm font-semibold rounded-full transition-colors text-center ${
-          isCurrentPlan
-            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-            : isFreePlan
-            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-            : isLoading
-            ? 'bg-gray-400 text-white cursor-not-allowed'
-            : 'bg-gray-800 text-white hover:bg-gray-700'
-        }`}
-      >
-        {isCurrentPlan
-          ? 'Current Plan'
-          : isFreePlan
-          ? 'Continue with plan >>'
-          : isLoading
-          ? 'Processing...'
-          : 'Subscribe Now >>'}
-      </button>
-    </div>
+    </article>
   );
 };
 
@@ -214,25 +230,28 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
   }
 
   return (
-    <div className="w-full font-sans">
-      {/* Top Features Heading */}
-      <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">Top Features</h2>
+    <div className="w-full font-sans lg:max-w-[979px]">
+      {/* Top Features Heading - design typography */}
+      <h2 className="text-lg sm:text-xl lg:text-xl font-bold text-gray-800 mb-4 sm:mb-6 lg:mb-6">
+        Top Features
+      </h2>
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6" role="alert">
           <p className="text-red-800 text-sm">{error}</p>
         </div>
       )}
 
-      {/* Billing Cycle Toggle - Left Aligned, responsive padding */}
-      <div className="flex justify-start mb-4 sm:mb-6 overflow-x-auto">
-        <div className="inline-flex bg-gray-100 p-1 rounded-full flex-shrink-0">
+      {/* Billing Cycle Toggle - design: pill, left-aligned */}
+      <div className="flex justify-start mb-4 sm:mb-6 lg:mb-6 overflow-x-auto">
+        <div className="inline-flex bg-gray-100 lg:bg-gray-100 p-1 rounded-full flex-shrink-0" role="group" aria-label="Billing cycle">
           <button
             onClick={() => setBillingCycle('monthly')}
-            className={`px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-semibold transition-colors duration-200 ${
+            aria-pressed={billingCycle === 'monthly'}
+            className={`px-4 sm:px-6 lg:px-6 py-2 rounded-full text-xs sm:text-sm lg:text-sm font-semibold transition-colors duration-200 ${
               billingCycle === 'monthly'
-                ? 'bg-gray-800 text-white shadow'
+                ? 'bg-gray-800 lg:bg-[#1A323C] text-white shadow'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -240,9 +259,10 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
           </button>
           <button
             onClick={() => setBillingCycle('yearly')}
-            className={`px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-semibold transition-colors duration-200 ${
+            aria-pressed={billingCycle === 'yearly'}
+            className={`px-4 sm:px-6 lg:px-6 py-2 rounded-full text-xs sm:text-sm lg:text-sm font-semibold transition-colors duration-200 ${
               billingCycle === 'yearly'
-                ? 'bg-gray-800 text-white shadow'
+                ? 'bg-gray-800 lg:bg-[#1A323C] text-white shadow'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -253,14 +273,16 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
 
       {/* Payment Provider Selection */}
       {paymentProviders.length > 0 && (
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="mb-6 lg:mb-6">
+          <label htmlFor="payment-provider" className="block text-sm font-medium text-gray-700 mb-2">
             Payment Provider
           </label>
           <select
+            id="payment-provider"
             value={selectedProvider || defaultProvider}
             onChange={(e) => setSelectedProvider(e.target.value as PaymentProvider)}
-            className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1A323C] focus:border-transparent lg:border-[#E5E5E5]"
+            aria-label="Payment provider"
           >
             {paymentProviders.map((provider) => (
               <option key={provider} value={provider}>
@@ -271,8 +293,8 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
         </div>
       )}
 
-      {/* Plan Cards Grid - Three Columns; single column on mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full items-stretch">
+      {/* Plan Cards Grid - 1 col small; horizontal row on desktop (plan.svg: 1173px, 3 cards) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5 lg:gap-6 w-full items-stretch">
         {plans.map((plan) => (
           <PlanCard
             key={plan.id}

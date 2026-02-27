@@ -1,77 +1,14 @@
 import React from 'react';
 
-// Image 1: Material lists in SECONDS with teal/green speckled background
+// Image 1: Window features (design: window-features.svg — 364×382, #E3EEF3 card with phone mockup)
 export const OnboardingImage1: React.FC = () => (
-<svg width="320" height="340" viewBox="0 0 320 340" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-        <linearGradient id="bg-grad-1" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#0F766E"/>
-            <stop offset="100%" stopColor="#14B8A6"/>
-        </linearGradient>
-    </defs>
-    <rect width="320" height="340" rx="24" fill="url(#bg-grad-1)"/>
-    
-    {/* White speckles/dots scattered across the background */}
-    <g opacity="0.4">
-        <circle cx="280" cy="80" r="2" fill="#ffffff"/>
-        <circle cx="260" cy="120" r="2" fill="#ffffff"/>
-        <circle cx="290" cy="160" r="2" fill="#ffffff"/>
-        <circle cx="250" cy="200" r="2" fill="#ffffff"/>
-        <circle cx="270" cy="240" r="2" fill="#ffffff"/>
-        <circle cx="30" cy="40" r="2" fill="#ffffff"/>
-        <circle cx="50" cy="80" r="2" fill="#ffffff"/>
-        <circle cx="20" cy="120" r="2" fill="#ffffff"/>
-        <circle cx="40" cy="160" r="2" fill="#ffffff"/>
-        <circle cx="25" cy="200" r="2" fill="#ffffff"/>
-        <circle cx="45" cy="240" r="2" fill="#ffffff"/>
-        <circle cx="230" cy="60" r="1.5" fill="#ffffff"/>
-        <circle cx="90" cy="100" r="1.5" fill="#ffffff"/>
-        <circle cx="150" cy="50" r="1.5" fill="#ffffff"/>
-        <circle cx="200" cy="180" r="1.5" fill="#ffffff"/>
-        <circle cx="100" cy="220" r="1.5" fill="#ffffff"/>
-    </g>
-    
-    <g transform="translate(85, 20)">
-        <rect x="0" y="0" width="150" height="300" rx="18" fill="#1F2937" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.3))"/>
-        <rect x="4" y="4" width="142" height="292" rx="14" fill="white"/>
-        <rect x="60" y="8" width="30" height="4" rx="2" fill="#D1D5DB"/>
-        
-        {/* Header */}
-        <path d="M 12 23 L 16 20 L 12 17" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <text x="20" y="28" fontFamily="Exo 2, sans-serif" fontSize="10" fontWeight="500" fill="#111827">Olumide Residence Renovat...</text>
-        
-        {/* Tabs */}
-        <rect x="8" y="45" width="134" height="20" fill="#F3F4F6" rx="4"/>
-        <rect x="10" y="47" width="60" height="16" fill="white" rx="3" filter="drop-shadow(0 1px 2px rgb(0 0 0 / 0.05))"/>
-        <text x="16" y="60" fontFamily="Exo 2, sans-serif" fontSize="9" fontWeight="500" fill="#111827">Material List</text>
-        <text x="78" y="60" fontFamily="Exo 2, sans-serif" fontSize="8" fill="#6B7280">Cutting List (C.L)</text>
-        <text x="130" y="60" fontFamily="Exo 2, sans-serif" fontSize="8" fill="#6B7280">Glass Cutl &gt;</text>
-        
-        {/* Profile Filter */}
-        <line x1="8" y1="78" x2="142" y2="78" stroke="#E5E7EB" strokeWidth="1"/>
-        <text x="8" y="94" fontFamily="Exo 2, sans-serif" fontSize="9" fill="#374151">Profile</text>
-        <circle cx="124" cy="92" r="4" fill="#F3F4F6"/>
-        <path d="M 122 92 L 124 94 L 126 92" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
-        <circle cx="130" cy="92" r="4" fill="#F3F4F6"/>
-        <circle cx="130" cy="92" r="3" fill="#9CA3AF"/>
-        
-        {/* List Items */}
-        <line x1="8" y1="105" x2="142" y2="105" stroke="#F3F4F6" strokeWidth="1"/>
-        <text x="8" y="122" fontFamily="Exo 2, sans-serif" fontSize="9" fill="#374151">Width</text>
-        <text x="88" y="122" fontFamily="Exo 2, sans-serif" fontSize="9" fill="#374151">10 units</text>
-        <path d="M 135 121 l 3 3 l 3 -3" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
-        
-        <line x1="8" y1="135" x2="142" y2="135" stroke="#F3F4F6" strokeWidth="1"/>
-        <text x="8" y="152" fontFamily="Exo 2, sans-serif" fontSize="9" fill="#374151">Height</text>
-        <text x="88" y="152" fontFamily="Exo 2, sans-serif" fontSize="9" fill="#374151">10 units</text>
-        <path d="M 135 151 l 3 3 l 3 -3" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
-        
-        <line x1="8" y1="165" x2="142" y2="165" stroke="#F3F4F6" strokeWidth="1"/>
-        <text x="8" y="182" fontFamily="Exo 2, sans-serif" fontSize="9" fill="#374151">Mollium</text>
-        <text x="88" y="182" fontFamily="Exo 2, sans-serif" fontSize="9" fill="#374151">10 units</text>
-        <path d="M 135 181 l 3 3 l 3 -3" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
-    </g>
-</svg>
+  <img
+    src="/images/onboarding/window-features.svg"
+    alt=""
+    className="h-full w-full object-contain"
+    width={364}
+    height={382}
+  />
 );
 
 // Image 2: Get ESTIMATES done - fast (blue background with phone showing progress)

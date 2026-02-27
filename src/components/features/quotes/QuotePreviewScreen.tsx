@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import type { QuotePreviewData } from '@/types';
 import { ChevronLeftIcon, EditIcon, FolderIcon, LocationIcon, MoreVerticalIcon } from '@/assets/icons/IconComponents';
@@ -219,7 +219,7 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
             </div>
           </section>
         </div>
-      </main>
+      </header>
 
       <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200">
         <div className="max-w-3xl mx-auto">
@@ -278,14 +278,14 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
               <span>Edit</span>
             </button>
             <button
-              onClick={handleDownloadPDF}
+              onClick={() => handleExportOption('pdf')}
               className="px-4 py-2 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
             >
               Download PDF
             </button>
           </div>
         </div>
-      </header>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-8 py-8">
