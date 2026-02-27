@@ -1,5 +1,38 @@
 import React from 'react';
 
+// First onboarding screen: Get estimates done — fast (from first-Onboarding-screen.svg, 364×382)
+export const FirstOnboardingScreenImage: React.FC = () => (
+  <img
+    src="/icons/first-Onboarding-screen.svg"
+    alt=""
+    className="h-full w-full object-contain"
+    width={364}
+    height={382}
+  />
+);
+
+// Second onboarding screen: Material lists in SECONDS (from second-Onboarding-screen.svg, 2.svg design — 364×382, #386A80 card)
+export const SecondOnboardingScreenImage: React.FC = () => (
+  <img
+    src="/icons/second-Onboarding-screen.svg"
+    alt=""
+    className="h-full w-full object-contain"
+    width={364}
+    height={382}
+  />
+);
+
+// Third onboarding screen: Reduce OFF-CUTS (from third-Onboarding-screen.svg, 364×382, #E3EEF3 card)
+export const ThirdOnboardingScreenImage: React.FC = () => (
+  <img
+    src="/icons/third-Onboarding-screen.svg"
+    alt=""
+    className="h-full w-full object-contain"
+    width={364}
+    height={382}
+  />
+);
+
 // Image 1: Window features (design: window-features.svg — 364×382, #E3EEF3 card with phone mockup)
 export const OnboardingImage1: React.FC = () => (
   <img
