@@ -1,19 +1,32 @@
 # Netlify configuration for Workings Web Application
 
 [build]
-  # Build command
+# Build command
   command = "npm run build"
+
   # Directory to publish
   publish = "dist"
 
 # Environment variables should be set in Netlify dashboard:
-# VITE_API_BASE_URL=https://glaze-workings-og75x.ondigitalocean.app/workings-api2
+# VITE_API_BASE_URL=https://api.glazeworkings.com
 
-# Redirect rules for SPA
+# Redirect rules for SPA (only when a file is not found)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Cache control: never cache index.html so users always get latest asset URLs
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Cache hashed assets (Vite puts them in /assets/) for 1 year; filenames change per deploy
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 # Headers for security and CORS (if needed)
 [[headers]]
@@ -23,4 +36,3 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-
