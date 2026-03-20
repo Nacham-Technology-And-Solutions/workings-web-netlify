@@ -217,8 +217,6 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
   labelPadding,
   sashCount,
 }) => {
-  const sashWidth = frameWidth / sashCount;
-
   // Calculate total dimensions including all labels
   const topLabelHeight = 50;
   const rightLabelWidth = 120; // Increased to accommodate rotated text (e.g., "1500 mm")
@@ -243,7 +241,15 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
   const scaledRightLabelWidth = rightLabelWidth * scale;
   const scaledTopLabelHeight = topLabelHeight * scale;
   const scaledBottomLabelHeight = bottomLabelHeight * scale;
-  const scaledSashWidth = scaledFrameWidth / sashCount;
+  // Match CSS insets used below: inset-3 (12px) + inset-2 (8px)
+  // so sash math uses the true drawable inner area and avoids visual bulging/overflow.
+  const frameInset = 12;
+  const contentInset = 8;
+  const slidingInnerWidth = Math.max(
+    scaledFrameWidth - (frameInset * 2) - (contentInset * 2),
+    1
+  );
+  const scaledSashWidth = slidingInnerWidth / sashCount;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
@@ -278,8 +284,9 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
                     key={index}
                     className="absolute top-0 bottom-0 bg-blue-50 border border-gray-400"
                     style={{
-                      left: `${(index * scaledSashWidth) + 2}px`,
-                      width: `${scaledSashWidth - 4}px`,
+                      left: `${index * scaledSashWidth}px`,
+                      width: `${scaledSashWidth}px`,
+                      boxSizing: 'border-box',
                     }}
                   >
                     {/* Track indicator - horizontal line at bottom */}
@@ -545,8 +552,20 @@ export const CurtainWallIllustration: React.FC<CurtainWallIllustrationProps> = (
   const scaledRightLabelWidth = rightLabelWidth * scale;
   const scaledTopLabelHeight = topLabelHeight * scale;
   const scaledBottomLabelHeight = bottomLabelHeight * scale;
-  const scaledCellWidth = scaledFrameWidth / verticalPanels;
-  const scaledCellHeight = scaledFrameHeight / horizontalPanels;
+  // Match CSS insets used below: inset-3 (12px) + inset-2 (8px)
+  // so grid cell math fits the actual drawable area exactly.
+  const frameInset = 12;
+  const contentInset = 8;
+  const curtainInnerWidth = Math.max(
+    scaledFrameWidth - (frameInset * 2) - (contentInset * 2),
+    1
+  );
+  const curtainInnerHeight = Math.max(
+    scaledFrameHeight - (frameInset * 2) - (contentInset * 2),
+    1
+  );
+  const scaledCellWidth = curtainInnerWidth / verticalPanels;
+  const scaledCellHeight = curtainInnerHeight / horizontalPanels;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
@@ -586,6 +605,7 @@ export const CurtainWallIllustration: React.FC<CurtainWallIllustrationProps> = (
                         top: `${rowIndex * scaledCellHeight}px`,
                         width: `${scaledCellWidth}px`,
                         height: `${scaledCellHeight}px`,
+                        boxSizing: 'border-box',
                       }}
                     >
                       {/* Vertical mullion */}
