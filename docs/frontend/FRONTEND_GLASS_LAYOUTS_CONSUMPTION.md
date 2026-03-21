@@ -90,10 +90,11 @@ Each placement is an axis-aligned rectangle: top-left `(xMm, yMm)`, size `(width
    - Draw **waste** first (e.g. neutral grey) so pieces sit on top, **or** draw a full-sheet background then waste then pieces — both work if you draw waste rects explicitly.  
    - Draw **pieces** on top; fill/stroke using `elements.find(e => e.id === placement.elementId)?.color`.
 
-4. **Labels**  
-   - Border / slot size for a rect: use `widthMm` × `heightMm`.  
-   - “Ordered” size for the customer: prefer `nominalWidthMm` × `nominalHeightMm` when present; if absent, use `widthMm` × `heightMm`.  
-   - If `rotated === true`, you may show a small rotation indicator or swap the label order to match shop practice.
+4. **Labels (shop-style)**  
+   - **Cut dimensions on walls:** show **width** (`widthMm`, rounded) centered along the **top** interior edge of the piece; show **height** (`heightMm`) centered along the **left** interior edge, rotated to read parallel to that wall (same idea as optiCutter-style panel plans).  
+   - **Center label:** show glazing **`elements[].title`** for that `elementId` (this text should match the hover / `<title>` summary).  
+   - **Tooltip / `<title>`:** include element title, cut size, and when useful `nominalWidthMm` × `nominalHeightMm` plus `rotated` — same facts as the visible label set.  
+   - **Stock sheet:** optional overall width along the bottom edge and height along the left edge of the stock rectangle.
 
 5. **No layout math on the client**  
    Do not re-run nesting from `cuts[]` for the diagram when `layouts` is present — use placements as authoritative geometry.

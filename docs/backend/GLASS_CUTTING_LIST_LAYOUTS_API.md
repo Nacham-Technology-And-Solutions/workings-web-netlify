@@ -50,6 +50,16 @@ Return **machine-readable geometry** produced by the same 2D nesting / cutting l
 
 Document this in API docs; clients will scale to pixels or normalized SVG as needed.
 
+### 2.1 Placement quality (neatness & alignment)
+
+Shop-style diagrams read best when geometry is **crisp and flush**:
+
+- Keep all rectangles **axis-aligned** and snapped to a consistent grid (e.g. **integer mm**). Adjacent pieces and waste that share an edge should use the **exact same** boundary coordinate on both sides — avoid sub-millimetre drift that shows as hairline gaps in SVG/PDF.
+- Emit `placements` in a **deterministic order** (recommended: sort by `yMm` ascending, then `xMm`) so the UI and exports are stable between runs.
+- Prefer **fewer, larger waste rectangles** that exactly tile leftover area (or one combined offcut) instead of many tiny fragments, when the optimizer allows — easier to read and label.
+
+The frontend draws **width along the top interior edge** and **height along the left interior edge** of each piece, with the glazing **element title** in the center; accurate shared edges from the backend keep that layout looking aligned (similar to common panel-nesting UIs).
+
 ---
 
 ## 3. Extended `glassList` shape

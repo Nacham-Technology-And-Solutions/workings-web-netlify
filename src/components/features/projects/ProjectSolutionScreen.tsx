@@ -17,6 +17,7 @@ import {
   exportCuttingListToExcel,
   exportGlassCuttingListToPDF,
   exportGlassCuttingListToExcel,
+  exportGlassCuttingListToCSV,
   shareData
 } from '@/services/export/exportService';
 import { projectsService } from '@/services/api';
@@ -568,7 +569,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     setShowExportDropdown(null);
   };
 
-  const handleExportGlassCuttingList = (format: 'pdf' | 'excel') => {
+  const handleExportGlassCuttingList = (format: 'pdf' | 'excel' | 'csv') => {
     if (!glassListNorm || !previousData?.projectDescription) return;
 
     const projectName = previousData.projectDescription.projectName || 'Project';
@@ -603,6 +604,14 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           cuts: cutsWithTitle,
           totalCuts: piecesOnSheet,
           layoutId: pattern.layoutId,
+          placements: pattern.placements.map((p) => ({
+            ...p,
+            fillHex:
+              p.kind === 'waste'
+                ? '#D1D5DB'
+                : (p.elementId && elMap[p.elementId]?.color) ?? '#C8DEE5',
+            elementTitle: p.elementId ? elMap[p.elementId]?.title : undefined,
+          })),
         };
       }
       return {
@@ -617,6 +626,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
     if (format === 'pdf') {
       exportGlassCuttingListToPDF(layouts, projectName);
+    } else if (format === 'csv') {
+      exportGlassCuttingListToCSV(layouts, projectName);
     } else {
       exportGlassCuttingListToExcel(layouts, projectName);
     }
@@ -809,8 +820,14 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         Export as PDF
                       </button>
                       <button
+                        onClick={() => handleExportGlassCuttingList('csv')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 border-t border-gray-100"
+                      >
+                        Export as CSV
+                      </button>
+                      <button
                         onClick={() => handleExportGlassCuttingList('excel')}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg"
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg border-t border-gray-100"
                       >
                         Export as Excel
                       </button>
@@ -1589,7 +1606,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               {glassListNorm && glassListNorm.total_sheets > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Left Panel - Nest or legacy grid */}
-                  <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 min-h-[500px] relative flex flex-col items-center justify-center">
+                  <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 min-h-[500px] relative flex min-w-0 flex-col items-stretch justify-center">
                     <div className="absolute inset-0 m-4 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#E2E8F0 2px, transparent 2px)', backgroundSize: '24px 24px' }} />
 
                     {(() => {
@@ -1601,7 +1618,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
                       if (!selectedSheet && glassList.total_sheets > 0) {
                         return (
-                          <div className="relative z-10 bg-[#4A8B9F] text-white px-4 py-3 rounded shadow-lg text-center">
+                          <div className="relative z-10 self-center bg-[#4A8B9F] text-white px-4 py-3 rounded shadow-lg text-center">
                             <p className="text-xs font-medium">Select a sheet</p>
                             <p className="text-xs">to view layout</p>
                             <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-[#4A8B9F] rotate-45" />
@@ -1613,8 +1630,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         const li = layoutIndexForPhysicalSheet(layoutsArr, currentSheetIndex);
                         const pattern = layoutsArr[li];
                         return (
-                          <div className="relative z-10 w-full flex flex-col items-center">
-                            <div className="flex justify-center mb-4 flex-wrap gap-2 items-center">
+                          <div className="relative z-10 flex w-full min-w-0 flex-col items-stretch">
+                            <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
                               <span className="bg-gray-800 text-white text-xs px-3 py-1 rounded-full">
                                 Sheet {currentSheet}
                               </span>
@@ -1623,6 +1640,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                               ) : null}
                             </div>
                             <GlassCuttingNest
+                              className="w-full min-w-0"
                               layout={pattern}
                               elementsMap={elementsMap}
                               elementFilter={glassElementFilter}
@@ -1698,8 +1716,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                       const wasteHeight = sheetHeight - usedHeight;
 
                       return (
-                        <div className="relative z-10 w-full max-w-2xl">
-                          <div className="flex justify-center mb-4">
+                        <div className="relative z-10 w-full min-w-0 max-w-full">
+                          <div className="mb-4 flex justify-center">
                             <span className="bg-gray-800 text-white text-xs px-3 py-1 rounded-full">
                               Sheet {currentSheet}
                             </span>
@@ -1940,7 +1958,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               {showExportDropdown === 'glass' && (
                 <div className="absolute left-0 right-0 bottom-full mb-2 py-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                   <button onClick={() => handleExportGlassCuttingList('pdf')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg">Export as PDF</button>
-                  <button onClick={() => handleExportGlassCuttingList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg">Export as Excel</button>
+                  <button onClick={() => handleExportGlassCuttingList('csv')} className="w-full text-left px-4 py-2 hover:bg-gray-50 border-t border-gray-100">Export as CSV</button>
+                  <button onClick={() => handleExportGlassCuttingList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg border-t border-gray-100">Export as Excel</button>
                 </div>
               )}
             </div>
