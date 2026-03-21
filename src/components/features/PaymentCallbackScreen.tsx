@@ -21,7 +21,20 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
   const verifyPayment = async () => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const reference = urlParams.get('reference') || urlParams.get('tx_ref') || localStorage.getItem('paymentReference');
+      const refFromUrl =
+        urlParams.get('reference')?.trim() ||
+        urlParams.get('tx_ref')?.trim() ||
+        urlParams.get('trxref')?.trim() ||
+        '';
+      const reference = refFromUrl || localStorage.getItem('paymentReference');
+
+      if (refFromUrl) {
+        localStorage.setItem('paymentReference', refFromUrl);
+      }
+
+      if (window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+      }
 
       if (!reference) {
         setStatus('failed');

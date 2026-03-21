@@ -180,6 +180,27 @@ const App: React.FC = () => {
     });
   }, [initializeAuth, initializeOnlineStatus]);
 
+  // Deep link from password-reset email: /reset-password?token=...&email=...
+  useEffect(() => {
+    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    const isResetPath = path === '/reset-password' || path.endsWith('/reset-password');
+    if (!isResetPath) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token')?.trim();
+    const email = params.get('email')?.trim() ?? null;
+
+    if (!token) return;
+
+    const { logout, setResetPasswordData, setAuthScreen } = useAuthStore.getState();
+    logout();
+    setResetPasswordData(token, email);
+    setAuthScreen('reset-password');
+
+    const base = import.meta.env.BASE_URL || '/';
+    window.history.replaceState(null, '', base);
+  }, []);
+
   // Listen for session expiration events
   useEffect(() => {
     const unsubscribe = onSessionExpired((event) => {
@@ -224,10 +245,11 @@ const App: React.FC = () => {
     setLoading(false);
     const onboardingShown = localStorage.getItem('onboardingShown');
     const userAuthenticated = localStorage.getItem('isAuthenticated');
+    const { authScreen } = useAuthStore.getState();
 
     if (userAuthenticated === 'true') {
       setAuthenticated(true);
-    } else if (!onboardingShown) {
+    } else if (!onboardingShown && authScreen !== 'reset-password') {
       setShowOnboarding(true);
     }
   };
@@ -1411,9 +1433,13 @@ const App: React.FC = () => {
     );
   }
 
-  // Payment callback handler - check URL params for payment reference
+  // Payment callback handler - check URL params for payment reference (incl. Paystack trxref)
   const urlParams = new URLSearchParams(window.location.search);
-  const hasPaymentCallback = urlParams.has('reference') || urlParams.has('tx_ref') || localStorage.getItem('paymentReference');
+  const hasPaymentCallback =
+    urlParams.has('reference') ||
+    urlParams.has('tx_ref') ||
+    urlParams.has('trxref') ||
+    localStorage.getItem('paymentReference');
   
   if (hasPaymentCallback && (currentView === 'home' || !currentView)) {
     return (
