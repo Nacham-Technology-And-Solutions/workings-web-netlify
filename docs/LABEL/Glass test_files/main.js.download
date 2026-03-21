@@ -1,0 +1,1695 @@
+// Auto update layout
+if (window.layoutHelpers) {
+  window.layoutHelpers.setAutoUpdate(true);
+}
+let body = $('body');
+$(function() {
+  // Initialize sidenav
+  $('#layout-sidenav').each(function() {
+    new SideNav(this, {
+      orientation: $(this).hasClass('sidenav-horizontal') ? 'horizontal' : 'vertical'
+    });
+  });
+
+  // Initialize sidenav togglers
+  body.on('click', '.layout-sidenav-toggle', function(e) {
+    e.preventDefault();
+    window.layoutHelpers.toggleCollapsed();
+  });
+
+  // Swap dropdown menus in RTL mode
+  if ($('html').attr('dir') === 'rtl') {
+    $('#layout-navbar .dropdown-menu').toggleClass('dropdown-menu-right');
+  }
+  $('[data-toggle="tooltip"]').tooltip();
+  $('[data-toggle="popover"]').popover();
+});
+
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// custom js code
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+let deleteButtonMessage = '';
+let metric = true;
+let stocksLimit = 0;
+let requirementsLimit = 0;
+let warehouseLabel = '';
+let stocksMessage = '';
+let requirementsMessage = '';
+let grainHorizontalMessage = '';
+let grainVerticalMessage = '';
+const defaultGroups = [];
+
+$(window).on('load', function() {
+
+    setFocus();
+
+    setContactEmail();
+
+    toggleLabels();
+
+    toggleGrain();
+
+    toggleGroups();
+
+    checkProcessedPatterns();
+
+    changeOpacityOnSVG();
+
+    managePreferences();
+
+    let jsDataHolder = $("#jsDataHolder");
+    if (jsDataHolder.length) {
+        let is2D = jsDataHolder.data('plan-type') === '2d';
+        deleteButtonMessage = jsDataHolder.data('delete-button');
+        metric = jsDataHolder.data('metric');
+        stocksLimit = jsDataHolder.data('stocks-limit');
+        requirementsLimit = jsDataHolder.data('requirements-limit');
+        warehouseLabel = jsDataHolder.data('warehouse-label');
+        stocksMessage = jsDataHolder.data('stocks-message');
+        requirementsMessage = jsDataHolder.data('requirements-message');
+        grainHorizontalMessage = jsDataHolder.data('grain-horizontal');
+        grainVerticalMessage = jsDataHolder.data('grain-vertical');
+        $(window).keydown(function(event) {
+            if(event.altKey && event.keyCode === 79) {
+                if (is2D) {
+                    addStocksRow2d(1, deleteButtonMessage, grainHorizontalMessage, grainVerticalMessage, metric)
+                } else {
+                    addStocksRow(1, deleteButtonMessage, metric)
+                }
+                event.preventDefault();
+            }
+            if(event.altKey && event.keyCode === 80) {
+                if (is2D) {
+                    addRequirementsRow2d(1, deleteButtonMessage, grainHorizontalMessage, grainVerticalMessage, metric);
+                } else {
+                    addRequirementsRow(1, deleteButtonMessage, metric);
+                }
+                event.preventDefault();
+            }
+        });
+        let children = jsDataHolder.children('span');
+        if (children.length) {
+            children.each( function () {
+                defaultGroups.push($(this).data('group-name'));
+            });
+        }
+        //console.log("here we go with the groups:");
+        //console.log(defaultGroups);
+    }
+
+    let stripeButton = $('#checkout-button-stripe');
+    if (stripeButton.length) {
+        let stripe = Stripe(stripeButton.data('stripe-public-key'));
+        stripeButton.click(function () {
+            stripe.redirectToCheckout({
+                sessionId: stripeButton.data('stripe-session-id')
+            }).then(function (result) {
+                if (result.error) {
+                    // If `redirectToCheckout` fails due to a browser or network
+                    // error, display the localized error message to your customer.
+                    let displayError = document.getElementById('error-message');
+                    displayError.textContent = result.error.message;
+                }
+            });
+        });
+    }
+});
+
+let preferencesLinearTrims = $('#linear-preferences #linearTrims');
+let preferencesPanelTrims = $('#panel-preferences #panelTrims');
+
+function managePreferences() {
+    if (preferencesLinearTrims.length) {
+        disableLinearTrimFields(!preferencesLinearTrims.is(':checked'));
+        disablePanelTrimFields(!preferencesPanelTrims.is(':checked'));
+
+        for (let i = 0; i < 20; i++) {
+            let color = $('#color' + i);
+            color.minicolors({
+                control: 'brightness',
+                position: 'bottom left'
+            });
+            color.css("cursor", "pointer");
+        }
+    }
+}
+
+
+function changeOpacityOnSVG() {
+    Array.prototype.forEach.call(document.getElementsByClassName('changeOpacity'), function (el) {
+        el.addEventListener('mouseover',
+            function () {
+                el.setAttribute('opacity', '0.5');
+            }, false);
+        el.addEventListener('mouseout',
+            function () {
+                el.setAttribute('opacity', '1');
+            }, false);
+    });
+}
+
+
+function setFocus() {
+    let focusElement = $('.setFocus');
+    if (focusElement.length) {
+        focusElement.focus();
+        //console.log("setting focus");
+    } else {
+        //console.log("unable to set focus");
+    }
+}
+
+body.on('click', "button.trRemoveStock", function(){
+	$(this).parent().parent().remove();
+	recalculateStocksRows();
+ });
+
+body.on('click', "button.trRemoveStock2d", function(){
+	$(this).parent().parent().remove();
+	recalculateStocksRows2d();
+ });
+
+body.on('click', "button.trRemove", function(){
+	$(this).parent().parent().remove();
+	recalculatePartsRows();
+ });
+
+body.on('click', "button.trRemove2d", function(){
+	$(this).parent().parent().remove();
+	recalculatePartsRows2d();
+ });
+
+body.on('click', "button.trRemoveLinearGroup", function(){
+	$(this).parent().parent().remove();
+	recalculateLinearGroupRows();
+ });
+
+body.on('click', "button.trRemovePanelGroup", function(){
+	$(this).parent().parent().remove();
+	recalculatePanelGroupRows();
+ });
+
+$(".addStockButton").click(function(){
+    addStocksRow(1, deleteButtonMessage, metric);
+});
+
+$(".addStockButton2d").click(function(){
+    addStocksRow2d(1, deleteButtonMessage, grainHorizontalMessage, grainVerticalMessage, metric);
+});
+
+$(".addRequirementButton").click(function(){
+    addRequirementsRow($(this).data('requirement-count'), deleteButtonMessage, metric);
+});
+
+$(".addRequirementButton2d").click(function(){
+    addRequirementsRow2d($(this).data('requirement-count'), deleteButtonMessage, grainHorizontalMessage, grainVerticalMessage, metric);
+});
+
+$("#submitDeleteForm").on('click', function(){
+	$('#deleteForm').submit();
+ });
+
+$(".doc-sidenav-link").on('click', function(){
+	$(".doc-link-wrapper").find(".sidenav-item").removeClass('active');
+	$(this).parent().addClass('active');
+ });
+
+function addStocksRow(count, text, metric) {
+	let existingStocks = $("#stocksTable tr").length - 2;
+	if (existingStocks + count > stocksLimit) {
+		$('#limits-modal').modal();
+		$('#message-body').html(stocksMessage);
+		return;
+	}
+	let groupVisibleFlag = "";
+	if (!isGroupsVisible()) {
+		groupVisibleFlag = "d-none";
+	}
+	let priceVisibleFlag = "";
+	if (!isPricesVisible()) {
+		priceVisibleFlag = "d-none";
+	}
+	let priorityVisibleFlag = "";
+	if (!isPrioritiesVisible()) {
+		priorityVisibleFlag = "d-none";
+	}
+	for (let i=0; i < count; i++) {
+		let lengthInput = "<input type='text' required id='' name='' value='' class='form-control' />";
+		if (metric) {
+			lengthInput = "<input type='number' required lang='fr' min=0 step='any' id='' name='' value='' class='form-control' />";
+		}
+		let stockGroupCell = "<td class='groupsData " + groupVisibleFlag + "'><select id='' name='' class='form-control'></td>";
+		let priceCell = "<td class='pricesData " + priceVisibleFlag + "'><input type='number' step='any' lang='fr' id='' name='' value='' class='form-control'/></td>";
+		let priorityCell = "<td class='prioritiesData " + priorityVisibleFlag + "'><label class='custom-control custom-checkbox mt-2'><input id='' name='' type='checkbox' class='custom-control-input'><span class='custom-control-label'></span></label></td>";
+		$("<tr class='partsRow'><td class='indexCell table-info'></td><td>" + lengthInput + "<input type='hidden' id='' name='' value=''/></td><td><input type='number' id='' min=1 step='1' name='' value='' class='form-control' /></td>" + stockGroupCell + priceCell +  priorityCell + "<td  class='actionCell'><button type='button' class='btn btn-sm btn-outline-danger trRemoveStock' tabindex='-1'><span class='ion ion-md-close-circle-outline'></span>&nbsp;" + text + "</button></td></tr>" ).insertBefore("#stocksTable tr:last");
+	    let groupSelect = $("#stocksTable tr:last").prev().find("td:first").next().next().next().children('select');
+		populateGroupDropdown(groupSelect);
+		
+	}
+	recalculateStocksRows();
+}	
+
+function addRequirementsRow(count, text, metric) {
+	let existingStocks = $("#planReqTable tr").length - 2;
+	if (existingStocks + count > requirementsLimit) {
+		$('#limits-modal').modal();
+		$('#message-body').html(requirementsMessage);
+		return;
+	}
+	let labelVisibleFlag = "";
+	if (!isLabelsVisible()) {
+		labelVisibleFlag = "d-none";
+	}
+	let groupVisibleFlag = "";
+	if (!isGroupsVisible()) {
+		groupVisibleFlag = "d-none";
+	}
+	for (let i=0; i < count; i++) {
+		let lengthInput = "<input type='text' required id='' name='' value='' class='form-control' />";
+		if (metric) {
+			lengthInput = "<input type='number' required lang='fr' min=0 step='any' id='' name='' value='' class='form-control' />";
+		}
+		let stockGroupCell = "<td class='groupsData " + groupVisibleFlag + "'><select id='' name='' class='form-control'></td>";
+		$("<tr class='partsRow'><td class='indexCell table-info'></td><td>" + lengthInput + "</td><td><input type='number' required id='' min=1 step='1' name='' value='' class='form-control' /></td><td class='labelData " + labelVisibleFlag  + "'><input type='text' id='' name='' value='' class='form-control' /></td>" + stockGroupCell + "<td  class='actionCell'><button type='button' class='btn btn-sm btn-outline-danger trRemove' tabindex='-1'><span class='ion ion-md-close-circle-outline'></span>&nbsp;" + text + "</button></td></tr>" ).insertBefore("#planReqTable tr:last");
+		let groupSelect = $("#planReqTable tr:last").prev().find("td:first").next().next().next().next().children('select');
+		populateGroupDropdown(groupSelect);
+	}
+	recalculatePartsRows();
+}	
+
+function addStocksRow2d(count, text, horizontalText, verticalText, metric) {
+	let existingStocks = $("#stocksTable tr").length - 2;
+	if (existingStocks + count > stocksLimit) {
+		$('#limits-modal').modal();
+		$('#message-body').html(stocksMessage);
+		return;
+	}
+	let grainVisibleFlag = "";
+	if (!isGrainVisible()) {
+		grainVisibleFlag = "d-none";
+	}
+	let groupVisibleFlag = "";
+	if (!isGroupsVisible()) {
+		groupVisibleFlag = "d-none";
+	}
+	let priceVisibleFlag = "";
+	if (!isPricesVisible()) {
+		priceVisibleFlag = "d-none";
+	}
+	let priorityVisibleFlag = "";
+	if (!isPrioritiesVisible()) {
+		priorityVisibleFlag = "d-none";
+	}
+	for (let i=0; i < count; i++) {
+		let inputs = "<input type='text' required id='' name='' value='' class='form-control' /><input type='hidden' id='' name='' value=''/></td><td><input type='text' required id='' name='' value='' class='form-control' />";
+		if (metric) {
+			inputs = "<input type='number' required lang='fr' min=0 step='any' id='' name='' value='' class='form-control' /><input type='hidden' id='' name='' value=''/></td><td><input type='number' required lang='fr' min=0 step='any' id='' name='' value='' class='form-control' />";
+		}
+		let timestamp = Date.now();
+		let grainElement = "<td class='grainElement" + timestamp + " grainData " + grainVisibleFlag + " '></td>";
+		let stockGroupCell = "<td class='groupsData " + groupVisibleFlag + "'><select id='' name='' class='form-control'></td>";
+		let priceCell = "<td class='pricesData " + priceVisibleFlag + "'><input type='number' step='any' lang='fr' id='' name='' value='' class='form-control'/></td>";
+		let priorityCell = "<td class='prioritiesData " + priorityVisibleFlag + "'><label class='custom-control custom-checkbox mt-2'><input id='' name='' type='checkbox' class='custom-control-input'><span class='custom-control-label'></span></label></td>";
+		$("<tr class='partsRow'><td class='indexCell table-info'></td><td>" + inputs + "</td><td><input type='number' id=''  min=1 step='1' name='' value='' class='form-control' /></td>" + grainElement + stockGroupCell + priceCell + priorityCell + "<td  class='actionCell'><button type='button' class='btn btn-sm btn-outline-danger trRemoveStock2d' tabindex='-1'><span class='ion ion-md-close-circle-outline'></span>&nbsp;" + text + "</button></td></tr>" ).insertBefore("#stocksTable tr:last");
+		let $select = createGrainSelect(horizontalText, verticalText);
+		$select.appendTo('.grainElement' + timestamp).selectpicker('refresh');
+		let groupSelect = $("#stocksTable tr:last").prev().find("td:first").next().next().next().next().next().children('select');
+		populateGroupDropdown(groupSelect);
+
+	}
+	recalculateStocksRows2d();
+}	
+
+function addRequirementsRow2d(count, deleteText, horizontalText, verticalText, metric) {
+	let existingStocks = $("#planReqTable tr").length - 2;
+	if (existingStocks + count > requirementsLimit) {
+		$('#limits-modal').modal();
+		$('#message-body').html(requirementsMessage);
+		return;
+	}
+	let visibleFlag = "";
+	if (!isLabelsVisible()) {
+		visibleFlag = "d-none";
+	}
+	let grainVisibleFlag = "";
+	if (!isGrainVisible()) {
+		grainVisibleFlag = "d-none";
+	}
+	let groupVisibleFlag = "";
+	if (!isGroupsVisible()) {
+		groupVisibleFlag = "d-none";
+	}
+	let edgeBandingVisibleFlag = "";
+	if (!isEdgeBandingVisible()) {
+		edgeBandingVisibleFlag = "d-none";
+	}
+	for (let i=0; i < count; i++) {
+		let inputs = "<input type='text' required id='' name='' value='' class='form-control' /></td><td><input type='text' required id='' name='' value='' class='form-control' />";
+		if (metric) {
+			inputs = "<input type='number' required lang='fr' min=0 step='any' id='' name='' value='' class='form-control' /></td><td><input type='number' required lang='fr' min=0 step='any' id='' name='' value='' class='form-control' />";
+		}
+		let timestamp = Date.now();
+		let grainElement = "<td class='grainElement" + timestamp + " grainData " + grainVisibleFlag + "'></td>";
+		let stockGroupCell = "<td class='groupsData " + groupVisibleFlag + "'><select id='' name='' class='form-control'></td>";
+		let edgeBandingCell = '<td class="edgeBandingData align-middle ' + edgeBandingVisibleFlag + '">' +
+			'<input type="hidden" id="" name="" value=""/><input type="hidden" id="" name="" value=""/><input type="hidden" id="" name="" value=""/><input type="hidden" id="" name="" value=""/>' +
+			'<span class="edgeBandingStats">0/4</span><button data-index="" type="button" class="btn btn-sm btn-outline-primary" tabindex="-1"><span class="far fa-plus-square"></span></button>' +
+			'</td>';
+		$("<tr class='partsRow2d'><td class='indexCell table-info'></td><td>" + inputs + "</td><td><input type='number' required id='' min=1 step='1' name='' value='' class='form-control' /></td><td class='labelData " + visibleFlag  + "'><input type='text' id='' name='' value='' class='form-control' /></td>" + grainElement + stockGroupCell +  edgeBandingCell + "<td  class='actionCell'><button type='button' title='" + deleteText + "' class='d-xs-block d-sm-none btn btn-sm btn-outline-danger trRemove2d' tabindex='-1'><span class='ion ion-md-close-circle-outline'></span></button><button type='button' class='d-none d-sm-block btn btn-sm btn-outline-danger trRemove2d' tabindex='-1'><span class='ion ion-md-close-circle-outline'></span>&nbsp;" + deleteText + "</button</td></tr>" ).insertBefore("#planReqTable tr:last");
+		let $select = createGrainSelect(horizontalText, verticalText);
+		$select.appendTo('.grainElement' + timestamp).selectpicker('refresh');
+		let firstCell = $("#planReqTable tr:last").prev().find("td:first");
+		let groupSelect = firstCell.next().next().next().next().next().next().children('select');
+		let bandingButton = firstCell.next().next().next().next().next().next().next().children('button');
+		bandingButton.on('click', function(){ showBandingModal(bandingButton); });
+
+		populateGroupDropdown(groupSelect);
+	}
+	recalculatePartsRows2d();
+}	
+
+function addLinearGroupRow(text, maxCount) {
+	
+	if ($("#linearGroupTable tr.partsRow").length < maxCount) {
+		$("<tr class='partsRow'><td class='indexCell table-info'></td><td><input type='text' id='' name='' value='' class='form-control' /></td><td  class='actionCell'><button type='button' class='btn btn-sm btn-outline-danger trRemoveLinearGroup' tabindex='-1'><span class='ion ion-md-close-circle-outline'></span>&nbsp;" + text + "</button></td></tr>" ).insertBefore("#linearGroupTable tr:last");
+		recalculateLinearGroupRows();
+	} else {
+		$('#modal-groups').modal();
+	}
+}	
+
+function addPanelGroupRow(text, maxCount) {
+	
+	if ($("#panelGroupTable tr.partsRow").length < maxCount) {
+		$("<tr class='partsRow'><td class='indexCell table-info'></td><td><input type='text' id='' name='' value='' class='form-control' /></td><td  class='actionCell'><button type='button' class='btn btn-sm btn-outline-danger trRemovePanelGroup' tabindex='-1'><span class='ion ion-md-close-circle-outline'></span>&nbsp;" + text + "</button></td></tr>" ).insertBefore("#panelGroupTable tr:last");
+		recalculatePanelGroupRows();
+	} else {
+		$('#modal-groups').modal();
+	}
+}	
+
+function createGrainSelect(horizontalText, verticalText) {
+	let $select = $('<select/>', {
+	     'class':"selectpicker grainDirectionSelect"
+	});
+   $select.attr('data-style', 'btn-default');
+   $select.attr('data-icon-base', 'fas');
+   $select.append('<option value="" data-icon=""></option>');
+   $select.append('<option value=h title="<i class=\'fas fa-arrows-alt-h\'></i>" data-icon="fas fa-arrows-alt-h">&nbsp;' + horizontalText + '</option>');
+   $select.append('<option value=v title="<i class=\'fas fa-arrows-alt-v\'></i>" data-icon="fas fa-arrows-alt-v">&nbsp;' + verticalText+ '</option>');
+   return $select;
+}
+
+function recalculatePartsRows() {
+	let index = 0;
+	let lengthInput = null;
+	$("#planReqTable tr.partsRow").each(function() {
+		let row = $(this);
+		lengthInput = row.find("td:first").next().children('input');
+		lengthInput.attr('id', 'requirements[' + index + '].length');
+		lengthInput.attr('name', 'requirements[' + index + '].length');
+		let countInput = row.find("td:first").next().next().children('input');
+		countInput.attr('id', 'requirements[' + index + '].count');
+		countInput.attr('name', 'requirements[' + index + '].count');
+		let labelInput = row.find("td:first").next().next().next().children('input');
+		labelInput.attr('id', 'requirements[' + index + '].label');
+		labelInput.attr('name', 'requirements[' + index + '].label');
+		let groupSelect = row.find("td:first").next().next().next().next().children('select');
+		groupSelect.attr('id', 'requirements[' + index + '].group');
+		groupSelect.attr('name', 'requirements[' + index + '].group');
+		row.find("td:first").html(++index);
+	});
+	if (lengthInput != null) {
+		lengthInput.focus();
+	}
+}
+
+function recalculateStocksRows() {
+	let index = 0;
+	let lengthInput = null;
+	$("#stocksTable tr.partsRow").each(function() {
+		let row = $(this);
+		lengthInput = row.find("td:first").next().children('input');
+		lengthInput.attr('id', 'stocks[' + index + '].length');
+		lengthInput.attr('name', 'stocks[' + index + '].length');
+		let codeInput = row.find("td:first").next().children('input:hidden');
+		codeInput.attr('id', 'stocks[' + index + '].code');
+		codeInput.attr('name', 'stocks[' + index + '].code');
+		let countInput = row.find("td:first").next().next().children('input');
+		countInput.attr('id', 'stocks[' + index + '].count');
+		countInput.attr('name', 'stocks[' + index + '].count');
+		let groupSelect = row.find("td:first").next().next().next().children('select');
+		groupSelect.attr('id', 'stocks[' + index + '].group');
+		groupSelect.attr('name', 'stocks[' + index + '].group');
+		let priceInput = row.find("td:first").next().next().next().next().children('input');
+		priceInput.attr('id', 'stocks[' + index + '].price');
+		priceInput.attr('name', 'stocks[' + index + '].price');
+		let priorityInput = row.find("td:first").next().next().next().next().next().children('label').children('input');
+		priorityInput.attr('id', 'stocks[' + index + '].priority');
+		priorityInput.attr('name', 'stocks[' + index + '].priority');
+		row.find("td:first").html(++index);
+	});
+	if (lengthInput != null) {
+		lengthInput.focus();
+	}
+}
+
+function populateGroupDropdown(selectEl) {
+     for (let i = 0; i<=defaultGroups.length - 1; i++){
+    	 //console.log(defaultGroups[i]);
+         selectEl.append($('<option>', { 
+	        value: defaultGroups[i],
+	        text : defaultGroups[i] 
+	    }));
+     }
+}
+
+function recalculateStocksRows2d() {
+	let index = 0;
+	let lengthInput = null;
+	$("#stocksTable tr.partsRow").each(function() {
+		let row  = $(this);
+		lengthInput = row.find("td:first").next().children('input');
+		lengthInput.attr('id', 'stocks[' + index + '].length');
+		lengthInput.attr('name', 'stocks[' + index + '].length');
+		let codeInput = row.find("td:first").next().children('input:hidden');
+		codeInput.attr('id', 'stocks[' + index + '].code');
+		codeInput.attr('name', 'stocks[' + index + '].code');
+		let widthInput = row.find("td:first").next().next().children('input');
+		widthInput.attr('id', 'stocks[' + index + '].width');
+		widthInput.attr('name', 'stocks[' + index + '].width');
+		let countInput = row.find("td:first").next().next().next().children('input');
+		countInput.attr('id', 'stocks[' + index + '].count');
+		countInput.attr('name', 'stocks[' + index + '].count');
+		let grainDirectionSelect = row.find("td:first").next().next().next().next().children('div').children('select');
+		grainDirectionSelect.attr('id', 'stocks[' + index + '].grainDirection');
+		grainDirectionSelect.attr('name', 'stocks[' + index + '].grainDirection');
+		let groupSelect = row.find("td:first").next().next().next().next().next().children('select');
+		groupSelect.attr('id', 'stocks[' + index + '].group');
+		groupSelect.attr('name', 'stocks[' + index + '].group');
+		let priceInput = row.find("td:first").next().next().next().next().next().next().children('input');
+		priceInput.attr('id', 'stocks[' + index + '].price');
+		priceInput.attr('name', 'stocks[' + index + '].price');
+		let priorityInput = row.find("td:first").next().next().next().next().next().next().next().children('label').children('input');
+		priorityInput.attr('id', 'stocks[' + index + '].priority');
+		priorityInput.attr('name', 'stocks[' + index + '].priority');
+		row.find("td:first").html(++index);
+	});
+	if (lengthInput != null) {
+		lengthInput.focus();
+	}
+}
+
+function recalculatePartsRows2d() {
+	let index = 0;
+	let lengthInput = null;
+	$("#planReqTable tr.partsRow2d").each(function() {
+		let row  = $(this);
+		lengthInput = row.find("td:first").next().children('input');
+		lengthInput.attr('id', 'requirements[' + index + '].length');
+		lengthInput.attr('name', 'requirements[' + index + '].length');
+		let widthInput = row.find("td:first").next().next().children('input');
+		widthInput.attr('id', 'requirements[' + index + '].width');
+		widthInput.attr('name', 'requirements[' + index + '].width');
+		let countInput = row.find("td:first").next().next().next().children('input');
+		countInput.attr('id', 'requirements[' + index + '].count');
+		countInput.attr('name', 'requirements[' + index + '].count');
+		let labelInput = row.find("td:first").next().next().next().next().children('input');
+		labelInput.attr('id', 'requirements[' + index + '].label');
+		labelInput.attr('name', 'requirements[' + index + '].label');
+		let grainDirectionSelect = row.find("td:first").next().next().next().next().next().children('div').children('select');
+		grainDirectionSelect.attr('id', 'requirements[' + index + '].grainDirection');
+		grainDirectionSelect.attr('name', 'requirements[' + index + '].grainDirection');
+		let groupSelect = row.find("td:first").next().next().next().next().next().next().children('select');
+		groupSelect.attr('id', 'requirements[' + index + '].group');
+		groupSelect.attr('name', 'requirements[' + index + '].group');
+		let bandingCell = row.find("td:first").next().next().next().next().next().next().next();
+		let topBandingInput = bandingCell.children('input').eq(0);
+		topBandingInput.attr('id', 'requirements[' + index + '].topBanding');
+		topBandingInput.attr('name', 'requirements[' + index + '].topBanding');
+		let leftBandingInput = bandingCell.children('input').eq(1);
+		leftBandingInput.attr('id', 'requirements[' + index + '].leftBanding');
+		leftBandingInput.attr('name', 'requirements[' + index + '].leftBanding');
+		let bottomBandingInput = bandingCell.children('input').eq(2);
+		bottomBandingInput.attr('id', 'requirements[' + index + '].bottomBanding');
+		bottomBandingInput.attr('name', 'requirements[' + index + '].bottomBanding');
+		let rightBandingInput = bandingCell.children('input').eq(3);
+		rightBandingInput.attr('id', 'requirements[' + index + '].rightBanding');
+		rightBandingInput.attr('name', 'requirements[' + index + '].rightBanding');
+		let bandingButton = bandingCell.children('button');
+		bandingButton.data("index", index);
+		row.find("td:first").html(++index);
+	});
+	if (lengthInput != null) {
+		lengthInput.focus();
+	}
+}
+
+function recalculateLinearGroupRows() {
+	let index = 0;
+	let lengthInput = null;
+	$("#linearGroupTable tr.partsRow").each(function() {
+		let row  = $(this);
+		lengthInput = row.find("td:first").next().children('input');
+		lengthInput.attr('id', 'linearGroups[' + index + '].name');
+		lengthInput.attr('name', 'linearGroups[' + index + '].name');
+		row.find("td:first").html(++index);
+	});
+	if (lengthInput != null) {
+		lengthInput.focus();
+	}
+}
+
+function recalculatePanelGroupRows() {
+	let index = 0;
+	let lengthInput = null;
+	$("#panelGroupTable tr.partsRow").each(function() {
+		let row  = $(this);
+		lengthInput = row.find("td:first").next().children('input');
+		lengthInput.attr('id', 'panelGroups[' + index + '].name');
+		lengthInput.attr('name', 'panelGroups[' + index + '].name');
+		row.find("td:first").html(++index);
+	});
+	if (lengthInput != null) {
+		lengthInput.focus();
+	}
+}
+
+function gotoPage(pageIndex, wrapperId) {
+	let formId = 'pagingForm' + wrapperId;
+	let formIdSelector = '#' + formId;
+	let searchFieldIdSelector = '#searchInputField' + wrapperId;
+	let action = $(formIdSelector).attr('action');
+	let pageSize = $('#pageSize' + wrapperId).find(":selected").text();
+	//console.log( "Searching for..." +  $(searchFieldIdSelector).val());
+	$('#pagingFormSearch' + wrapperId).val($(searchFieldIdSelector).val());
+	action = action + "/" + pageIndex + "/" + pageSize;
+	$(formIdSelector).attr('action', action);
+	submitForm(formId);
+}
+
+function bindSearchInputField() {
+    $('.searchInputField').keypress(function (event) {
+        if (event.which === 13) {
+            let wrapperId = $(this).data('ajaxwrapper');
+            gotoPage(0, wrapperId);
+        }
+    });
+}
+
+bindSearchInputField();
+
+function bindGotoPageButton() {
+    $('.gotoPageButton').click(function () {
+        gotoPage($(this).data("page"), $(this).data("ajaxwrapper"));
+    });
+}
+
+bindGotoPageButton();
+
+function bindGotoPageSelect() {
+    $('.gotoPageSelect').change(function () {
+        gotoPage($(this).data("page"), $(this).data("ajaxwrapper"));
+    });
+}
+
+bindGotoPageSelect();
+
+$('.billing-period-switcher').on('change',function(){
+	$("span.billing-period-monthly-price").toggleClass("d-none");
+	$("span.billing-period-yearly-price").toggleClass("d-none");
+});
+
+$(".cancelSubscription").on('click', function(){
+	$('#cancel-modal-confirm').modal();
+ });
+$("#submitCancelForm").on('click', function(){
+	$('#cancelForm').submit();
+ });
+$("#submitTrialCancelForm").on('click', function(){
+	let radioValue = $("input[name='confirmation-option']:checked").val();
+	if (radioValue === undefined) {
+		$('#confirm-alert').removeClass("d-none");
+	} else {
+		$('#refund').val(radioValue);
+		$('#cancelForm').submit();
+	}
+});
+$(".cancelProSubscriptionFirst").on('click', function(){
+	$('#cancel-pro-modal').modal();
+ });
+
+let feedbackModal = $('#feedback-modal');
+
+function showFeedbackForm() {
+    let feedbackText = $("#feedbackText");
+    feedbackText.val("");
+	feedbackText.removeClass("is-invalid");
+	feedbackError.addClass("d-none");
+	$("#feedbackEmail").val("");
+	feedbackModal.modal();
+}
+
+$(".leaveFeedback").on('click', function(){
+	showFeedbackForm();
+ });
+
+feedbackModal.on('shown.bs.modal', function () {
+	$("#feedbackText").focus();
+ });
+
+let feedbackError = $("#feedback-error");
+$("#submitFeedbackForm").on('click', function(){
+	feedbackError.addClass("d-none");
+    let feedbackText = $("#feedbackText");
+    feedbackText.removeClass("is-invalid");
+	if ($('#feedbackText').val().length > 0) {
+		let frm = $('#feedbackForm');
+		$.ajax({
+            type: frm.attr('method'),
+            url: frm.attr('action'),
+            data: frm.serialize(),
+            success: function (data) {
+                console.log('Submission was successful.');
+                console.log(data);
+            },
+            error: function (data) {
+                console.log('An error occurred.');
+                console.log(data);
+            },
+        });	
+		$('#feedback-modal-result').modal();
+		feedbackModal.modal('hide');
+	} else {
+		feedbackError.removeClass("d-none");
+        feedbackText.addClass("is-invalid");
+	}
+ });
+
+$("#feedbackForm").submit(function (e) {
+    e.preventDefault();
+    $("#submitFeedbackForm").click();
+});
+
+$(".triggerOverlay").on('click', function(){
+	let planForm = document.getElementById("planForm");
+	if (planForm == null || planForm.checkValidity()) {
+		document.getElementById('overlay').style.display = 'block';
+	}
+});
+
+let settingsLabels = $('#settings\\.labels');
+settingsLabels.click(function() {
+	//console.log(isLabelsVisible());
+	toggleLabels();
+});
+
+let settingsGrain = $('#settings\\.grain');
+settingsGrain.click(function() {
+	//console.log(isGrainVisible());
+	toggleGrain();
+});
+
+let settingsGroups = $('#settings\\.groups');
+settingsGroups.click(function() {
+	//console.log(isGrainVisible());
+	toggleGroups();
+});
+
+let settingsPrices = $('#settings\\.prices');
+settingsPrices.click(function() {
+	//console.log(isGrainVisible());
+	togglePrices();
+});
+
+let settingsPriorities = $('#settings\\.priorities');
+settingsPriorities.click(function() {
+	togglePriorities();
+});
+
+let settingsTrims = $('#settings\\.trims');
+settingsTrims.click(function() {
+	//console.log(isTrimVisible());
+	toggleTrims();
+});
+
+let settingsEdgeBanding = $('#settings\\.edgeBanding');
+settingsEdgeBanding.click(function() {
+	toggleEdgeBanding();
+});
+function toggleTrims() {
+	if (isTrimVisible()) {
+		$(".trimRow").removeClass("d-none");
+	} else {
+		$(".trimRow").addClass("d-none");
+	}
+}
+
+function isTrimVisible() {
+	return settingsTrims.is(':checked');
+}
+
+function toggleGrain() {
+	if (isGrainVisible()) {
+		$(".grainData").removeClass("d-none");
+	} else {
+		$(".grainData").addClass("d-none");
+	}
+}
+
+function toggleLabels() {
+	if (isLabelsVisible()) {
+		$(".labelData").removeClass("d-none");
+	} else {
+		$(".labelData").addClass("d-none");
+	}
+}
+
+function toggleGroups() {
+	if (isGroupsVisible()) {
+		$(".groupsData").removeClass("d-none");
+	} else {
+		$(".groupsData").addClass("d-none");
+	}
+}
+
+function togglePrices() {
+	if (isPricesVisible()) {
+		$(".pricesData").removeClass("d-none");
+		$(".pricesRow").removeClass("d-none");
+	} else {
+		$(".pricesData").addClass("d-none");
+		$(".pricesRow").addClass("d-none");
+	}
+}
+
+function togglePriorities() {
+	if (isPrioritiesVisible()) {
+		$(".prioritiesData").removeClass("d-none");
+	} else {
+		$(".prioritiesData").addClass("d-none");
+	}
+}
+
+function toggleEdgeBanding() {
+	if (isEdgeBandingVisible()) {
+		$(".edgeBandingData").removeClass("d-none");
+	} else {
+		$(".edgeBandingData").addClass("d-none");
+	}
+}
+function isLabelsVisible() {
+	return settingsLabels.is(':checked');
+}
+
+function isGrainVisible() {
+	return settingsGrain.is(':checked');
+}
+
+function isGroupsVisible() {
+	return settingsGroups.is(':checked');
+}
+
+function isPricesVisible() {
+	return settingsPrices.is(':checked');
+}
+
+function isPrioritiesVisible() {
+	return settingsPriorities.is(':checked');
+}
+
+function isEdgeBandingVisible() {
+	return settingsEdgeBanding.is(':checked');
+}
+
+let labelSwitch = $('#labelSwitch');
+labelSwitch.on('change',function(){
+	let checked = $(this).is(':checked');
+	//$('#labelSizeSwitch').prop('disabled', !checked);
+	//$('#labelSizeSwitch').prop('disabled', false);
+	toggleLayoutLabels(checked);
+	storeSettingsInSession();
+});
+
+let labelSizeSwitch = $('#labelSizeSwitch');
+labelSizeSwitch.on('change',function(){
+	let classIndex = labelSizeSwitch.val();
+    let layoutFullLabelClassEl = $('.layoutFullLabelClass');
+    layoutFullLabelClassEl.removeClass("labelStyle1 labelStyle2 labelStyle3 labelStyle4 labelStyle5");
+    layoutFullLabelClassEl.addClass("labelStyle" + classIndex);
+    let layoutDimensionOnlyLabelClassEl = $('.layoutDimensionOnlyLabelClass');
+    layoutDimensionOnlyLabelClassEl.removeClass("labelStyle1 labelStyle2 labelStyle3 labelStyle4 labelStyle5");
+    layoutDimensionOnlyLabelClassEl.addClass("labelStyle" + classIndex);
+    let layoutRemnantLabelClassEl = $('.layoutRemnantLabelClass')
+    layoutRemnantLabelClassEl.removeClass("remnantLabelStyle1 remnantLabelStyle2 remnantLabelStyle3 remnantLabelStyle4 remnantLabelStyle5");
+    layoutRemnantLabelClassEl.addClass("remnantLabelStyle" + classIndex);
+    let layoutLabelClassEl = $('.layoutLabelClass');
+    layoutLabelClassEl.removeClass("labelStyle1 labelStyle2 labelStyle3 labelStyle4 labelStyle5");
+    layoutLabelClassEl.addClass("labelStyle" + classIndex);
+	//console.log(classIndex);
+	storeSettingsInSession();
+});	
+
+function toggleLayoutLabels(checked) {
+	if (checked) {
+		$('.layoutFullLabelClass').removeClass("d-none");
+		$('.layoutDimensionOnlyLabelClass').addClass("d-none");
+	} else {
+		$('.layoutFullLabelClass').addClass("d-none");
+		$('.layoutDimensionOnlyLabelClass').removeClass("d-none");
+	}
+}
+
+let linearCumulativeCutsSwitch = $('#linearCumulativeCutsSwitch');
+
+let infoSwitch = $('#infoSwitch');
+
+let colorSwitch = $('#colorSwitch');
+
+function storeSettingsInSession() {
+	let show = labelSwitch.is(':checked');
+	let color = colorSwitch.is(':checked');
+	let info = infoSwitch.is(':checked');
+    let cuts = linearCumulativeCutsSwitch.is(':checked');
+	let size = labelSizeSwitch.val();
+	let url = "/labels2d/";
+    let is1D = $('.cuttingScheme1D').length > 0;
+    if (is1D) {
+        url = "/labels1d/";
+    }
+    url = url + show + "/" + size + "/" + color + "/" + info;
+    if (is1D) {
+        url = url + "/" + cuts;
+    }
+    $.get(url, function(status){
+		console.log("Status: " + status.success);
+	});
+}
+
+function submitImportConfirmForm() {
+    let mergeStocks = $("#mergeStocks");
+    let settingsLabels = $("#settingsLabels");
+    let settingsGrain = $("#settingsGrain");
+    if (mergeStocks.length) {
+        mergeStocks.prop("value", $("#mergeStocksCheck").is(':checked'));
+    }
+    if (settingsLabels.length) {
+        settingsLabels.val(existsNonEmptyFieldsExistsInImport(".importLabelField"));
+    }
+    if (settingsGrain.length) {
+        settingsGrain.val(existsNonEmptyFieldsExistsInImport(".importGrainField"));
+    }
+    $("#confirmForm").submit();
+}
+
+function existsNonEmptyFieldsExistsInImport(selector) {
+    let objects = $(selector);
+    for (let el of objects) {
+        let $this = $(el);
+        //console.log($this.val());
+        if (/\S/.test($this.val())) {
+        	return true;
+        }
+    }	
+    return false;
+}
+
+function generateTokenModal() {
+	$.ajax({
+        type: 'get',
+        url: '/api-generate-token',
+        success: function (data) {
+            console.log('Submission was successful.');
+            console.log(data);
+            $("#tokenEl").html(data.token);
+            $("#tokenField").val(data.token);
+            
+        },
+        error: function (data) {
+            console.log('An error occurred.');
+            console.log(data);
+        },
+    });	
+	$('#generate-token-modal').modal();
+}
+
+$('.closeMotd').on('click', function(){
+    let id = $(this).attr('motd-id');
+	$.get("/close-motd/" + id, function(status){
+		console.log("Status: " + status.success);
+		location.reload(); 
+	});	
+ });
+
+function solvedSelected(exportOperation) {
+	let ids = "";
+	$(".checkboxTable .rowCheckbox").each(function() {
+		if ($(this).is(":checked") && $(this).data("solved") === 1) {
+			ids += $(this).attr("value") + ",";
+		}
+	});	
+	if (ids.length > 0) {
+		ids = ids.substring(0, ids.length-1);
+		console.log(ids);
+        let idsEl = $('#ids');
+        idsEl.attr('value', ids);
+        let exportForm = $('#exportForm');
+        let action = exportForm.attr('data-print-url');
+		if (exportOperation) {
+			action = exportForm.attr('data-export-url');
+		}
+		exportForm.attr('action', action + "/" + idsEl.attr('value'));
+		exportForm.submit();
+	} else {
+		$('#solved-modal-empty').modal();
+	}
+}
+
+function showWarehouseModal(id) {
+	submitForm(id);
+	$('#warehouse-modal').modal();
+}
+
+function showAjaxModal() {
+	submitForm('ajaxForm');
+	$('#lock-modal').modal();
+}
+
+function submitForm(id) {
+	let frm = $('#' + id);
+	let ajaxWrapper = frm.data('ajax-response-wrapper');
+	if (ajaxWrapper) {
+		$.ajax({
+			type: frm.attr('method'),
+            url: frm.attr('action'),
+            data: frm.serialize(),
+	        success: function (data) {
+	            $('#' + ajaxWrapper).html(data);
+                if ($('#labelConfigPostActionValid').length) {
+                    labelConfigPostAction();
+                }
+                //bind paging and filtering components
+                bindGotoPageButton();
+                bindGotoPageSelect();
+                bindSearchInputField();
+	        },
+	        error: function (data) {
+	            console.log('An error occurred.');
+	            console.log(data);
+	        },
+	    });
+	} else {
+		frm.submit();
+	}
+}
+
+$(".addFromRepositoryButton").on('click', function() {
+    let is2d = $(".partsTable2d").length > 0;
+	if (is2d) {
+		recalculateStocksRows2d();
+	} else {
+		recalculateStocksRows();
+	}
+	let stockRowsCount = $("#stocksTable .partsRow").length;
+	let existsEmptyRow = stockRowsCount > 0;
+    let rows = $(".checkboxTable .rowCheckbox");
+    rows.each(function() {
+		if ($(this).is(":checked")) {
+			if (existsEmptyRow) {
+                let index = findEmptyStockRow(stockRowsCount);
+				if (index >= 0) {
+					addStockToPlan(index, $(this));
+				} else {
+					existsEmptyRow = false;
+				}
+			}
+			if (!existsEmptyRow) {
+                if (is2d) {
+                    $(".addStockButton2d").click();
+                } else {
+                    $(".addStockButton").click();
+                }
+				addStockToPlan(stockRowsCount, $(this));
+				stockRowsCount++;
+				existsEmptyRow = false;
+			}
+		}
+	});	
+	$("#warehouse-modal").modal('hide');
+    rows.each(function() {
+		if ($(this).is(":checked")) {
+			$(this).prop('checked', false);
+		}
+	});
+	$(".checkboxTable .checkboxAll").prop('checked', false);
+ });
+
+function findEmptyStockRow(rowCount) {
+    let index = 0;
+	while (index < rowCount) {
+        let selector = "#stocks\\[" + index + "\\]\\.length";
+		if ($(selector)) {
+			if (!isEmpty($(selector).val())) {
+				index++;
+			} else {
+				return index;
+			}
+		} else {
+			return -1;
+		}
+	}
+	return -1;
+}
+
+function isEmpty(value) {
+	  return typeof value == 'string' && !value.trim() || typeof value == 'undefined' || value === null;
+}
+
+function addStockToPlan(index, dataHolder) {
+    let lengthEl = $("#stocks\\[" + index + "\\]\\.length");
+    lengthEl.val(dataHolder.data("length"));
+    let widthEl = $("#stocks\\[" + index + "\\]\\.width");
+    if (widthEl.length > 0) {
+		widthEl.val(dataHolder.data("width"));
+	}
+	$("#stocks\\[" + index + "\\]\\.count").val(dataHolder.data("count"));
+    let codeEl = $("#stocks\\[" + index + "\\]\\.code");
+    if (dataHolder.data("code") && codeEl.length > 0) {
+		lengthEl.attr('readonly', true);
+		if (widthEl.length > 0) {
+			widthEl.attr('readonly', true);
+		}
+		codeEl.val(dataHolder.data("code"));
+		if(isPricesVisible()) {
+			$("#stocks\\[" + index + "\\]\\.price").attr('readonly', true);
+		}
+		let parentTd = codeEl.parent();
+		parentTd.append('<div class="pt-2 small" title="' + warehouseLabel + '"><i class="warehouse-icon fas fa-warehouse text-primary"></i>' + dataHolder.data("code") + '</div>');
+	}
+    let grainDirectionEl = $("#stocks\\[" + index + "\\]\\.grainDirection");
+    grainDirectionEl.val(dataHolder.data("grain"));
+	if (dataHolder.data("code")) {
+		makeReadOnly(grainDirectionEl);
+	}
+	grainDirectionEl.selectpicker('refresh');
+	if(isPricesVisible()) {
+		$("#stocks\\[" + index + "\\]\\.price").val(dataHolder.data("price"));
+	}
+}
+
+function makeReadOnly(el) {
+	let warehouseGrain = null;
+	el.find('option').each(function(){
+		if (this.value === el.val()) {
+			warehouseGrain = this;
+		}
+	});
+	el.find('option').remove().end().append(warehouseGrain);
+}
+
+body.on('click', '.table .checkboxHeader', function(){
+	let checkbox = $(this).find("input[type='checkbox']:first");
+	checkbox.click();
+});
+
+body.on('click', '.table .checkboxCell', function(){
+	let checkbox = $(this).find("input[type='checkbox']:first");
+	checkbox.click();
+});
+
+body.on('click', '.table .checkboxAll', function(e){
+	let masterValue = $(this).is(":checked");
+	$(".checkboxTable .rowCheckbox").each(function() {
+		console.log(masterValue + " " + new Date());
+		$(this).prop('checked', masterValue);
+	});	
+	if (masterValue) {
+		$(".addFromRepositoryButton").prop("disabled", false);
+	} else {
+		$(".addFromRepositoryButton").prop("disabled", true);
+	}
+	e.stopPropagation();
+ });
+
+body.on('click', '.table .rowCheckbox', function(e){
+	let count = 0;
+	$(".checkboxTable .rowCheckbox").each(function() {
+		if ($(this).is(":checked")) {
+			count++;
+		}
+	});	
+	if (count > 0) {
+		$(".addFromRepositoryButton").prop("disabled", false);
+	} else {
+		$(".addFromRepositoryButton").prop("disabled", true);
+	}
+	e.stopPropagation();
+ });
+
+function deleteSelected() {
+	let ids = "";
+	$(".checkboxTable .rowCheckbox").each(function() {
+		if ($(this).is(":checked")) {
+			ids += $(this).attr("value") + ",";
+		}
+	});	
+	if (ids.length > 0) {
+		ids = ids.substring(0, ids.length-1);
+		console.log(ids);
+		$('#ids').attr('value', ids);
+		$('#delete-modal-confirm').modal();
+	} else {
+		$('#delete-modal-empty').modal();
+	}
+}
+
+$('#submitProcessedFormCompleted').on('click', function(){
+	$('#processedSelect').val($('#processedSelect option').length - 1);
+	$("#submitProcessedForm").click();
+});
+
+$("#submitProcessedForm").on('click', function(){
+	let frm = $('#processedForm');
+	$.ajax({
+		type: frm.attr('method'),
+		url: frm.attr('action'),
+		data: frm.serialize(),
+		success: function (response) {
+			console.log(response);
+			if (response.data) {
+				console.log('Submission was successful.');
+				let index = $('#layoutIndexField').val();
+				let processedCount = $('#processedSelect').val();
+				let buttonId = '#processed-button-' + index;
+				let layoutCellId = '#layout-cell-' + index;
+				let layoutIconId = '#layout-icon-' + index;
+				$('#processed-wrapper-' + index).html(response.data)
+				$(buttonId).data('processed-count', processedCount);
+				console.log(index + " " + processedCount);
+				$('#processed-modal').modal('toggle');
+				$(layoutCellId).removeClass('processed-bg-yellow processed-bg-green');
+				if (parseInt(processedCount) === parseInt($(buttonId).data('count'))) {
+					$(layoutCellId).addClass('processed-bg-green');
+					$(layoutIconId).removeClass('d-none');
+				} else if (processedCount > 0) {
+					$(layoutCellId).addClass('processed-bg-yellow');
+					$(layoutIconId).addClass('d-none');
+				} else {
+					$(layoutIconId).addClass('d-none');
+				}
+				checkProcessedPatterns();
+			} else if (response.error) {
+				console.log('error: ' + response.error);
+				$('#processedError').removeClass('d-none');
+			} else {
+				console.log('generic error: ' + response);
+				$('#processedError').removeClass('d-none');
+			}
+		},
+		error: function (data) {
+			console.log('An error occurred.');
+			console.log(data);
+			$('#processedError').removeClass('d-none');
+		},
+	});
+});
+
+$(".showProcessedModal").on('click', function(){
+	let count = $(this).data("count");
+	let processed = $(this).data("processed-count");
+	$('#processedError').addClass('d-none');
+	$('#layoutIdWrapper').html($(this).data("layout-id"));
+	$('#layoutIndexField').val($(this).data("layout-index"));
+	$('#totalCountWrapper').html($(this).data("count-string"));
+	$('#lengthWrapper').html($(this).data("length-string"));
+	if ($(this).data("group")) {
+		$('#groupWrapper').html($(this).data("group"));
+	}
+	populateSelect('processedSelect', processed, count);
+	$('#processed-modal').modal();
+});
+
+function populateSelect(id, processed, count) {
+	let elId= '#' + id;
+	$(elId).find('option').remove().end();
+	for (let i = 0; i <= count; i++) {
+		$(elId).append('<option value="' + i + '">' + i + '</option>');
+	}
+	$(elId).val(processed);
+}
+
+$('#processed-modal').on('shown.bs.modal', function() {
+	$('#processedSelect').focus();
+})
+
+function assignSelected() {
+	let ids = "";
+	let alreadyAssigned = false;
+	$(".checkboxTable .rowCheckbox").each(function() {
+		if ($(this).is(":checked")) {
+			if ($(this).data("project") === "1") {
+				alreadyAssigned = true;
+			}
+			ids += $(this).attr("value") + ",";
+		}
+	});
+	if (alreadyAssigned) {
+		$('#modal-already-assigned').modal();
+	} else {
+		if (ids.length > 0) {
+			$('#planIds').attr('value', ids);
+			console.log(ids);
+			submitForm('projectListForm');
+			$('#project-list-modal').modal();
+		} else {
+			$('#assign-modal-empty').modal();
+		}
+	}
+}
+body.on('click', '.projectRadio', function(){
+	$("#assignToProjectButton").prop("disabled", false);
+});
+
+$("#assignToProjectButton").on('click', function(){
+	$('#projectId').attr('value', $('input[name="projectIdRadio"]:checked').attr('value'));
+	$('#assignPlansForm').submit();
+});
+
+function checkProcessedPatterns() {
+	let editButton = $('#editButton');
+	let copyButton = $('#copyButton');
+    if (editButton.length || copyButton.length) {
+        let totalProcessedCount = $('.processed-bg-green').length + $('.processed-bg-yellow').length;
+        console.log("totalProcessedCount: " + totalProcessedCount);
+        if (totalProcessedCount > 0) {
+            editButton.addClass("showEditModal");
+            editButton.attr("href", "#!");
+            copyButton.addClass("showCopyModal");
+            copyButton.attr("href", "#!");
+        } else {
+            editButton.removeClass("showEditModal");
+            editButton.attr("href", editButton.data("url"));
+            copyButton.removeClass("showCopyModal");
+            copyButton.attr("href", copyButton.data("url"));
+        }
+    }
+}
+
+body.on('click', "a.showEditModal", function(){
+	$('#edit-modal').modal();
+});
+
+body.on('click', "a.showCopyModal", function(){
+	setCorrectCopyLink();
+	$('#copy-modal').modal();
+});
+
+body.on('click', ".copyPlanModalOptionRadio", function(){
+	setCorrectCopyLink();
+});
+
+function setCorrectCopyLink() {
+	let val = $("input[name='copyPlanModalOption']:checked").val();
+	let copyButton = $('#copyButton');
+	let url = copyButton.data("partial-copy-url");
+	if (val === '2') {
+		url = copyButton.data("url");
+	}
+	$('#copyPlanModalLink').attr("href", url);
+}
+
+colorSwitch.on('change',function(){
+	if ($(this).is(':checked')) {
+		$('.basePanel').each(function() {
+			$(this).css("fill", $(this).data("color"));
+		});
+	} else {
+		$('.basePanel').css("fill", "white");
+	}
+	storeSettingsInSession();
+});
+
+infoSwitch.on('change',function(){
+    let schemeTd1D = $('.schemeTd1D');
+    let schemeTd2D = $('.schemeTd2D');
+    if ($(this).is(':checked')) {
+		$('.infoTd').removeClass("d-none");
+		if (schemeTd1D.length > 0) {
+			schemeTd1D.attr('colspan',4);
+		}
+		if (schemeTd2D.length > 0) {
+			schemeTd2D.attr('colspan',3);
+		}
+	} else {
+		$('.infoTd').addClass("d-none");
+		if (schemeTd1D.length > 0) {
+			schemeTd1D.attr('colspan',3);
+		}
+		if (schemeTd2D.length > 0) {
+			schemeTd2D.attr('colspan',4);
+		}
+	}
+	storeSettingsInSession();
+});
+
+linearCumulativeCutsSwitch.on('change',function(){
+    if ($(this).is(':checked')) {
+        $('.cumulativeCutsTd').removeClass("d-none");
+    } else {
+        $('.cumulativeCutsTd').addClass("d-none");
+    }
+    storeSettingsInSession();
+});
+
+function disableLinearTrimFields(status) {
+	$('#linearLeftTrim').prop( "readonly", status );
+	$('#linearRightTrim').prop( "readonly", status );
+}
+function disablePanelTrimFields(status) {
+	$('#panelLeftTrim').prop( "readonly", status );
+	$('#panelRightTrim').prop( "readonly", status );
+	$('#panelTopTrim').prop( "readonly", status );
+	$('#panelBottomTrim').prop( "readonly", status );
+}
+
+preferencesLinearTrims.on('change',function(){
+	disableLinearTrimFields(!$(this).is(':checked'));
+});
+
+preferencesPanelTrims.on('change',function(){
+	disablePanelTrimFields(!$(this).is(':checked'));
+});
+
+$('.active-tabs .nav-link').on('click',function(){
+	$("#activeTab").val($(this).data("active-tab"));
+});
+
+$(".successSubmitAlert").delay(1000).fadeOut(1000);
+
+let submitLabelForm = true;
+function showLabelsModal() {
+	if (submitLabelForm) {
+		submitForm("labelsForm");
+	}
+	$('#labels-modal').modal();
+}
+
+function labelSubmitButton() {
+	submitForm('labelsForm');
+}
+
+function labelConfigPostAction() {
+	window.open('/plan-print-labels');
+	$('#labels-modal').modal('toggle');
+	submitLabelForm = false;
+}
+
+function archiveSelected() {
+	let ids = "";
+	$(".checkboxTable .rowCheckbox").each(function() {
+		if ($(this).is(":checked")) {
+			ids += $(this).attr("value") + ",";
+		}
+	});
+	if (ids.length > 0) {
+		ids = ids.substring(0, ids.length-1);
+		console.log(ids);
+		$('#ids').attr('value', ids);
+		$('#archive-modal-confirm').modal();
+	} else {
+		$('#archive-modal-empty').modal();
+	}
+}
+
+$("#submitArchiveForm").on('click', function(){
+    let form = $('#deleteForm');
+    form.attr('action', '/project-archive');
+    form.submit();
+});
+
+$("#submitRestoreForm").on('click', function(){
+	let form = $('#deleteForm');
+	form.attr('action', '/project-restore');
+	form.submit();
+});
+
+$(".messageboxCloseButton").on('click', function(){
+	$(this).parent().parent().fadeOut(500);
+});
+
+$(".sortingHeader").on('click', function(){
+	let columnName = $(this).data("sort-by");
+	let $sortByField = $("#sortBy");
+	let $sortDirectionField = $("#sortDirection");
+	const ASC = "asc";
+	const DESC = "desc";
+	if ($sortByField.val() === columnName) {
+		if ($sortDirectionField.val() === ASC) {
+			$sortDirectionField.val(DESC);
+		} else {
+			$sortDirectionField.val(ASC);
+		}
+	} else {
+		$sortByField.val(columnName);
+		$sortDirectionField.val(ASC);
+	}
+	gotoPage(0, '');
+});
+
+$(".warehouseExportLink").on('click', function(){
+	let baseUrl = $(this).data("url")
+	$(this).attr("href", baseUrl + "?search=" + encodeURIComponent($("#searchInputField").val()));
+});
+
+function showBandingModal(el) {
+	let index = el.data("index");
+	setBandingModalTitle(index);
+	setBandingSelect(index, 'topBanding');
+	setBandingSelect(index, 'leftBanding');
+	setBandingSelect(index, 'bottomBanding');
+	setBandingSelect(index, 'rightBanding');
+	let dialog = $('#banding-modal');
+	dialog.data('index', index);
+	dialog.modal();
+}
+
+function setBandingSelect(index, name) {
+	let currentValue = $("input[name='requirements[" + index + "]." + name + "']").val().trim();
+	let pos = -1;
+	let i = 0;
+	$("#" + name + "Select > option").each(function() {
+		if (this.value === currentValue) {
+			pos = i;
+		}
+		i++;
+	});
+	if (pos === -1) {
+		$("#" + name + "Select option").eq(1).before($("<option></option>").val(currentValue).text(currentValue));
+	}
+	$("#" + name + "Select").val(currentValue);
+}
+
+function setBandingModalTitle(index) {
+	let placeholder = '?';
+	let lengthTitle = $("#bandingModalTitleLength");
+	let text = $("input[name='requirements[" + index + "].length']").val();
+	if (text.trim().length > 0) {
+		lengthTitle.text(text);
+	} else {
+		lengthTitle.text(placeholder);
+	}
+	let widthTitle = $("#bandingModalTitleWidth");
+	text = $("input[name='requirements[" + index + "].width']").val();
+	if (text.trim().length > 0) {
+		widthTitle.text(text);
+	} else {
+		widthTitle.text(placeholder);
+	}
+	let labelTitle = $("#bandingModalTitleLabel");
+	let labelWrapper = $("#bandingModalTitleLabelWrapper");
+	text = $("input[name='requirements[" + index + "].label']").val();
+	if (text.trim().length > 0 && isLabelsVisible()) {
+		labelTitle.text(text);
+		labelWrapper.removeClass('d-none');
+	} else {
+		labelWrapper.addClass('d-none');
+		labelTitle.text(placeholder);
+	}
+}
+
+function copyBanding(index, topBanding) {
+	let value = $("#" + topBanding + "Select").val();
+	$("input[name='requirements[" + index + "]." + topBanding + "']").val(value);
+	if (value.trim().length > 0) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+$("#setBandingButton").on('click', function() {
+	let dialog = $('#banding-modal');
+	let index = dialog.data('index');
+	let sum = 0;
+	sum = sum + copyBanding(index, 'topBanding');
+	sum = sum + copyBanding(index, 'leftBanding');
+	sum = sum + copyBanding(index, 'bottomBanding');
+	sum = sum + copyBanding(index, 'rightBanding');
+	$("input[name='requirements[" + index + "].topBanding']").parent().children('.edgeBandingStats').text(sum + "/4");
+	dialog.modal('hide');
+});
+
+let roleSwitch = '#settings\\.rolls';
+
+$(roleSwitch).on('change',function(){
+	toggleRolesLabels();
+});
+
+function isRolesLabelsVisible() {
+	return $(roleSwitch).is(':checked');
+}
+
+function toggleRolesLabels() {
+	if (isRolesLabelsVisible()) {
+		$('.roleLabel').removeClass("d-none");
+		$('.stockLabel').addClass("d-none");
+	} else {
+		$('.roleLabel').addClass("d-none");
+		$('.stockLabel').removeClass("d-none");
+	}
+}
+
+$('#settings\\.minRemnantSwitch').click(function() {
+	//console.log(isLabelsVisible());
+    let minRemnant = $("#settings\\.minRemnant");
+    if ($(this).is(':checked')) {
+        minRemnant.removeClass("d-none");
+        minRemnant.focus();
+    } else {
+        minRemnant.addClass("d-none");
+    }
+});
+
+function printProjects() {
+    let ids = "";
+    $(".checkboxTable .rowCheckbox").each(function() {
+        if ($(this).is(":checked")) {
+            ids += $(this).attr("value") + ",";
+        }
+    });
+    if (ids.length > 0) {
+        ids = ids.substring(0, ids.length-1);
+        console.log(ids);
+        $('#ids').attr('value', ids);
+        let exportForm = $('#exportForm');
+        let action = exportForm.attr('action')+ ids;
+        exportForm.attr('action', action);
+        console.log(exportForm.attr('action'));
+        exportForm.submit();
+    } else {
+        $('#print-modal-empty').modal();
+    }
+}
+
+function setContactEmail() {
+    let CodedArray=[105,110,102,111,64,111,112,116,105,99,117,116,116,101,114,46,99,111,109];
+    let encryptedEmail='';
+    for (let i=0; i<CodedArray.length; i++) {
+        encryptedEmail+=String.fromCharCode(CodedArray[i]);
+    }
+    $('.contactEmailPlaceholder').html('<a href="&#109;&#97;&#105;&#108;&#116;&#111;:' + encryptedEmail + '">' + encryptedEmail + '</a>');
+}
+
+$('.loginButton').click(function() {
+    $('#username').val($(this).data('username'));
+    $('#password').val($(this).data('password'));
+    $('#loginForm').submit();
+});
+
+$('.logoutButton').click(function() {
+    $('#logoutForm').submit();
+});
+
+$('.cancelButton').click(function() {
+    window.history.back();
+});
+
+$('.lockPlan').click(function() {
+    showAjaxModal();
+});
+
+$('.labelsModal').click(function() {
+    showLabelsModal();
+});
+
+$('.labelSubmitButton').click(function() {
+    labelSubmitButton();
+});
+
+$('.submitUploadForm').change(function() {
+    submitUploadForm();
+});
+
+function submitUploadForm() {
+    if (document.getElementById('fileInput').files[0].size > 3*1024*1024) {
+        $('#modal-too-big').modal();
+    } else {
+        $('#importForm').submit();
+    }
+}
+
+$('.assignToProjectButton').click(function() {
+    assignSelected();
+});
+
+$('.deleteListButton').click(function() {
+    deleteSelected();
+});
+
+$('.printListButton').click(function() {
+    solvedSelected(false);
+});
+
+$('.exportListButton').click(function() {
+    solvedSelected(true);
+})
+
+$('.showBandingModalButton').click(function() {
+    showBandingModal($(this));
+})
+
+$('.showWarehouseModalButton').click(function() {
+    showWarehouseModal('tmpForm');
+})
+$('.archiveSelectedButton').click(function() {
+    archiveSelected();
+});
+
+$('.printProjectsButton').click(function() {
+    printProjects();
+});
+
+$('.configFormChangedButton').change(function() {
+    $("#configForm").submit();
+});
+
+$('.submitImportConfirmFormButton').click(function() {
+    submitImportConfirmForm();
+});
+
+$('.addPanelGroupButton').click(function() {
+    addPanelGroupRow($(this).data("text"), $(this).data("max-count"));
+});
+
+$('.addLinearGroupButton').click(function() {
+    addLinearGroupRow($(this).data("text"), $(this).data("max-count"));
+});
+
+$('.generateTokenButton').click(function() {
+    generateTokenModal();
+});
+
+$('.submitTokenFormButton').click(function() {
+    $('#tokenForm').submit();
+});
+

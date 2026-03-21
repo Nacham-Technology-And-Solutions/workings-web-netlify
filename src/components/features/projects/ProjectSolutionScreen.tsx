@@ -2,7 +2,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData, DimensionItem } from '@/types';
-import type { CalculationResult, MaterialListItem, CuttingListItem, GlassListResult, RubberTotal, AccessoryTotal, GlazingElement, CuttingPlanPiece } from '@/types/calculations';
+import type { CalculationResult, MaterialListItem, CuttingListItem, RubberTotal, AccessoryTotal, GlazingElement, CuttingPlanPiece } from '@/types/calculations';
+import GlassCuttingNest from '@/components/features/projects/GlassCuttingNest';
+import {
+  normalizeGlassListResult,
+  hasUsableGlassLayouts,
+  layoutIndexForPhysicalSheet,
+  pieceCountOnLayout,
+} from '@/utils/glassLayout';
 import {
   exportMaterialListToPDF,
   exportCuttingListToPDF,
@@ -219,6 +226,11 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     return map;
   }, [calculationResult?.elements]);
 
+  const glassListNorm = useMemo(
+    () => (calculationResult ? normalizeGlassListResult(calculationResult.glassList) : null),
+    [calculationResult]
+  );
+
   /** True if this cutting item has at least one piece with the given elementId. */
   const cuttingItemHasElement = useMemo(() => {
     return (cuttingItem: CuttingListItem, elementId: string): boolean => {
@@ -245,8 +257,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   // Load calculation on mount: use initial result (View results) or run calculate
   useEffect(() => {
     if (initialCalculationResult && Array.isArray(initialCalculationResult.materialList)) {
-      setCalculationResult(initialCalculationResult);
+      setCalculationResult({
+        ...initialCalculationResult,
+        glassList: normalizeGlassListResult(initialCalculationResult.glassList),
+      });
       hasCalculatedRef.current = true;
+      const gl = normalizeGlassListResult(initialCalculationResult.glassList);
+      if (gl.total_sheets > 0) {
+        setSelectedSheet('sheet1');
+        setGlassFilter('sheet1');
+      }
       return;
     }
     if (hasCalculatedRef.current || calculationInProgressRef.current) {
@@ -342,13 +362,19 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       const validatedData: CalculationResult = {
         materialList: Array.isArray(materialListData) ? materialListData : [],
         cuttingList: Array.isArray(cuttingListData) ? cuttingListData : [],
-        glassList: glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] },
+        glassList: normalizeGlassListResult(
+          glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] }
+        ),
         rubberTotals: Array.isArray(rubberTotalsData) ? rubberTotalsData : [],
         accessoryTotals: Array.isArray(accessoryTotalsData) ? accessoryTotalsData : [],
         elements: Array.isArray(elementsData) ? elementsData : [],
       };
 
       setCalculationResult(validatedData);
+      if (validatedData.glassList.total_sheets > 0) {
+        setSelectedSheet('sheet1');
+        setGlassFilter('sheet1');
+      }
       hasCalculatedRef.current = true;
       setProjectSaved(true);
       hasSavedRef.current = true;
@@ -543,18 +569,17 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   };
 
   const handleExportGlassCuttingList = (format: 'pdf' | 'excel') => {
-    if (!calculationResult?.glassList || !previousData?.projectDescription) return;
-    
+    if (!glassListNorm || !previousData?.projectDescription) return;
+
     const projectName = previousData.projectDescription.projectName || 'Project';
-    const glassList = calculationResult.glassList;
+    const glassList = glassListNorm;
     const elMap: Record<string, GlazingElement> = {};
-    (calculationResult.elements || []).forEach((el) => { elMap[el.id] = el; });
-    
-    // Parse sheet dimensions
+    (calculationResult?.elements || []).forEach((el) => { elMap[el.id] = el; });
+
     const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
-    const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
-    const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
-    
+    const fallbackW = sheetTypeMatch ? parseInt(sheetTypeMatch[1], 10) : 0;
+    const fallbackH = sheetTypeMatch ? parseInt(sheetTypeMatch[2], 10) : 0;
+
     const cutsWithTitle = (glassList.cuts || []).map((c) => ({
       w: c.w,
       h: c.h,
@@ -562,23 +587,40 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       elementId: c.elementId,
       elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
     }));
-    
-    // Create layouts for each sheet
-    const layouts = Array.from({ length: glassList.total_sheets }).map((_, index) => ({
-      sheetNumber: index + 1,
-      sheetType: glassList.sheet_type,
-      sheetWidth,
-      sheetHeight,
-      cuts: cutsWithTitle,
-      totalCuts: glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0,
-    }));
-    
+
+    const totalPhysical = Math.max(0, glassList.total_sheets);
+    const layouts = Array.from({ length: totalPhysical }, (_, index) => {
+      const useNest = hasUsableGlassLayouts(glassList) && glassList.layouts;
+      if (useNest && glassList.layouts) {
+        const li = layoutIndexForPhysicalSheet(glassList.layouts, index);
+        const pattern = glassList.layouts[li];
+        const piecesOnSheet = pieceCountOnLayout(pattern);
+        return {
+          sheetNumber: index + 1,
+          sheetType: glassList.sheet_type,
+          sheetWidth: pattern.stock.widthMm || fallbackW,
+          sheetHeight: pattern.stock.heightMm || fallbackH,
+          cuts: cutsWithTitle,
+          totalCuts: piecesOnSheet,
+          layoutId: pattern.layoutId,
+        };
+      }
+      return {
+        sheetNumber: index + 1,
+        sheetType: glassList.sheet_type,
+        sheetWidth: fallbackW,
+        sheetHeight: fallbackH,
+        cuts: cutsWithTitle,
+        totalCuts: glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0,
+      };
+    });
+
     if (format === 'pdf') {
       exportGlassCuttingListToPDF(layouts, projectName);
     } else {
       exportGlassCuttingListToExcel(layouts, projectName);
     }
-    
+
     setShowExportDropdown(null);
   };
 
@@ -940,11 +982,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   <>
                     <select
                       value={glassFilter}
-                      onChange={(e) => setGlassFilter(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setGlassFilter(v);
+                        if (v === 'all') setSelectedSheet(null);
+                        else setSelectedSheet(v);
+                      }}
                       className="text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-700 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
                     >
                       <option value="all">All Sheets</option>
-                      {calculationResult?.glassList && Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => (
+                      {glassListNorm && Array.from({ length: glassListNorm.total_sheets }).map((_, index) => (
                         <option key={index} value={`sheet${index + 1}`}>Sheet {index + 1}</option>
                       ))}
                     </select>
@@ -1031,11 +1078,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   <div className="flex flex-col gap-2">
                     <select
                       value={glassFilter}
-                      onChange={(e) => setGlassFilter(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setGlassFilter(v);
+                        if (v === 'all') setSelectedSheet(null);
+                        else setSelectedSheet(v);
+                      }}
                       className="text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white w-full"
                     >
                       <option value="all">All Sheets</option>
-                      {calculationResult?.glassList && Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => (
+                      {glassListNorm && Array.from({ length: glassListNorm.total_sheets }).map((_, index) => (
                         <option key={index} value={`sheet${index + 1}`}>Sheet {index + 1}</option>
                       ))}
                     </select>
@@ -1534,38 +1586,101 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             <div>
               <h3 className="text-base font-semibold text-gray-900 mb-6">Glass Cutting Layout</h3>
 
-              {calculationResult?.glassList && calculationResult.glassList.total_sheets > 0 ? (
+              {glassListNorm && glassListNorm.total_sheets > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left Panel - Grid Area */}
+                  {/* Left Panel - Nest or legacy grid */}
                   <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 min-h-[500px] relative flex flex-col items-center justify-center">
-                    {/* Grid Background */}
-                    <div className="absolute inset-0 m-4 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#E2E8F0 2px, transparent 2px)', backgroundSize: '24px 24px' }}></div>
+                    <div className="absolute inset-0 m-4 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#E2E8F0 2px, transparent 2px)', backgroundSize: '24px 24px' }} />
 
                     {(() => {
-                      const glassList = calculationResult.glassList;
-                      const currentSheetIndex = selectedSheet ? parseInt(selectedSheet.replace('sheet', '')) - 1 : 0;
+                      const glassList = glassListNorm;
+                      const currentSheetIndex = selectedSheet ? parseInt(selectedSheet.replace('sheet', ''), 10) - 1 : 0;
                       const currentSheet = currentSheetIndex + 1;
-                      
-                      // Optional filter by glazing element
-                      const rawCuts = glassList.cuts || [];
-                      const cuts = glassElementFilter === 'all'
-                        ? rawCuts
-                        : rawCuts.filter((c) => c.elementId === glassElementFilter);
-                      
-                      // Parse sheet dimensions from sheet_type (e.g., "3310x2140mm")
+                      const useNest = hasUsableGlassLayouts(glassList);
+                      const layoutsArr = glassList.layouts;
+
+                      if (!selectedSheet && glassList.total_sheets > 0) {
+                        return (
+                          <div className="relative z-10 bg-[#4A8B9F] text-white px-4 py-3 rounded shadow-lg text-center">
+                            <p className="text-xs font-medium">Select a sheet</p>
+                            <p className="text-xs">to view layout</p>
+                            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-[#4A8B9F] rotate-45" />
+                          </div>
+                        );
+                      }
+
+                      if (useNest && layoutsArr && selectedSheet) {
+                        const li = layoutIndexForPhysicalSheet(layoutsArr, currentSheetIndex);
+                        const pattern = layoutsArr[li];
+                        return (
+                          <div className="relative z-10 w-full flex flex-col items-center">
+                            <div className="flex justify-center mb-4 flex-wrap gap-2 items-center">
+                              <span className="bg-gray-800 text-white text-xs px-3 py-1 rounded-full">
+                                Sheet {currentSheet}
+                              </span>
+                              {pattern.layoutId ? (
+                                <span className="text-xs text-gray-500">Pattern {pattern.layoutId}</span>
+                              ) : null}
+                            </div>
+                            <GlassCuttingNest
+                              layout={pattern}
+                              elementsMap={elementsMap}
+                              elementFilter={glassElementFilter}
+                            />
+                            {glassList.total_sheets > 1 && (
+                              <div className="flex justify-center items-center gap-4 mt-6">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (currentSheetIndex > 0) {
+                                      const n = currentSheetIndex;
+                                      setSelectedSheet(`sheet${n}`);
+                                      setGlassFilter(`sheet${n}`);
+                                    }
+                                  }}
+                                  disabled={currentSheetIndex === 0}
+                                  className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                  </svg>
+                                </button>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {currentSheet}/{glassList.total_sheets}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (currentSheetIndex < glassList.total_sheets - 1) {
+                                      const n = currentSheetIndex + 2;
+                                      setSelectedSheet(`sheet${n}`);
+                                      setGlassFilter(`sheet${n}`);
+                                    }
+                                  }}
+                                  disabled={currentSheetIndex >= glassList.total_sheets - 1}
+                                  className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      /* Legacy: no layouts — approximate grid from cuts BOM; element filter = highlight only */
                       const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
-                      const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
-                      const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
-                      
-                      // Flat list of cut instances (one per piece) for color/title by element
-                      const flatCutInstances = cuts.flatMap((c) =>
+                      const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1], 10) : 0;
+                      const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2], 10) : 0;
+                      const rawCuts = glassList.cuts || [];
+                      const flatCutInstances = rawCuts.flatMap((c) =>
                         Array.from({ length: c.qty }, () => ({ w: c.w, h: c.h, elementId: c.elementId }))
                       );
                       const totalCuts = flatCutInstances.length;
-                      
-                      // Use the first cut type for visualization (grid assumes uniform cell size)
-                      const primaryCut = cuts.length > 0 ? cuts[0] : null;
-                      
+                      const primaryCut = rawCuts.length > 0 ? rawCuts[0] : null;
+
                       if (!primaryCut) {
                         return (
                           <div className="relative z-10 text-center text-gray-500">
@@ -1573,72 +1688,41 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                           </div>
                         );
                       }
-                      
-                      // Calculate how many cuts fit horizontally and vertically
+
                       const cutsPerRow = Math.floor(sheetWidth / primaryCut.w);
                       const cutsPerCol = Math.floor(sheetHeight / primaryCut.h);
                       const maxCutsPerSheet = cutsPerRow * cutsPerCol;
-                      
-                      // Calculate dimensions as percentages for visualization
-                      const cutWidthPercent = (primaryCut.w / sheetWidth) * 100;
-                      const cutHeightPercent = (primaryCut.h / sheetHeight) * 100;
-                      
-                      // Calculate waste/offcut areas
                       const usedWidth = cutsPerRow * primaryCut.w;
                       const usedHeight = cutsPerCol * primaryCut.h;
                       const wasteWidth = sheetWidth - usedWidth;
                       const wasteHeight = sheetHeight - usedHeight;
-                      
-                      if (!selectedSheet && glassList.total_sheets > 0) {
-                        // Default state - show tooltip
-                        return (
-                          <div className="relative z-10 bg-[#4A8B9F] text-white px-4 py-3 rounded shadow-lg text-center">
-                            <p className="text-xs font-medium">Select a sheet</p>
-                            <p className="text-xs">to view layout</p>
-                            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-[#4A8B9F] rotate-45"></div>
-                          </div>
-                        );
-                      }
-                      
+
                       return (
                         <div className="relative z-10 w-full max-w-2xl">
-                          {/* Sheet Badge */}
                           <div className="flex justify-center mb-4">
                             <span className="bg-gray-800 text-white text-xs px-3 py-1 rounded-full">
                               Sheet {currentSheet}
                             </span>
                           </div>
-
-                          {/* Layout Diagram - Structured layout: cuts fill left, waste fills remaining space with 2px visual gaps */}
-                          <div 
+                          <div
                             className="border-2 border-gray-400 bg-gray-200 p-0.5 flex"
-                            style={{ 
+                            style={{
                               aspectRatio: `${sheetWidth}/${sheetHeight}`,
-                              maxWidth: '100%'
+                              maxWidth: '100%',
                             }}
                           >
-                            {/* Left Section: Cuts + Bottom Waste */}
-                            <div 
+                            <div
                               className="flex flex-col"
-                              style={{ 
-                                width: `${(usedWidth / sheetWidth) * 100}%`
-                              }}
+                              style={{ width: `${(usedWidth / sheetWidth) * 100}%` }}
                             >
-                              {/* Cuts Grid Area */}
-                              <div 
-                                className="flex flex-col"
-                                style={{ 
-                                  height: `${(usedHeight / sheetHeight) * 100}%`
-                                }}
-                              >
-                                {/* Render cuts in rows with 2px visual gaps (using background to show gaps) */}
+                              <div className="flex flex-col" style={{ height: `${(usedHeight / sheetHeight) * 100}%` }}>
                                 {Array.from({ length: Math.min(cutsPerCol, Math.ceil(totalCuts / cutsPerRow)) }).map((_, rowIndex) => (
-                                  <div 
-                                    key={rowIndex} 
+                                  <div
+                                    key={rowIndex}
                                     className="flex"
-                                    style={{ 
+                                    style={{
                                       height: `${(primaryCut.h / sheetHeight) * 100}%`,
-                                      marginBottom: rowIndex < Math.min(cutsPerCol, Math.ceil(totalCuts / cutsPerRow)) - 1 ? '2px' : '0'
+                                      marginBottom: rowIndex < Math.min(cutsPerCol, Math.ceil(totalCuts / cutsPerRow)) - 1 ? '2px' : '0',
                                     }}
                                   >
                                     {Array.from({ length: cutsPerRow }).map((_, colIndex) => {
@@ -1647,6 +1731,10 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                       const instance = flatCutInstances[cutIndex];
                                       const element = instance?.elementId ? elementsMap[instance.elementId!] : undefined;
                                       const bgColor = element?.color ?? '#C8DEE5';
+                                      const match =
+                                        glassElementFilter === 'all' ||
+                                        !instance?.elementId ||
+                                        instance.elementId === glassElementFilter;
                                       const titleAttr = element ? `${primaryCut.w}×${primaryCut.h} — ${element.title}` : `${primaryCut.w}×${primaryCut.h}`;
                                       return (
                                         <div
@@ -1658,6 +1746,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                             marginRight: colIndex < cutsPerRow - 1 ? '2px' : '0',
                                             border: '1px solid #4B5563',
                                             backgroundColor: bgColor,
+                                            opacity: match ? 1 : 0.28,
                                           }}
                                           title={titleAttr}
                                         >
@@ -1669,17 +1758,15 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                   </div>
                                 ))}
                               </div>
-                              
-                              {/* Bottom Waste/Offcut - Takes remaining height after cuts (fills remaining vertical space) */}
                               {wasteHeight > 0 && (
-                                <div 
+                                <div
                                   className="bg-gray-300 relative flex items-center justify-center"
-                                  style={{ 
+                                  style={{
                                     width: '100%',
                                     height: `${(wasteHeight / sheetHeight) * 100}%`,
-                                    marginTop: '2px', // 2px visual gap from cuts
+                                    marginTop: '2px',
                                     border: '1px solid #4B5563',
-                                    borderTop: '2px solid #4B5563' // Thicker top border for visual separation
+                                    borderTop: '2px solid #4B5563',
                                   }}
                                 >
                                   <span className="absolute left-2 text-xs font-medium">{wasteHeight}</span>
@@ -1687,17 +1774,15 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                 </div>
                               )}
                             </div>
-                            
-                            {/* Right Waste/Offcut - Takes remaining width after cuts (fills remaining horizontal space), spans full height */}
                             {wasteWidth > 0 && (
-                              <div 
+                              <div
                                 className="bg-gray-300 relative flex flex-col items-center justify-center"
-                                style={{ 
+                                style={{
                                   width: `${(wasteWidth / sheetWidth) * 100}%`,
                                   height: '100%',
-                                  marginLeft: '2px', // 2px visual gap from cuts area
+                                  marginLeft: '2px',
                                   border: '1px solid #4B5563',
-                                  borderLeft: '2px solid #4B5563' // Thicker left border for visual separation
+                                  borderLeft: '2px solid #4B5563',
                                 }}
                               >
                                 <span className="absolute top-2 text-xs font-medium">{wasteWidth}</span>
@@ -1705,14 +1790,15 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                               </div>
                             )}
                           </div>
-
-                          {/* Pagination */}
                           {glassList.total_sheets > 1 && (
                             <div className="flex justify-center items-center gap-4 mt-6">
                               <button
+                                type="button"
                                 onClick={() => {
                                   if (currentSheetIndex > 0) {
-                                    setSelectedSheet(`sheet${currentSheetIndex}`);
+                                    const n = currentSheetIndex;
+                                    setSelectedSheet(`sheet${n}`);
+                                    setGlassFilter(`sheet${n}`);
                                   }
                                 }}
                                 disabled={currentSheetIndex === 0}
@@ -1726,9 +1812,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                 {currentSheet}/{glassList.total_sheets}
                               </span>
                               <button
+                                type="button"
                                 onClick={() => {
                                   if (currentSheetIndex < glassList.total_sheets - 1) {
-                                    setSelectedSheet(`sheet${currentSheetIndex + 2}`);
+                                    const n = currentSheetIndex + 2;
+                                    setSelectedSheet(`sheet${n}`);
+                                    setGlassFilter(`sheet${n}`);
                                   }
                                 }}
                                 disabled={currentSheetIndex >= glassList.total_sheets - 1}
@@ -1747,23 +1836,31 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
                   {/* Right Panel - Sheet List */}
                   <div className="space-y-4">
-                    {Array.from({ length: calculationResult.glassList.total_sheets }).map((_, index) => {
+                    {Array.from({ length: glassListNorm.total_sheets }).map((_, index) => {
                       const sheetNumber = index + 1;
                       const sheetId = `sheet${sheetNumber}`;
-                      const glassList = calculationResult.glassList;
-                      
-                      // Parse sheet dimensions
+                      const glassList = glassListNorm;
                       const sheetTypeMatch = glassList.sheet_type.match(/(\d+)x(\d+)mm/);
-                      const sheetWidth = sheetTypeMatch ? parseInt(sheetTypeMatch[1]) : 0;
-                      const sheetHeight = sheetTypeMatch ? parseInt(sheetTypeMatch[2]) : 0;
-                      
-                      // Calculate total quantity of cuts for this sheet
-                      const totalCuts = glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0;
-                      
+                      const fallbackW = sheetTypeMatch ? parseInt(sheetTypeMatch[1], 10) : 0;
+                      const fallbackH = sheetTypeMatch ? parseInt(sheetTypeMatch[2], 10) : 0;
+                      let sheetWidth = fallbackW;
+                      let sheetHeight = fallbackH;
+                      let pcsOnSheet = glassList.cuts?.reduce((sum, cut) => sum + cut.qty, 0) || 0;
+                      if (hasUsableGlassLayouts(glassList) && glassList.layouts) {
+                        const li = layoutIndexForPhysicalSheet(glassList.layouts, index);
+                        const pattern = glassList.layouts[li];
+                        sheetWidth = pattern.stock.widthMm || fallbackW;
+                        sheetHeight = pattern.stock.heightMm || fallbackH;
+                        pcsOnSheet = pieceCountOnLayout(pattern);
+                      }
                       return (
                         <button
                           key={index}
-                          onClick={() => setSelectedSheet(sheetId)}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSheet(sheetId);
+                            setGlassFilter(sheetId);
+                          }}
                           className={`w-full text-left border rounded-lg p-6 transition-colors ${selectedSheet === sheetId
                             ? 'bg-[#EBF5F8] border-[#EBF5F8] ring-1 ring-blue-200'
                             : 'bg-white border-gray-200 hover:border-blue-300'
@@ -1774,8 +1871,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                             {sheetWidth} X {sheetHeight}
                           </p>
                           <div className={`border-t border-dashed pt-4 ${selectedSheet === sheetId ? 'border-blue-200' : 'border-gray-200'}`}>
-                            <p className="text-xs text-gray-500 mb-1">Quantity</p>
-                            <p className="text-base font-medium text-gray-900">{totalCuts} pcs</p>
+                            <p className="text-xs text-gray-500 mb-1">Pieces on sheet</p>
+                            <p className="text-base font-medium text-gray-900">{pcsOnSheet} pcs</p>
                           </div>
                         </button>
                       );

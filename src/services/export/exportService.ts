@@ -531,6 +531,8 @@ interface GlassCuttingLayout {
     elementTitle?: string;
   }>;
   totalCuts: number;
+  /** Present when export used 2D nest data from the API */
+  layoutId?: string;
 }
 
 export const exportGlassCuttingListToPDF = (
@@ -564,15 +566,19 @@ export const exportGlassCuttingListToPDF = (
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text(`Sheet ${layout.sheetNumber}`, 14, startY);
-    
+
     startY += 8;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
+    if (layout.layoutId) {
+      doc.text(`Pattern: ${layout.layoutId}`, 14, startY);
+      startY += 6;
+    }
     doc.text(`Sheet Type: ${layout.sheetType}`, 14, startY);
     startY += 6;
     doc.text(`Dimensions: ${layout.sheetWidth}mm x ${layout.sheetHeight}mm`, 14, startY);
     startY += 6;
-    doc.text(`Total Cuts: ${layout.totalCuts}`, 14, startY);
+    doc.text(`Pieces on sheet: ${layout.totalCuts}`, 14, startY);
     startY += 10;
 
     // Cuts Table (include Element column when any cut has elementTitle)
@@ -620,9 +626,12 @@ export const exportGlassCuttingListToExcel = (
   layouts.forEach((layout) => {
     wsData.push([]);
     wsData.push([`Sheet ${layout.sheetNumber}`]);
+    if (layout.layoutId) {
+      wsData.push([`Pattern: ${layout.layoutId}`]);
+    }
     wsData.push([`Sheet Type: ${layout.sheetType}`]);
     wsData.push([`Dimensions: ${layout.sheetWidth}mm x ${layout.sheetHeight}mm`]);
-    wsData.push([`Total Cuts: ${layout.totalCuts}`]);
+    wsData.push([`Pieces on sheet: ${layout.totalCuts}`]);
     wsData.push([]);
     wsData.push(hasElement ? ['Width (mm)', 'Height (mm)', 'Quantity', 'Element'] : ['Width (mm)', 'Height (mm)', 'Quantity']);
     layout.cuts.forEach((cut) => {

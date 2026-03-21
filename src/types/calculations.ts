@@ -67,6 +67,27 @@ export interface CuttingListItem {
   }[];
 }
 
+/** One rectangle on a glass sheet (piece or waste), mm coordinates, top-left origin. */
+export interface GlassPlacement {
+  kind: 'piece' | 'waste';
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+  elementId?: string;
+  rotated?: boolean;
+  nominalWidthMm?: number;
+  nominalHeightMm?: number;
+}
+
+/** Distinct 2D nest pattern; may repeat for multiple physical sheets. */
+export interface GlassLayout {
+  layoutId: string;
+  repeatCount: number;
+  stock: { widthMm: number; heightMm: number };
+  placements: GlassPlacement[];
+}
+
 export interface GlassListResult {
   sheet_type: string; // e.g., "3310x2140mm"
   total_sheets: number;
@@ -76,6 +97,8 @@ export interface GlassListResult {
     qty: number; // Quantity of this size
     elementId?: string; // e.g. "el_0" for "Window 1 glass"
   }[];
+  /** When present with placements, authoritative 2D nest for the UI (see docs). */
+  layouts?: GlassLayout[];
 }
 
 export interface RubberTotal {
