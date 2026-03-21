@@ -101,11 +101,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       };
       setInitialData(newInitialData);
       setFormData(newInitialData);
-      
-      // Update local pointsBalance when store updates
-      if (user.pointsBalance !== undefined) {
-        setPointsBalance(user.pointsBalance);
-      }
     }
   }, [user]);
   
