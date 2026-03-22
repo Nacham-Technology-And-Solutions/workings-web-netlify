@@ -55,6 +55,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         {/* Logo - Left Edge */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <HeaderLogo />
+          <span className="hidden lg:inline text-gray-900 font-semibold text-lg">Workings</span>
         </div>
 
         {/* Right Side: Search Bar and User Profile (aligned to right, hidden on mobile) */}

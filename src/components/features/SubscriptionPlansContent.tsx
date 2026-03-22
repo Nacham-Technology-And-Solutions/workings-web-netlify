@@ -6,15 +6,6 @@ interface SubscriptionPlansContentProps {
   onBack?: () => void;
 }
 
-const BoxIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 sm:w-14 sm:h-14" {...props}>
-    <path d="M50.6667 21.3333H13.3333C11.4924 21.3333 10 22.8257 10 24.6667V48C10 49.8409 11.4924 51.3333 13.3333 51.3333H50.6667C52.5076 51.3333 54 49.8409 54 48V24.6667C54 22.8257 52.5076 21.3333 50.6667 21.3333Z" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M32 51.3333V21.3333" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M54 24.6667L32 12.6667L10 24.6667" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M42.6667 33.3333C42.6667 31.8123 42.0696 30.3529 41.0068 29.2901C39.944 28.2273 38.4846 27.6302 37 27.6302L28.3333 21.3333L19.6667 27.6302C18.182 27.6302 16.7226 28.2273 15.66 29.2901C14.5971 30.3529 14 31.8123 14 33.3333C14 34.8544 14.5971 36.3138 15.66 37.3766C16.7226 38.4394 18.182 39.0365 19.6667 39.0365H42.6667" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
 interface PlanCardProps {
   plan: SubscriptionPlan;
   billingCycle: BillingCycle;
@@ -39,7 +30,7 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, billingCycle, currentPlanId, 
     <div className="bg-gray-100 border border-gray-200 rounded-2xl p-4 sm:p-6 flex flex-col h-full relative">
       {/* Icon in top-right corner - aligned with price */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
-        <BoxIcon />
+        <img src="/icons/subscription-package-icon.svg" alt="" className="w-12 h-12 sm:w-14 sm:h-14" aria-hidden />
       </div>
 
       {/* Price, Name, Description */}

@@ -150,8 +150,11 @@ export const useAuthStore = create<AuthState>()(
         if (!onboardingShown) {
           set({ showOnboarding: true });
         }
-        
-        set({ isLoading: false });
+
+        // Only hide loading immediately for returning users; new users see splash first (splash sets loading false after 2.5s)
+        if (isAuth || onboardingShown) {
+          set({ isLoading: false });
+        }
       },
     }),
     {

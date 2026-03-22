@@ -605,19 +605,16 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
     };
 
     const renderExtrasAndNotes = () => (
-        <div className="space-y-8 pt-6 pb-24">
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">EXTRA CHARGES</h3>
-                <div className="border-b-2 border-dashed border-gray-300 mb-4"></div>
-                <div className="space-y-4">
+        <div className="pt-6 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column - Charges & Payment */}
+                <div className="space-y-6">
+                    {/* Extra Charges Dropdown */}
                     <div className="relative" ref={chargesDropdownRef}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Charge Name
-                        </label>
                         <button
                             type="button"
                             onClick={() => setIsChargesDropdownOpen(!isChargesDropdownOpen)}
-                            className="w-full flex justify-between items-center px-4 py-3.5 text-left bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400"
+                            className="w-full flex justify-between items-center px-4 py-3.5 text-left bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
                         >
                             <span className={extraCharge.type ? 'text-gray-900' : 'text-gray-400'}>
                                 {extraCharge.type || 'Select extra charges for project'}
@@ -625,7 +622,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             {isChargesDropdownOpen ? <ChevronUpIcon className="text-gray-500" /> : <ChevronDownIcon className="text-gray-500" />}
                         </button>
                         {isChargesDropdownOpen && (
-                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg">
+                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
                                 <ul className="py-1 max-h-60 overflow-y-auto">
                                     {chargeOptions.map(option => (
                                         <li
@@ -643,6 +640,8 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             </div>
                         )}
                     </div>
+
+                    {/* Amount Input */}
                     <div>
                         <label htmlFor="extraChargesAmount" className="block text-sm font-medium text-gray-700 mb-1">
                             Amount
@@ -652,53 +651,72 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
                             <input
                                 id="extraChargesAmount"
                                 type="text"
-                                placeholder="0.00"
-                                value={extraCharge.amount ? parseFloat(extraCharge.amount).toLocaleString('en-US') : ''}
-                                onChange={(e) => setExtraCharge(p => ({ ...p, amount: e.target.value.replace(/[^0-9.]/g, '') }))}
-                                className="w-full pl-8 pr-4 py-3.5 text-gray-900 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400"
+                                value={extraCharge.amount ? parseFloat(extraCharge.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                                    setExtraCharge(p => ({ ...p, amount: value }));
+                                }}
+                                className="w-full pl-8 pr-4 py-3.5 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200"
                             />
                         </div>
                     </div>
+
+                    {/* Payment Method */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">PAYMENT METHOD</h3>
+                        <div className="space-y-3 text-base">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Account Name:</span>
+                                <span className="font-medium text-gray-800">Olumide Adewale</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Account Number:</span>
+                                <span className="font-medium text-gray-800">10-4030-011094</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Bank Name:</span>
+                                <span className="font-medium text-gray-800">Zenith Bank</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Total */}
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                        <span className="text-xl font-bold text-gray-800">Total</span>
+                        <span className="text-xl font-bold text-gray-800">{formatNaira(quoteTotal)}</span>
+                    </div>
                 </div>
-            </div>
 
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">PAYMENT METHOD</h3>
-                <div className="space-y-3 text-base">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Account Name:</span>
-                        <span className="font-medium text-gray-800">Olumide Adewale</span>
+                {/* Right Column - Additional Notes & Action Buttons */}
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">ADDITIONAL NOTES</h3>
+                        <textarea
+                            id="additionalNotes"
+                            rows={10}
+                            value={additionalNotes}
+                            onChange={e => setAdditionalNotes(e.target.value)}
+                            placeholder="Enter some additional notes here......"
+                            className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400"
+                        ></textarea>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Account Number:</span>
-                        <span className="font-medium text-gray-800">10-4030-011094</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Bank Name:</span>
-                        <span className="font-medium text-gray-800">Zenith Bank</span>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
+                        <button
+                            onClick={handleFinalGenerateQuote}
+                            className="w-full py-4 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                        >
+                            Proceed to preview
+                        </button>
+                        <button
+                            onClick={() => console.log('Save as Draft')}
+                            className="w-full py-4 bg-white text-gray-800 font-semibold rounded-lg border border-gray-400 hover:bg-gray-100 transition-colors"
+                        >
+                            Save as Draft
+                        </button>
                     </div>
                 </div>
-            </div>
-
-            <hr className="border-t border-gray-200" />
-
-            <div className="flex justify-between items-center py-2">
-                <span className="text-xl font-bold text-gray-800">Total</span>
-                <span className="text-xl font-bold text-gray-800">{formatNaira(quoteTotal)}</span>
-            </div>
-
-            <hr className="border-t border-gray-200" />
-
-            <div>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">ADDITIONAL NOTES</h3>
-                <textarea
-                    id="additionalNotes"
-                    rows={4}
-                    value={additionalNotes}
-                    onChange={e => setAdditionalNotes(e.target.value)}
-                    placeholder="Enter some additional notes here......"
-                    className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 placeholder:text-gray-400"
-                ></textarea>
             </div>
         </div>
     );
@@ -774,7 +792,7 @@ const NewProjectScreen: React.FC<NewProjectScreenProps> = ({ onBack, onGenerateQ
             )}
 
             {quoteTab === 'Item List' && (
-                <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10 space-y-3 border-t border-gray-200">
+                <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] sticky bottom-0 z-10 border-t border-gray-200">
                     <button
                         onClick={() => {
                             if (itemView === 'edit') {

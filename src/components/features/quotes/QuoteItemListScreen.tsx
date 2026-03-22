@@ -138,6 +138,28 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
         return items.reduce((sum, item) => sum + item.total, 0);
     };
 
+    const formatNumber = (value: number): string => {
+        return value.toLocaleString('en-US');
+    };
+
+    const parseFormattedNumber = (value: string): number => {
+        return Number(value.replace(/,/g, '')) || 0;
+    };
+
+    const updateItem = (id: string, field: keyof QuoteItemRow, value: string | number) => {
+        setItems(items.map(item => {
+            if (item.id === id) {
+                const updatedItem = { ...item, [field]: value };
+                // Auto-calculate total when quantity or unitPrice changes
+                if (field === 'quantity' || field === 'unitPrice') {
+                    updatedItem.total = updatedItem.quantity * updatedItem.unitPrice;
+                }
+                return updatedItem;
+            }
+            return item;
+        }));
+    };
+
     const handleAddDimension = () => {
         const newItem: QuoteItemRow = {
             id: String(items.length + 1),
@@ -279,7 +301,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
 
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto min-h-0 px-8 py-8">
-                <div className="max-w-7xl mx-auto">
+                <div className="max-w-7xl mx-auto relative">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
                         <div className="flex items-center gap-8">
@@ -301,6 +323,14 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                             >
                                 Extras & Notes
                             </button>
+
+                            {/* Filter Button */}
+                            <div className="ml-auto pb-4 flex items-center gap-2">
+                                <span className="text-sm text-gray-600">Filter</span>
+                                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                            </div>
                         </div>
                     </div>
 
@@ -432,7 +462,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S/N</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description of Items</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DESCRIPTION OF ITEMS</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price (₦)</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (₦)</th>
