@@ -184,9 +184,14 @@ export function extractErrorMessage(error: unknown): ErrorMessage {
             shortMessage = (data as any).error || 'Validation error';
           }
         } else {
-          detailedMessageStr = data.responseMessage as string;
-          shortMessage = ERROR_MESSAGE_MAP[data.responseMessage as string] ||
-                         ((data as any).error ? ERROR_MESSAGE_MAP[(data as any).error] || (data as any).error : 'An error occurred');
+          const rm = data.responseMessage as string;
+          detailedMessageStr = rm;
+          shortMessage =
+            ERROR_MESSAGE_MAP[rm] ||
+            rm ||
+            ((data as any).error
+              ? ERROR_MESSAGE_MAP[(data as any).error] || (data as any).error
+              : 'An error occurred');
         }
         return {
           message: shortMessage,

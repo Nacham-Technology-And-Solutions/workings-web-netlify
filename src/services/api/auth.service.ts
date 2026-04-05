@@ -33,8 +33,19 @@ export interface AuthResponse {
     email: string;
     companyName: string;
     subscriptionStatus: string;
-    pointsBalance: number;
+    pointsBalance?: number;
   };
+}
+
+/** Session returned by POST /api/v1/auth/oauth (Google). */
+export interface OAuthSessionResponse extends AuthResponse {
+  isNewUser: boolean;
+}
+
+export interface OAuthGoogleRequestBody {
+  provider: 'google';
+  idToken: string;
+  companyName?: string;
 }
 
 export interface ApiResponse<T> {
@@ -58,6 +69,23 @@ export const authService = {
    */
   login: async (data: LoginRequest): Promise<ApiResponse<AuthResponse>> => {
     const response = await apiClient.post<ApiResponse<AuthResponse>>('/api/v1/auth/log-in', data);
+    return response.data;
+  },
+
+  /**
+   * Google sign-in or register via ID token (GIS credential JWT).
+   * 200 = existing user, 201 = new user; both return tokens and userProfile.
+   */
+  oauthWithGoogle: async (
+    idToken: string,
+    companyName?: string
+  ): Promise<ApiResponse<OAuthSessionResponse>> => {
+    const body: OAuthGoogleRequestBody = {
+      provider: 'google',
+      idToken,
+      ...(companyName !== undefined && companyName.trim().length >= 2 ? { companyName: companyName.trim() } : {}),
+    };
+    const response = await apiClient.post<ApiResponse<OAuthSessionResponse>>('/api/v1/auth/oauth', body);
     return response.data;
   },
 

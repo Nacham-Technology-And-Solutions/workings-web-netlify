@@ -5,7 +5,7 @@ interface OnboardingScreenProps {
   onComplete: () => void;
 }
 
-/** Step 0 = 1.svg (Get estimates done — fast). Step 1 = 2.svg (Material lists in SECONDS, #386A80 card). Step 2 = Reduce OFF-CUTS. Layout: 412×917, 24px inset, card 364×382 rx16, button h-16 rounded-[7px] #2D2E2E, dots #404040/#E5E5E5. */
+/** Step 0–2: onboarding SVGs in card 364×382 rx16; CTA #2D2E2E; dots #404040/#E5E5E5. Layout uses h-dvh flex column so footer stays visible without scrolling. */
 const ONBOARDING_STEPS = [
   {
     title: (
@@ -82,56 +82,60 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
       role="application"
       aria-label="Onboarding"
     >
-      {/* 1.svg: 412×917 — fixed layout, 24px horizontal inset */}
-      <div className="mx-auto flex min-h-screen w-full max-w-[412px] flex-col">
-        {/* Skip — top right: SVG has rounded-rect stroke #737373, text fill #737373 */}
-        <header className="flex h-16 shrink-0 items-center justify-end px-6">
+      {/* Single column fills dynamic viewport; overflow hidden — compact, no scroll */}
+      <div className="mx-auto flex h-dvh max-h-dvh w-full max-w-[412px] flex-col overflow-hidden">
+        <header className="flex h-11 shrink-0 items-center justify-end px-5 pt-[max(0.25rem,env(safe-area-inset-top))] sm:h-12 sm:px-6">
           {!isLastStep && (
             <button
               type="button"
               onClick={onComplete}
               aria-label="Skip onboarding"
-              className="rounded-md border border-[#737373] py-2 px-4 text-sm font-medium text-[#737373] transition-colors hover:border-[#2D2E2E] hover:text-[#2D2E2E] focus:outline-none focus:ring-2 focus:ring-[#2D2E2E] focus:ring-offset-2"
+              className="rounded-md border border-[#737373] py-1.5 px-3 text-xs font-medium text-[#737373] transition-colors hover:border-[#2D2E2E] hover:text-[#2D2E2E] focus:outline-none focus:ring-2 focus:ring-[#2D2E2E] focus:ring-offset-2 sm:py-2 sm:px-4 sm:text-sm"
             >
               Skip
             </button>
           )}
         </header>
 
-        {/* Content — 1.svg: pt-16 to title, mb-20 to card, 24px horizontal inset */}
-        <main className="shrink-0 px-6 pb-6 pt-16" aria-live="polite" aria-atomic="true">
+        <main
+          className="flex min-h-0 flex-1 flex-col px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:pb-4 sm:pt-3"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           <section
             aria-labelledby="onboarding-step-title"
-            className={`flex flex-col transition-opacity duration-200 ${
+            className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${
               isTransitioning ? 'opacity-0' : 'opacity-100'
             }`}
           >
             <h1
               id="onboarding-step-title"
-              className="mb-2 text-center font-audiowide text-2xl font-light leading-tight text-[#404040] sm:text-3xl"
+              className="mb-1 text-center font-audiowide text-xl font-light leading-tight text-[#404040] sm:mb-2 sm:text-2xl md:text-3xl"
             >
               {step.title}
             </h1>
-            <p className="mx-auto mb-20 max-w-[320px] text-center text-sm leading-snug text-[#737373] sm:text-base">
+            <p className="mx-auto mb-3 max-w-[320px] text-center text-xs leading-snug text-[#737373] sm:mb-4 sm:text-sm md:text-base">
               {step.description}
             </p>
 
-            {/* Card: 1.svg rect 24,342 364×382 rx16 #E3EEF3 — responsive aspect, max design size */}
-            <div
-              className="w-full max-w-[364px] overflow-hidden rounded-2xl mx-auto aspect-[364/382] max-h-[382px]"
-              style={{ backgroundColor: step.cardBg }}
-              aria-hidden="true"
-            >
-              <div className="h-full w-full">
-                {step.image}
+            {/* Card shrinks to fit remaining height; keeps ~364:382 up to design max */}
+            <div className="flex min-h-0 flex-1 items-center justify-center py-1">
+              <div
+                className="aspect-[364/382] w-full max-w-[364px] max-h-[min(382px,46dvh)] overflow-hidden rounded-2xl sm:max-h-[min(382px,50dvh)]"
+                style={{ backgroundColor: step.cardBg }}
+                aria-hidden="true"
+              >
+                <div className="h-full w-full min-h-0">{step.image}</div>
               </div>
             </div>
           </section>
 
-          {/* Footer: dots #404040 / #E5E5E5, CTA #2D2E2E — mt-7 card-to-dots */}
-          <footer className="mt-7 flex shrink-0 flex-col items-center">
-            {/* Dots: SVG design — 18×6px pills, 18px gap, #404040 active / #E5E5E5 inactive */}
-            <div className="mb-6 flex items-center justify-center gap-[18px]" role="tablist" aria-label="Onboarding step">
+          <footer className="mt-2 flex shrink-0 flex-col items-center sm:mt-3">
+            <div
+              className="mb-3 flex items-center justify-center gap-[18px] sm:mb-4"
+              role="tablist"
+              aria-label="Onboarding step"
+            >
               {ONBOARDING_STEPS.map((_, index) => (
                 <button
                   key={index}
@@ -150,7 +154,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             <button
               type="button"
               onClick={handleNext}
-              className="h-16 w-full rounded-[7px] bg-[#2D2E2E] text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#1a1b1b] focus:outline-none focus:ring-2 focus:ring-[#2D2E2E] focus:ring-offset-2 active:opacity-95"
+              className="h-12 w-full rounded-[7px] bg-[#2D2E2E] text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1a1b1b] focus:outline-none focus:ring-2 focus:ring-[#2D2E2E] focus:ring-offset-2 active:opacity-95 sm:h-14 sm:text-base"
             >
               {isLastStep ? 'Get Started' : 'Next'}
             </button>

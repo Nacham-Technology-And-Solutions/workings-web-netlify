@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
+  /** Web OAuth client ID (Google Cloud). Must match an ID in API `GOOGLE_OAUTH_CLIENT_IDS`. */
+  readonly VITE_GOOGLE_CLIENT_ID?: string;
   readonly GEMINI_API_KEY?: string;
 }
 

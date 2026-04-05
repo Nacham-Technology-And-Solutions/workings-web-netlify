@@ -1,10 +1,12 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './src/app/App';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import * as serviceWorkerRegistration from './src/utils/serviceWorkerRegistration';
 import './src/styles/index.css';
+
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,10 +14,17 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
+
+const appTree = <App />;
+
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      {googleClientId ? (
+        <GoogleOAuthProvider clientId={googleClientId}>{appTree}</GoogleOAuthProvider>
+      ) : (
+        appTree
+      )}
     </ErrorBoundary>
   </React.StrictMode>
 );

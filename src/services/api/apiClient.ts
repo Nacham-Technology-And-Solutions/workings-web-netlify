@@ -3,7 +3,9 @@ import logger from '@/utils/logger';
 
 // Base URL from environment or default to localhost
 // const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://glaze-workings-og75x.ondigitalocean.app/workings-api2';
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+// const BASE_URL =   ' ';
 
 // Mutex to prevent concurrent token refresh attempts
 let isRefreshing = false;

@@ -23,16 +23,31 @@ function injectSwCacheRevision(): Plugin {
   };
 }
 
+const projectRoot = path.resolve(__dirname);
+
+/** http-proxy requires a full URL with scheme; .env sometimes omits `http://`. */
+function devApiProxyTarget(raw: string | undefined): string {
+  const trimmed = (raw ?? '').trim();
+  if (!trimmed) return 'http://localhost:5000';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `http://${trimmed}`;
+}
+
 export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
+    // Resolve env from the directory that contains vite.config.ts (not process.cwd()),
+    // so dev mode picks up .env when the shell/Cursor cwd is elsewhere.
+    const env = loadEnv(mode, projectRoot, '');
+    const apiBase = env.VITE_API_BASE_URL || env.VITE_API_URL;
     return {
+      root: projectRoot,
+      envDir: projectRoot,
       server: {
         port: 3000,
         host: '0.0.0.0',
         // Proxy configuration for development to avoid CORS issues
         proxy: {
           '/api': {
-            target: env.VITE_API_BASE_URL || 'http://localhost:5000',
+            target: devApiProxyTarget(apiBase),
             changeOrigin: true,
             secure: false,
             rewrite: (path) => path, // Keep the /api path as is
