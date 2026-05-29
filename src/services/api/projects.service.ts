@@ -1,6 +1,6 @@
 import apiClient from './apiClient';
 import type { ProjectData, GlazingDimension } from '@/types/project';
-import type { CalculationResult } from '@/types/calculations';
+import type { CalculationResult, CalculationSettings } from '@/types/calculations';
 
 export interface Project {
   id: number;
@@ -15,11 +15,7 @@ export interface Project {
   siteAddress: string;
   description?: string;
   glazingDimensions: GlazingDimension[];
-  calculationSettings: {
-    stockLength: number;
-    bladeKerf: number;
-    wasteThreshold: number;
-  };
+  calculationSettings: CalculationSettings;
   calculated: boolean;
   lastCalculatedAt: string | null;
   status: 'draft' | 'calculated' | 'archived';
@@ -38,11 +34,7 @@ export interface CreateProjectRequest {
   siteAddress: string;
   description?: string;
   glazingDimensions: GlazingDimension[];
-  calculationSettings?: {
-    stockLength: number;
-    bladeKerf: number;
-    wasteThreshold: number;
-  };
+  calculationSettings?: CalculationSettings;
 }
 
 export interface UpdateProjectRequest {
@@ -56,11 +48,7 @@ export interface UpdateProjectRequest {
   siteAddress?: string;
   description?: string;
   glazingDimensions?: GlazingDimension[];
-  calculationSettings?: {
-    stockLength?: number;
-    bladeKerf?: number;
-    wasteThreshold?: number;
-  };
+  calculationSettings?: Partial<CalculationSettings>;
   status?: 'draft' | 'calculated' | 'archived';
 }
 

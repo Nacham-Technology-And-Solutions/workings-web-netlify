@@ -6,6 +6,7 @@
 import type { DimensionItem, ProjectMeasurementData } from '@/types/project';
 import type { CalculationResult } from '@/types/calculations';
 import type { QuoteItemRow } from '@/types/quote';
+import { formatRubberMeters, getNetPaneCount } from '@/utils/calculationResultParser';
 
 /**
  * Converts dimension items to quote item rows
@@ -69,6 +70,18 @@ export function convertMaterialListToQuoteItems(
           total: 0,
         });
       });
+
+    calculationResult.materialList
+      .filter(item => item.type === 'Sheet')
+      .forEach((item) => {
+        items.push({
+          id: String(idCounter++),
+          description: `${item.item} (glass sheet)`,
+          quantity: item.units,
+          unitPrice: 0,
+          total: 0,
+        });
+      });
   }
 
   // Add accessory items
@@ -89,9 +102,34 @@ export function convertMaterialListToQuoteItems(
     calculationResult.rubberTotals.forEach((item) => {
       items.push({
         id: String(idCounter++),
-        description: `${item.name} (${item.total_meters.toFixed(2)}m)`,
+        description: `${item.name} (${formatRubberMeters(item.name, item.total_meters)}m)`,
         quantity: 1,
         unitPrice: 0, // User will enter price
+        total: 0,
+      });
+    });
+  }
+
+  if (calculationResult.screwTotals) {
+    calculationResult.screwTotals.forEach((item) => {
+      items.push({
+        id: String(idCounter++),
+        description: item.name,
+        quantity: item.qty,
+        unitPrice: 0,
+        total: 0,
+      });
+    });
+  }
+
+  const netPaneCount = getNetPaneCount(calculationResult.netList);
+  if (netPaneCount > 0 && calculationResult.netList?.cuts) {
+    calculationResult.netList.cuts.forEach((cut) => {
+      items.push({
+        id: String(idCounter++),
+        description: `Net pane ${cut.w} × ${cut.h} mm`,
+        quantity: cut.qty,
+        unitPrice: 0,
         total: 0,
       });
     });

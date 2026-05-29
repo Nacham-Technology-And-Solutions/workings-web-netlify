@@ -42,18 +42,21 @@ export function convertDimensionItemToGlazingDimension(
     qty: quantity,
   };
 
-  // Net modules (M6, M7, M8) use inside-to-inside dimensions
-  if (
-    moduleId === 'M6_Net_1125_26' ||
-    moduleId === 'M7_EBM_Net_1125_26' ||
-    moduleId === 'M8_EBM_Net_UChannel'
-  ) {
+  // M8: outer frame mm (backend prefers width/height; aliases in_to_in_* still accepted)
+  if (moduleId === 'M8_EBM_Net_UChannel') {
+    parameters.width = width;
+    parameters.height = height;
+  } else if (moduleId === 'M6_Net_1125_26' || moduleId === 'M7_EBM_Net_1125_26') {
     parameters.in_to_in_width = width;
     parameters.in_to_in_height = height;
   } else {
-    // Window modules use W and H
     parameters.W = width;
     parameters.H = height;
+  }
+
+  // M3 fixed net (M2 can use options.fixedNet; M3 module id implies fixed net)
+  if (moduleId === 'M3_Sliding_2Sash_Net') {
+    parameters.options = { fixedNet: true };
   }
 
   // M1: Casement Window - requires N and O
@@ -151,9 +154,23 @@ export function convertToGlazingDimensions(
 export function convertGlazingDimensionToProjectCartItem(
   glazingDimension: GlazingDimension
 ): ProjectCartItem {
+  const { moduleId } = glazingDimension;
+  const p = glazingDimension.parameters;
+
+  if (moduleId === 'M8_EBM_Net_UChannel') {
+    const w = p.width ?? p.W ?? p.in_to_in_width;
+    const h = p.height ?? p.H ?? p.in_to_in_height;
+    return {
+      module_id: moduleId,
+      width: w,
+      height: h,
+      qty: p.qty,
+    };
+  }
+
   return {
-    module_id: glazingDimension.moduleId,
-    ...glazingDimension.parameters,
+    module_id: moduleId,
+    ...p,
   };
 }
 

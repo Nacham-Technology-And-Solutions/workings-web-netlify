@@ -53,6 +53,8 @@ export interface GlazingDimension {
   parameters: {
     W?: number;
     H?: number;
+    width?: number;
+    height?: number;
     N?: number;
     N_v?: number;
     N_h?: number;
@@ -62,7 +64,7 @@ export interface GlazingDimension {
     in_to_in_height?: number;
     cell_heights?: number[];
     cell_width?: number[];
-    // ... other module-specific parameters
+    options?: { fixedNet?: boolean };
   };
   title?: string; // Optional: frontend label (e.g. "Living room"); max 100 chars
   color?: string; // Optional: hex (e.g. "#3B82F6"); backend uses default palette if omitted
@@ -83,6 +85,8 @@ export interface ProjectData {
     stockLength: number;
     bladeKerf: number;
     wasteThreshold: number;
+    netMargin?: number;
+    netRoll?: { widthMm: number; lengthMm: number };
   };
 }
 

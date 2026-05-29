@@ -5,6 +5,7 @@ import type { CalculationResult } from '@/types/calculations';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse } from '@/utils/apiResponseHelper';
+import { parseCalculationResult } from '@/utils/calculationResultParser';
 import ErrorMessage from '@/components/common/ErrorMessage';
 
 interface ProjectDetailScreenProps {
@@ -73,7 +74,11 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
         const projectData = responseData.project || responseData;
         const lastResult = responseData.lastCalculationResult ?? null;
         setProject(projectData);
-        setLastCalculationResult(Array.isArray(lastResult?.materialList) ? lastResult : null);
+        setLastCalculationResult(
+          lastResult && Array.isArray((lastResult as { materialList?: unknown }).materialList)
+            ? parseCalculationResult(lastResult)
+            : null
+        );
       } else {
         setError(normalizedResponse.message || 'Failed to load project');
       }

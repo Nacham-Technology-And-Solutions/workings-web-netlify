@@ -9,23 +9,32 @@ export interface ProjectCartItem {
   // Parameters vary by module
   W?: number; // Width
   H?: number; // Height
+  width?: number; // M8 outer frame (mm)
+  height?: number; // M8 outer frame (mm)
   N?: number; // Panels (for casement)
   N_v?: number; // Vertical panels (for curtain wall)
   N_h?: number; // Horizontal panels (for curtain wall)
   O?: number; // Opening panels
   qty?: number; // Quantity
-  in_to_in_width?: number; // For net modules
-  in_to_in_height?: number; // For net modules
+  in_to_in_width?: number; // M6 / M7 (mm)
+  in_to_in_height?: number; // M6 / M7 (mm)
   cell_heights?: number[]; // For curtain wall
   cell_width?: number[]; // For curtain wall
-  // ... other module-specific parameters
+  options?: { fixedNet?: boolean }; // M2 / M3 fixed net
+}
+
+export interface NetRollSettings {
+  widthMm: number;
+  lengthMm: number;
 }
 
 // Calculation Settings
 export interface CalculationSettings {
-  stockLength: number; // 6 or 5.58 (meters)
+  stockLength: number; // 6 or 5.58 (meters), or mm if > 20
   bladeKerf: number; // 5 (mm)
   wasteThreshold: number; // 200 (mm)
+  netMargin?: number;
+  netRoll?: NetRollSettings;
 }
 
 // Glazing element (one per project cart item: Window 1, Window 2, …). Used to label/color-code cuts.
@@ -35,6 +44,26 @@ export interface GlazingElement {
   color: string; // Hex, e.g. "#3B82F6"
 }
 
+export interface NetListCut {
+  w: number;
+  h: number;
+  qty: number;
+}
+
+export interface NetListResult {
+  cuts: NetListCut[];
+  roll_type?: string;
+  total_rolls?: number;
+  total_area_m2?: number;
+  required_length_m?: number;
+  netRoll?: NetRollSettings;
+}
+
+export interface ScrewTotal {
+  name: string;
+  qty: number;
+}
+
 // Calculation Result (output format from calculation engine)
 export interface CalculationResult {
   materialList: MaterialListItem[];
@@ -42,6 +71,9 @@ export interface CalculationResult {
   glassList: GlassListResult;
   rubberTotals: RubberTotal[];
   accessoryTotals: AccessoryTotal[];
+  screwTotals?: ScrewTotal[];
+  warnings?: string[];
+  netList?: NetListResult;
   elements?: GlazingElement[];
 }
 

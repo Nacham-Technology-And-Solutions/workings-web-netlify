@@ -24,6 +24,12 @@ import { projectsService } from '@/services/api';
 import { createProjectData } from '@/utils/dataTransformers';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
+import {
+  parseCalculationResult,
+  getNetPaneCount,
+  hasNetCuttingData,
+  formatRubberMeters,
+} from '@/utils/calculationResultParser';
 
 /** True if the plan key or cut label denotes offcut/waste (should use checker style, not colored). */
 function isOffcutKey(cutKey: string): boolean {
@@ -114,6 +120,105 @@ function buildCuttingLayoutViews(plan: CuttingPlanEntry[], stockLengthMeters: nu
   });
 }
 
+interface MaterialItemsSectionProps {
+  title: string;
+  items: MaterialItem[];
+  expandedItems: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  itemQuantities: Record<string, number>;
+  itemPrices: Record<string, number>;
+  onPriceChange: (itemId: string, price: number) => void;
+  getItemTotal: (itemId: string, defaultQuantity: number) => number;
+  quantitySuffix?: string;
+}
+
+const MaterialItemsSection: React.FC<MaterialItemsSectionProps> = ({
+  title,
+  items,
+  expandedItems,
+  onToggle,
+  itemQuantities,
+  itemPrices,
+  onPriceChange,
+  getItemTotal,
+  quantitySuffix,
+}) => {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mt-8 lg:col-span-2">
+      <h3 className="text-base font-semibold text-gray-900 mb-4">{title}</h3>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.id}>
+            <button
+              type="button"
+              onClick={() => onToggle(item.id)}
+              className="w-full flex justify-between items-center py-3 px-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-gray-900 font-normal">{item.name}</span>
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
+                  {item.unit === 'm'
+                    ? `${formatRubberMeters(item.name, itemQuantities[item.id] ?? item.quantity)} m`
+                    : quantitySuffix
+                      ? `${item.quantity} ${quantitySuffix}`
+                      : `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`}
+                </span>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${expandedItems[item.id] ? 'rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+            {expandedItems[item.id] && (
+              <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Item Info</span>
+                  <span className="text-gray-900">:</span>
+                  <span className="text-gray-900 font-medium">{item.name}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Qty(s)</span>
+                  <span className="text-gray-900">:</span>
+                  <span className="text-gray-900 font-medium">
+                    {itemQuantities[item.id] ?? item.quantity} {item.unit}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Price</span>
+                  <span className="text-gray-900">:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-900">₦</span>
+                    <input
+                      type="number"
+                      placeholder="Enter your price..."
+                      value={itemPrices[item.id] || ''}
+                      onChange={(e) => onPriceChange(item.id, parseFloat(e.target.value) || 0)}
+                      className="w-32 px-2 py-1 border-b border-gray-300 text-right text-gray-900 focus:outline-none focus:border-gray-400"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
+                  <span className="text-gray-600">Total</span>
+                  <span className="text-gray-900">:</span>
+                  <span className="text-gray-900 font-bold">
+                    ₦{getItemTotal(item.id, item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 interface ProjectSolutionScreenProps {
   onBack: () => void;
   onGenerate: (materialCost: number) => void;
@@ -123,7 +228,7 @@ interface ProjectSolutionScreenProps {
     selectProject?: SelectProjectData;
     projectMeasurement?: ProjectMeasurementData;
   };
-  initialTab?: 'material' | 'cutting' | 'glass';
+  initialTab?: 'material' | 'cutting' | 'glass' | 'net';
   initialCalculationResult?: CalculationResult | null;
   draftProjectId?: number | null;
   onCreateQuote?: (materialCost?: number, calculationResult?: CalculationResult, projectMeasurement?: ProjectMeasurementData) => void;
@@ -140,7 +245,8 @@ interface MaterialItem {
 }
 
 const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onProjectSaved, onCalculationComplete }) => {
-  const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass' | 'net'>(initialTab);
+  const [warningsDismissed, setWarningsDismissed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
@@ -238,9 +344,45 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         id: `accessory-${index}`,
         name: item.name,
         quantity: item.qty,
-        unit: 'units',
+        unit: item.unit || 'units',
       }))
     : [];
+
+  const allRubberItems: MaterialItem[] = calculationResult?.rubberTotals
+    ? calculationResult.rubberTotals.map((item, index) => ({
+        id: `rubber-${index}`,
+        name: item.name,
+        quantity: item.total_meters,
+        unit: 'm',
+      }))
+    : [];
+
+  const allScrewItems: MaterialItem[] = calculationResult?.screwTotals
+    ? calculationResult.screwTotals.map((item, index) => ({
+        id: `screw-${index}`,
+        name: item.name,
+        quantity: item.qty,
+        unit: 'pcs',
+      }))
+    : [];
+
+  const allSheetItems: MaterialItem[] = calculationResult?.materialList
+    ? calculationResult.materialList
+        .filter((item) => item.type === 'Sheet')
+        .map((item, index) => ({
+          id: `sheet-${index}`,
+          name: item.item,
+          quantity: item.units,
+          unit: 'sheets',
+        }))
+    : [];
+
+  const netPaneCount = useMemo(
+    () => getNetPaneCount(calculationResult?.netList),
+    [calculationResult?.netList]
+  );
+
+  const showNetTab = hasNetCuttingData(calculationResult?.netList);
 
   // Apply filters to material items
   const profileItems = useMemo(() => {
@@ -310,10 +452,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   // Load calculation on mount: use initial result (View results) or run calculate
   useEffect(() => {
     if (initialCalculationResult && Array.isArray(initialCalculationResult.materialList)) {
-      setCalculationResult({
-        ...initialCalculationResult,
-        glassList: normalizeGlassListResult(initialCalculationResult.glassList),
-      });
+      setCalculationResult(parseCalculationResult(initialCalculationResult));
+      setWarningsDismissed(false);
       hasCalculatedRef.current = true;
       const gl = normalizeGlassListResult(initialCalculationResult.glassList);
       if (gl.total_sheets > 0) {
@@ -404,26 +544,10 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         return;
       }
 
-      // Extract calculation result fields (API uses camelCase)
-      const materialListData = (calculationData as any).materialList || [];
-      const cuttingListData = (calculationData as any).cuttingList || [];
-      const glassListData = (calculationData as any).glassList || { sheet_type: '', total_sheets: 0, cuts: [] };
-      const rubberTotalsData = (calculationData as any).rubberTotals || [];
-      const accessoryTotalsData = (calculationData as any).accessoryTotals || [];
-      const elementsData = (calculationData as any).elements || [];
-
-      const validatedData: CalculationResult = {
-        materialList: Array.isArray(materialListData) ? materialListData : [],
-        cuttingList: Array.isArray(cuttingListData) ? cuttingListData : [],
-        glassList: normalizeGlassListResult(
-          glassListData && typeof glassListData === 'object' ? glassListData : { sheet_type: '', total_sheets: 0, cuts: [] }
-        ),
-        rubberTotals: Array.isArray(rubberTotalsData) ? rubberTotalsData : [],
-        accessoryTotals: Array.isArray(accessoryTotalsData) ? accessoryTotalsData : [],
-        elements: Array.isArray(elementsData) ? elementsData : [],
-      };
+      const validatedData = parseCalculationResult(calculationData);
 
       setCalculationResult(validatedData);
+      setWarningsDismissed(false);
       if (validatedData.glassList.total_sheets > 0) {
         setSelectedSheet('sheet1');
         setGlassFilter('sheet1');
@@ -694,9 +818,21 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     accessoriesItems.forEach(item => {
       total += getItemTotal(item.id, item.quantity);
     });
+
+    allRubberItems.forEach(item => {
+      total += getItemTotal(item.id, item.quantity);
+    });
+
+    allScrewItems.forEach(item => {
+      total += getItemTotal(item.id, item.quantity);
+    });
+
+    allSheetItems.forEach(item => {
+      total += getItemTotal(item.id, item.quantity);
+    });
     
     return total;
-  }, [profileItems, accessoriesItems, itemPrices, itemQuantities]);
+  }, [profileItems, accessoriesItems, allRubberItems, allScrewItems, allSheetItems, itemPrices, itemQuantities]);
 
   // Initialize quantities from items when calculation result changes
   useEffect(() => {
@@ -720,12 +856,31 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             quantity: item.qty,
           }))
         : [];
+
+      const rubbers = calculationResult.rubberTotals
+        ? calculationResult.rubberTotals.map((item, index) => ({
+            id: `rubber-${index}`,
+            quantity: item.total_meters,
+          }))
+        : [];
+
+      const screws = calculationResult.screwTotals
+        ? calculationResult.screwTotals.map((item, index) => ({
+            id: `screw-${index}`,
+            quantity: item.qty,
+          }))
+        : [];
+
+      const sheets = calculationResult.materialList
+        ? calculationResult.materialList
+            .filter((item) => item.type === 'Sheet')
+            .map((item, index) => ({
+              id: `sheet-${index}`,
+              quantity: item.units,
+            }))
+        : [];
       
-      profiles.forEach(item => {
-        initialQuantities[item.id] = item.quantity;
-      });
-      
-      accessories.forEach(item => {
+      [...profiles, ...accessories, ...rubbers, ...screws, ...sheets].forEach((item) => {
         initialQuantities[item.id] = item.quantity;
       });
       
@@ -950,6 +1105,34 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         </div>
       )}
 
+      {/* Engine warnings */}
+      {!isLoading && !error && calculationResult?.warnings && calculationResult.warnings.length > 0 && !warningsDismissed && (
+        <div className="px-4 md:px-8 pt-4">
+          <div className="max-w-7xl mx-auto p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <p className="text-amber-900 font-medium mb-2">Calculation notices</p>
+                <ul className="list-disc list-inside text-sm text-amber-800 space-y-1">
+                  {calculationResult.warnings.map((warning, index) => (
+                    <li key={index}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWarningsDismissed(true)}
+                className="text-amber-700 hover:text-amber-900 shrink-0"
+                aria-label="Dismiss warnings"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content - pb for mobile fixed action bar */}
       <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8 pb-24 md:pb-8">
         <div className="max-w-7xl mx-auto">
@@ -992,6 +1175,20 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>
                 )}
               </button>
+              {showNetTab && (
+                <button
+                  onClick={() => setActiveTab('net')}
+                  className={`pb-4 px-0 text-sm font-medium transition-colors relative ${activeTab === 'net'
+                    ? 'text-gray-900'
+                    : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                >
+                  Net Cutting List
+                  {activeTab === 'net' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>
+                  )}
+                </button>
+              )}
 
               {/* Filter Dropdowns - desktop: inline; mobile: behind Filters button */}
               <div className="ml-auto pb-4 hidden md:flex items-center gap-4">
@@ -1392,6 +1589,111 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   ))}
                 </div>
               </div>
+
+              <MaterialItemsSection
+                title="Rubber / seal / spline"
+                items={allRubberItems}
+                expandedItems={expandedItems}
+                onToggle={toggleItemExpansion}
+                itemQuantities={itemQuantities}
+                itemPrices={itemPrices}
+                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
+                getItemTotal={getItemTotal}
+              />
+              <MaterialItemsSection
+                title="Screws"
+                items={allScrewItems}
+                expandedItems={expandedItems}
+                onToggle={toggleItemExpansion}
+                itemQuantities={itemQuantities}
+                itemPrices={itemPrices}
+                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
+                getItemTotal={getItemTotal}
+              />
+              <MaterialItemsSection
+                title="Glass sheets"
+                items={allSheetItems}
+                expandedItems={expandedItems}
+                onToggle={toggleItemExpansion}
+                itemQuantities={itemQuantities}
+                itemPrices={itemPrices}
+                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
+                getItemTotal={getItemTotal}
+              />
+            </div>
+          )}
+
+          {/* Net cutting list */}
+          {!isLoading && !error && activeTab === 'net' && (
+            <div>
+              {showNetTab && calculationResult?.netList?.cuts ? (
+                <>
+                  <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Net panes</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Total panes: <span className="font-medium text-gray-900">{netPaneCount}</span>
+                      </p>
+                    </div>
+                    {calculationResult.netList.roll_type && (
+                      <p className="text-sm text-gray-600">
+                        Roll: <span className="font-medium">{calculationResult.netList.roll_type}</span>
+                        {calculationResult.netList.total_rolls != null && (
+                          <> · {calculationResult.netList.total_rolls} roll(s)</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="text-left px-4 py-3 font-medium text-gray-600">Width (mm)</th>
+                          <th className="text-left px-4 py-3 font-medium text-gray-600">Height (mm)</th>
+                          <th className="text-right px-4 py-3 font-medium text-gray-600">Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...calculationResult.netList.cuts]
+                          .sort((a, b) => b.w * b.h - a.w * a.h)
+                          .map((cut, index) => (
+                            <tr key={index} className="border-b border-gray-100 last:border-0">
+                              <td className="px-4 py-3 text-gray-900">{cut.w.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-gray-900">{cut.h.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-right text-gray-900 font-medium">{cut.qty}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {(calculationResult.netList.total_area_m2 != null ||
+                    calculationResult.netList.required_length_m != null) && (
+                    <div className="mt-4 flex flex-wrap gap-6 text-sm text-gray-600">
+                      {calculationResult.netList.total_area_m2 != null && (
+                        <span>
+                          Total area:{' '}
+                          <span className="font-medium text-gray-900">
+                            {calculationResult.netList.total_area_m2.toFixed(2)} m²
+                          </span>
+                        </span>
+                      )}
+                      {calculationResult.netList.required_length_m != null && (
+                        <span>
+                          Required length:{' '}
+                          <span className="font-medium text-gray-900">
+                            {calculationResult.netList.required_length_m.toFixed(2)} m
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No net cutting data for this project.</p>
+                  <p className="text-sm mt-2">Re-run calculate if this project was saved before the engine update.</p>
+                </div>
+              )}
             </div>
           )}
 
