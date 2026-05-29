@@ -31,16 +31,24 @@ function isOffcutKey(cutKey: string): boolean {
   return k.startsWith('offcut_') || k.startsWith('waste_');
 }
 
+function cutKeyLengthMm(cutKey: string): number {
+  const lengthMatch = cutKey.match(/(\d+)mm/);
+  return lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
+}
+
 /** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId).
  * Backend may include offcut as a key (e.g. offcut_5492mm); we skip those so offcut is computed as
- * stockLength - sum(real cuts) to avoid mm rounding errors. */
+ * stockLength - sum(real cuts) to avoid mm rounding errors.
+ * Cuts are ordered left-to-right largest to smallest (API convention), not object key order. */
 function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> {
   const result: Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> = [];
-  Object.keys(planEntry).forEach((cutKey) => {
-    if (isOffcutKey(cutKey)) return; // Exclude backend offcut; we compute offcut = stockLength - total cuts
+  const cutKeys = Object.keys(planEntry)
+    .filter((key) => !isOffcutKey(key))
+    .sort((a, b) => cutKeyLengthMm(b) - cutKeyLengthMm(a));
+
+  cutKeys.forEach((cutKey) => {
     const raw = planEntry[cutKey];
-    const lengthMatch = cutKey.match(/(\d+)mm/);
-    const lengthMm = lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
+    const lengthMm = cutKeyLengthMm(cutKey);
     const lengthMeters = lengthMm / 1000;
     const label = lengthMeters ? `${lengthMeters.toFixed(1)}m` : cutKey;
     if (!Array.isArray(raw) || raw.length === 0) return;
@@ -58,8 +66,52 @@ function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | Cutting
   return result;
 }
 
-function getMaxRepetition(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): number {
-  return Math.max(0, ...Object.values(planEntry).map((arr) => (Array.isArray(arr) ? arr.length : 0)));
+type CuttingPlanEntry = { [key: string]: string[] | CuttingPlanPiece[] };
+
+function serializePlanArrayValue(raw: string[] | CuttingPlanPiece[]): string {
+  if (!Array.isArray(raw) || raw.length === 0) return '[]';
+  const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
+  if (isNewFormat) {
+    return (raw as CuttingPlanPiece[])
+      .map((p) => `${p.cut}|${p.elementId ?? ''}`)
+      .sort()
+      .join(',');
+  }
+  return [...(raw as string[])].sort().join(',');
+}
+
+/** Stable signature so identical backend plan rows merge into one layout card. */
+function planEntrySignature(planEntry: CuttingPlanEntry): string {
+  return Object.keys(planEntry)
+    .sort()
+    .map((key) => `${key}:${serializePlanArrayValue(planEntry[key])}`)
+    .join(';');
+}
+
+/** Repetition = count of plan[] entries with the same cutting pattern (first-seen order). */
+function groupPlanEntriesByPattern(plan: CuttingPlanEntry[]): Array<{ planEntry: CuttingPlanEntry; repetition: number }> {
+  const order: string[] = [];
+  const groups = new Map<string, { planEntry: CuttingPlanEntry; repetition: number }>();
+  for (const planEntry of plan) {
+    const sig = planEntrySignature(planEntry);
+    const existing = groups.get(sig);
+    if (existing) {
+      existing.repetition += 1;
+    } else {
+      order.push(sig);
+      groups.set(sig, { planEntry, repetition: 1 });
+    }
+  }
+  return order.map((sig) => groups.get(sig)!);
+}
+
+function buildCuttingLayoutViews(plan: CuttingPlanEntry[], stockLengthMeters: number) {
+  return groupPlanEntriesByPattern(plan).map(({ planEntry, repetition }) => {
+    const cuts = normalizePlanEntryToCuts(planEntry);
+    const totalUsed = cuts.reduce((sum, cut) => sum + cut.length, 0);
+    const offcut = stockLengthMeters - totalUsed;
+    return { cuts, offcut, repetition, totalUsed, stockLength: stockLengthMeters };
+  });
 }
 
 interface ProjectSolutionScreenProps {
@@ -531,24 +583,18 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     
     const sections = calculationResult.cuttingList.map((cuttingItem) => {
       const stockLengthMeters = cuttingItem.stock_length / 1000;
-      const layouts = cuttingItem.plan.map((planEntry, planIndex) => {
-        const individualCuts = normalizePlanEntryToCuts(planEntry);
-        const totalRepetition = getMaxRepetition(planEntry);
-        const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
-        const offcut = stockLengthMeters - totalUsed;
-        return {
-          layout: String.fromCharCode(65 + planIndex),
-          cuts: individualCuts.map((c) => ({
-            length: c.length,
-            unit: c.label,
-            elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
-            elementColor: c.elementId ? elMap[c.elementId]?.color : undefined,
-          })),
-          offCut: offcut,
-          repetition: totalRepetition,
-          stockLength: stockLengthMeters,
-        };
-      });
+      const layouts = buildCuttingLayoutViews(cuttingItem.plan, stockLengthMeters).map((layout, planIndex) => ({
+        layout: String.fromCharCode(65 + planIndex),
+        cuts: layout.cuts.map((c) => ({
+          length: c.length,
+          unit: c.label,
+          elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
+          elementColor: c.elementId ? elMap[c.elementId]?.color : undefined,
+        })),
+        offCut: layout.offcut,
+        repetition: layout.repetition,
+        stockLength: stockLengthMeters,
+      }));
       
       const totalQuantity = layouts.reduce((sum, layout) => sum + layout.repetition, 0);
       
@@ -1356,20 +1402,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 filteredCuttingList.map((cuttingItem, profileIndex) => {
                   const stockLengthMeters = cuttingItem.stock_length / 1000; // Convert mm to meters
                   
-                  // Parse cutting plans (supports legacy string[] and new CuttingPlanPiece[] with elementId)
-                  const layouts = cuttingItem.plan.map((planEntry) => {
-                    const individualCuts = normalizePlanEntryToCuts(planEntry);
-                    const totalRepetition = getMaxRepetition(planEntry);
-                    const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
-                    const offcut = stockLengthMeters - totalUsed;
-                    return {
-                      cuts: individualCuts,
-                      offcut,
-                      repetition: totalRepetition,
-                      totalUsed,
-                      stockLength: stockLengthMeters
-                    };
-                  });
+                  const layouts = buildCuttingLayoutViews(cuttingItem.plan, stockLengthMeters);
                   
                   // Calculate total quantity needed
                   const totalQuantity = layouts.reduce((sum, layout) => sum + layout.repetition, 0);
@@ -1488,13 +1521,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           {activeTab === 'cutting' && expandedCuttingCard !== null && filteredCuttingList[expandedCuttingCard.profileIndex] && (() => {
             const cuttingItem = filteredCuttingList[expandedCuttingCard.profileIndex];
             const stockLengthMeters = cuttingItem.stock_length / 1000;
-            const layouts = cuttingItem.plan.map((planEntry: Record<string, string[] | CuttingPlanPiece[]>) => {
-              const individualCuts = normalizePlanEntryToCuts(planEntry);
-              const totalRepetition = getMaxRepetition(planEntry);
-              const totalUsed = individualCuts.reduce((sum, cut) => sum + cut.length, 0);
-              const offcut = stockLengthMeters - totalUsed;
-              return { cuts: individualCuts, offcut, repetition: totalRepetition, totalUsed, stockLength: stockLengthMeters };
-            });
+            const layouts = buildCuttingLayoutViews(cuttingItem.plan, stockLengthMeters);
             const layout = layouts[expandedCuttingCard.layoutIndex];
             if (!layout) return null;
             const layoutLetter = String.fromCharCode(65 + expandedCuttingCard.layoutIndex);
