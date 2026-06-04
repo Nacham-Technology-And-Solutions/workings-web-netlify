@@ -1,4 +1,11 @@
-import type { CalculationResult, NetListResult, NetListCut, ScrewTotal } from '@/types/calculations';
+import type {
+  AccessoryTotal,
+  CalculationResult,
+  MaterialListItem,
+  NetListResult,
+  NetListCut,
+  ScrewTotal,
+} from '@/types/calculations';
 import { normalizeGlassListResult } from '@/utils/glassLayout';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -64,14 +71,101 @@ function parseWarnings(raw: unknown): string[] {
   return raw.filter((w): w is string => typeof w === 'string' && w.trim().length > 0);
 }
 
+const MATERIAL_LIST_TYPES: MaterialListItem['type'][] = [
+  'Profile',
+  'Accessory_Pair',
+  'Sheet',
+  'Roll',
+  'Meter',
+];
+
+function parseMaterialList(raw: unknown): MaterialListItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row): MaterialListItem | null => {
+      const r = asRecord(row);
+      if (!r || typeof r.item !== 'string') return null;
+      const units = Number(r.units);
+      if (!Number.isFinite(units)) return null;
+      const typeRaw = r.type;
+      if (typeof typeRaw !== 'string' || !MATERIAL_LIST_TYPES.includes(typeRaw as MaterialListItem['type'])) {
+        return null;
+      }
+      const item: MaterialListItem = {
+        item: r.item,
+        units,
+        type: typeRaw as MaterialListItem['type'],
+      };
+      if (typeof r.unit === 'string' && r.unit.trim()) {
+        item.unit = r.unit.trim();
+      }
+      if (r.unitPrice != null && Number.isFinite(Number(r.unitPrice))) {
+        item.unitPrice = Number(r.unitPrice);
+      }
+      if (r.totalPrice != null && Number.isFinite(Number(r.totalPrice))) {
+        item.totalPrice = Number(r.totalPrice);
+      }
+      return item;
+    })
+    .filter((row): row is MaterialListItem => row !== null);
+}
+
+function parseAccessoryTotals(raw: unknown): AccessoryTotal[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row): AccessoryTotal | null => {
+      const r = asRecord(row);
+      if (!r || typeof r.name !== 'string') return null;
+      const qty = Number(r.qty);
+      if (!Number.isFinite(qty)) return null;
+      const item: AccessoryTotal = { name: r.name, qty };
+      if (typeof r.unit === 'string' && r.unit.trim()) {
+        item.unit = r.unit.trim();
+      }
+      const pieceQty = Number(r.pieceQty);
+      if (Number.isFinite(pieceQty) && pieceQty > 0) {
+        item.pieceQty = pieceQty;
+      }
+      return item;
+    })
+    .filter((row): row is AccessoryTotal => row !== null);
+}
+
+/** M2/M3 Rollers: `4 sets (16 pcs)` when pieceQty present; else `{qty} {unit}`. */
+export function formatAccessoryQuantity(item: Pick<AccessoryTotal, 'qty' | 'unit' | 'pieceQty'>): string {
+  const unit = item.unit?.trim() || 'pcs';
+  const qty = item.qty;
+  if (item.pieceQty != null && item.pieceQty > 0) {
+    return `${qty} ${unit} (${item.pieceQty} pcs)`;
+  }
+  return `${qty} ${unit}`;
+}
+
+/** Label for material list quantity badge (API `unit` or type defaults per integration doc). */
+export function materialListDisplayUnit(item: Pick<MaterialListItem, 'type' | 'unit'>): string {
+  if (item.unit) return item.unit;
+  switch (item.type) {
+    case 'Profile':
+      return 'lengths';
+    case 'Sheet':
+      return 'sheets';
+    case 'Roll':
+      return 'rolls';
+    case 'Meter':
+      return 'm';
+    default:
+      return 'units';
+  }
+}
+
 /** Normalize API calculation result (calculate or lastCalculationResult). */
 export function parseCalculationResult(raw: unknown): CalculationResult {
   const data = asRecord(raw) ?? {};
 
-  const materialList = Array.isArray(data.materialList) ? data.materialList : [];
+  const materialList = parseMaterialList(data.materialList);
   const cuttingList = Array.isArray(data.cuttingList) ? data.cuttingList : [];
   const rubberTotals = Array.isArray(data.rubberTotals) ? data.rubberTotals : [];
-  const accessoryTotals = Array.isArray(data.accessoryTotals) ? data.accessoryTotals : [];
+  const accessoryTotals = parseAccessoryTotals(data.accessoryTotals);
   const elements = Array.isArray(data.elements) ? data.elements : [];
   const screwTotals = parseScrewTotals(data.screwTotals);
   const warnings = parseWarnings(data.warnings);

@@ -79,8 +79,10 @@ export interface CalculationResult {
 
 export interface MaterialListItem {
   item: string; // e.g., "Transom (55x55mm)"
-  units: number; // Total quantity
+  units: number; // Total quantity (stock bars for Profile, sheets for Sheet, etc.)
   type: 'Profile' | 'Accessory_Pair' | 'Sheet' | 'Roll' | 'Meter';
+  /** Display/count unit from engine, e.g. "lengths" (profiles), "sheets" (glass). */
+  unit?: string;
   unitPrice?: number;
   totalPrice?: number;
 }
@@ -141,6 +143,8 @@ export interface RubberTotal {
 export interface AccessoryTotal {
   name: string;
   qty: number;
-  unit?: string; // e.g. "pcs", "pair"
+  unit?: string; // e.g. "pcs", "pairs", "set"
+  /** Total pieces when sold by set (e.g. M2/M3 Rollers: 4 sets (16 pcs)). */
+  pieceQty?: number;
 }
 

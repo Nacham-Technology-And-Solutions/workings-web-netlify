@@ -247,7 +247,7 @@ export const exportCuttingListToPDF = (
   let startY = 20;
 
   sections.forEach((section, sectionIndex) => {
-    // Profile header when multiple profiles or first section
+    // Profile header for sections after the first (first profile title is in the document header block)
     if (sectionIndex > 0) {
       if (startY > contentBottom - 100) {
         doc.addPage();
@@ -293,6 +293,12 @@ export const exportCuttingListToPDF = (
         doc.setFont('helvetica', 'normal');
         doc.text(`Project: ${projectName}`, margin, startY);
         startY += 6;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Profile: ${section.profileName}`, margin, startY);
+        startY += 8;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
         doc.text(`Material Length: ${section.materialLength} meters`, margin, startY);
         startY += 6;
         doc.text(`Quantity: ${section.totalQuantity} length`, margin, startY);

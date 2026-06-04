@@ -6,7 +6,12 @@
 import type { DimensionItem, ProjectMeasurementData } from '@/types/project';
 import type { CalculationResult } from '@/types/calculations';
 import type { QuoteItemRow } from '@/types/quote';
-import { formatRubberMeters, getNetPaneCount } from '@/utils/calculationResultParser';
+import {
+  formatAccessoryQuantity,
+  formatRubberMeters,
+  getNetPaneCount,
+  materialListDisplayUnit,
+} from '@/utils/calculationResultParser';
 
 /**
  * Converts dimension items to quote item rows
@@ -64,7 +69,7 @@ export function convertMaterialListToQuoteItems(
       .forEach((item) => {
         items.push({
           id: String(idCounter++),
-          description: item.item,
+          description: `${item.item} (${materialListDisplayUnit(item)})`,
           quantity: item.units,
           unitPrice: 0, // User will enter price
           total: 0,
@@ -76,7 +81,7 @@ export function convertMaterialListToQuoteItems(
       .forEach((item) => {
         items.push({
           id: String(idCounter++),
-          description: `${item.item} (glass sheet)`,
+          description: `${item.item} (${materialListDisplayUnit(item)})`,
           quantity: item.units,
           unitPrice: 0,
           total: 0,
@@ -89,7 +94,7 @@ export function convertMaterialListToQuoteItems(
     calculationResult.accessoryTotals.forEach((item) => {
       items.push({
         id: String(idCounter++),
-        description: item.name,
+        description: `${item.name} — ${formatAccessoryQuantity(item)}`,
         quantity: item.qty,
         unitPrice: 0, // User will enter price
         total: 0,

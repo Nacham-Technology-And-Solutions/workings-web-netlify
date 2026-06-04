@@ -26,17 +26,17 @@ Every successful calculation returns (or should expose) this object — either a
 
 ### UI sections to wire
 
-| API field | Suggested UI section | Notes |
-|-----------|----------------------|--------|
-| `materialList` where `type === 'Profile'` | **Profiles** | Stock bar counts (`units`); display `unit`: **`lengths`** |
-| `materialList` where `type === 'Sheet'` | **Glass sheets** | From glass optimizer |
-| `accessoryTotals` | **Accessories** | Handles, rollers, cleats, etc. |
-| `rubberTotals` | **Rubber / seal / spline** | **Was missing on M8 screen** |
-| `screwTotals` | **Screws** | Module 1, M3 attachment screws |
-| `netList.cuts` | **Net cutting list** | Pane sizes & qty — **not** “Net Mesh” accessory |
-| `cuttingList` | **Cutting plans** tab | Per profile |
-| `glassList` | **Glass cutting** tab | 2D nest when present |
-| `warnings` | Banner or list | Non-fatal messages |
+| API field                                 | Suggested UI section       | Notes                                           |
+| ----------------------------------------- | -------------------------- | ----------------------------------------------- |
+| `materialList` where `type === 'Profile'` | **Profiles**               | Stock bar counts (`units`); display `unit`: **`lengths`** |
+| `materialList` where `type === 'Sheet'`   | **Glass sheets**           | From glass optimizer                            |
+| `accessoryTotals`                         | **Accessories**            | Handles, rollers, cleats, etc.                  |
+| `rubberTotals`                            | **Rubber / seal / spline** | **Was missing on M8 screen**                    |
+| `screwTotals`                             | **Screws**                 | Module 1, M3 attachment screws                  |
+| `netList.cuts`                            | **Net cutting list**       | Pane sizes & qty — **not** “Net Mesh” accessory |
+| `cuttingList`                             | **Cutting plans** tab      | Per profile                                     |
+| `glassList`                               | **Glass cutting** tab      | 2D nest when present                            |
+| `warnings`                                | Banner or list             | Non-fatal messages                              |
 
 ---
 
@@ -59,15 +59,15 @@ Aliases accepted: `M8_EBM_Net_U_Channel`, `W`/`H`, `in_to_in_width`/`in_to_in_he
 
 ### What the backend returns (your regression cart)
 
-| Item | Value |
-|------|--------|
-| EBM-Net U-Channel Profile | 16 units (stock bars) |
-| EBM-net Panel Profile | 22 units |
-| 25-25 Angle Profile | 1 unit (96 pieces @ 20 mm in `cuttingList`) |
-| Roller / Angle Set | 48 |
-| Handle | 48 |
-| **Net Spline / Rubber** | **128.36 m** in `rubberTotals` |
-| **Net panes** | **48** in `netList.cuts` (grouped sizes) |
+| Item                      | Value                                       |
+| ------------------------- | ------------------------------------------- |
+| EBM-Net U-Channel Profile | 16 units (stock bars)                       |
+| EBM-net Panel Profile     | 22 units                                    |
+| 25-25 Angle Profile       | 1 unit (96 pieces @ 20 mm in `cuttingList`) |
+| Roller / Angle Set        | 48                                          |
+| Handle                    | 48                                          |
+| **Net Spline / Rubber**   | **128.36 m** in `rubberTotals`              |
+| **Net panes**             | **48** in `netList.cuts` (grouped sizes)    |
 
 ### What is **not** sent for Module 8
 
@@ -116,14 +116,14 @@ Input: `in_to_in_width`, `in_to_in_height` (aliases: `width`, `height`, `W`, `H`
 
 ### New / changed behaviour
 
-| Topic | Detail |
-|--------|--------|
+| Topic            | Detail                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
 | Opening vs fixed | `O` opening panels (default `O = N`). Fixed panels use **Bead Profile**, opening use **D/curve**. |
-| Accessories | Handles (`pcs`), **Hinges** (`pairs`), **Stoppers** (`pairs`, 2 per pair) — only for **`O`** panels. |
-| Profile units | `materialList[].unit` = **`lengths`** (stock bar count in `units`). |
-| Angles | **40/40 Angle Profile** appears in **`cuttingList`** @ 35 mm — **not** in `accessoryTotals`. |
-| Rubber | **Glazing Rubber** + **Brush / Wool Pile** in `rubberTotals`. |
-| Screws | **`screwTotals`**: `4mm Screw`, `Coupling / Mullion Screw`. |
+| Accessories      | Handles (`pcs`), **Hinges** (`pairs`), **Stoppers** (`pairs`, 2 per pair) — only for **`O`** panels. |
+| Profile units    | `materialList[].unit` = **`lengths`** (stock bar count in `units`).                               |
+| Angles           | **40/40 Angle Profile** appears in **`cuttingList`** @ 35 mm — **not** in `accessoryTotals`.      |
+| Rubber           | **Glazing Rubber** + **Brush / Wool Pile** in `rubberTotals`.                                     |
+| Screws           | **`screwTotals`**: `4mm Screw`, `Coupling / Mullion Screw`.                                       |
 
 ---
 
@@ -160,11 +160,11 @@ Cart item extras:
 
 ## 9. Saved projects vs live calculate
 
-| Source | Includes `netList` / `screwTotals` / `warnings`? |
-|--------|--------------------------------------------------|
-| `POST /calculations/calculate` → `response.result` | Yes (always) |
-| `POST /projects/:id/calculate` → `calculationResult.result` | Yes |
-| `GET /projects/:id` → `lastCalculationResult` | **Yes after backend fix** — stored on `GlassCuttingList` |
+| Source                                                      | Includes `netList` / `screwTotals` / `warnings`?         |
+| ----------------------------------------------------------- | -------------------------------------------------------- |
+| `POST /calculations/calculate` → `response.result`          | Yes (always)                                             |
+| `POST /projects/:id/calculate` → `calculationResult.result` | Yes                                                      |
+| `GET /projects/:id` → `lastCalculationResult`               | **Yes after backend fix** — stored on `GlassCuttingList` |
 
 **Important:** Projects calculated **before** the DB migration may have `netList: null` until the user runs **Calculate** again.
 
@@ -185,17 +185,15 @@ Cart item extras:
 ## 11. Example: reading net pane total (Module 8)
 
 ```ts
-const netPaneCount =
-  result.netList?.cuts?.reduce((sum, c) => sum + c.qty, 0) ?? 0;
+const netPaneCount = result.netList?.cuts?.reduce((sum, c) => sum + c.qty, 0) ?? 0;
 // Module 8 regression cart → 48
 ```
 
 ```ts
-const splineMeters =
-  result.rubberTotals?.find((r) => r.name.includes('Spline'))?.total_meters;
+const splineMeters = result.rubberTotals?.find((r) => r.name.includes('Spline'))?.total_meters;
 // Module 8 regression cart → 128.36
 ```
 
 ---
 
-*Last updated: calculation result persistence (`netList`, `screwTotals`, `warnings` on project GET).*
+_Last updated: calculation result persistence (`netList`, `screwTotals`, `warnings` on project GET)._

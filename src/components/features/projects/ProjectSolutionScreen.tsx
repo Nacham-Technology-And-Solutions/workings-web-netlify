@@ -29,17 +29,15 @@ import {
   getNetPaneCount,
   hasNetCuttingData,
   formatRubberMeters,
+  formatAccessoryQuantity,
+  materialListDisplayUnit,
 } from '@/utils/calculationResultParser';
+import { parseCutKeyLengthMm, formatCutLengthLabel } from '@/utils/cutPlanKeys';
 
 /** True if the plan key or cut label denotes offcut/waste (should use checker style, not colored). */
 function isOffcutKey(cutKey: string): boolean {
   const k = cutKey.toLowerCase();
   return k.startsWith('offcut_') || k.startsWith('waste_');
-}
-
-function cutKeyLengthMm(cutKey: string): number {
-  const lengthMatch = cutKey.match(/(\d+)mm/);
-  return lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
 }
 
 /** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId).
@@ -50,13 +48,13 @@ function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | Cutting
   const result: Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> = [];
   const cutKeys = Object.keys(planEntry)
     .filter((key) => !isOffcutKey(key))
-    .sort((a, b) => cutKeyLengthMm(b) - cutKeyLengthMm(a));
+    .sort((a, b) => parseCutKeyLengthMm(b) - parseCutKeyLengthMm(a));
 
   cutKeys.forEach((cutKey) => {
     const raw = planEntry[cutKey];
-    const lengthMm = cutKeyLengthMm(cutKey);
+    const lengthMm = parseCutKeyLengthMm(cutKey);
     const lengthMeters = lengthMm / 1000;
-    const label = lengthMeters ? `${lengthMeters.toFixed(1)}m` : cutKey;
+    const label = lengthMm > 0 ? formatCutLengthLabel(lengthMm) : cutKey;
     if (!Array.isArray(raw) || raw.length === 0) return;
     const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
     if (isNewFormat) {
@@ -161,9 +159,11 @@ const MaterialItemsSection: React.FC<MaterialItemsSectionProps> = ({
                 <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
                   {item.unit === 'm'
                     ? `${formatRubberMeters(item.name, itemQuantities[item.id] ?? item.quantity)} m`
-                    : quantitySuffix
-                      ? `${item.quantity} ${quantitySuffix}`
-                      : `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`}
+                    : item.quantityLabel
+                      ? item.quantityLabel
+                      : quantitySuffix
+                        ? `${item.quantity} ${quantitySuffix}`
+                        : `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`}
                 </span>
                 <svg
                   className={`w-5 h-5 text-gray-400 transition-transform ${expandedItems[item.id] ? 'rotate-180' : ''}`}
@@ -186,7 +186,7 @@ const MaterialItemsSection: React.FC<MaterialItemsSectionProps> = ({
                   <span className="text-gray-600">Qty(s)</span>
                   <span className="text-gray-900">:</span>
                   <span className="text-gray-900 font-medium">
-                    {itemQuantities[item.id] ?? item.quantity} {item.unit}
+                    {item.quantityLabel ?? `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
@@ -242,6 +242,8 @@ interface MaterialItem {
   name: string;
   quantity: number;
   unit: string;
+  /** Full quantity label when unit alone is insufficient (e.g. `4 sets (16 pcs)`). */
+  quantityLabel?: string;
 }
 
 const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onProjectSaved, onCalculationComplete }) => {
@@ -335,7 +337,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           id: `profile-${index}`,
           name: item.item,
           quantity: item.units,
-          unit: item.type === 'Profile' ? 'units' : item.type.toLowerCase(),
+          unit: materialListDisplayUnit(item),
         }))
     : [];
 
@@ -344,7 +346,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         id: `accessory-${index}`,
         name: item.name,
         quantity: item.qty,
-        unit: item.unit || 'units',
+        unit: item.unit || 'pcs',
+        quantityLabel: formatAccessoryQuantity(item),
       }))
     : [];
 
@@ -373,7 +376,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           id: `sheet-${index}`,
           name: item.item,
           quantity: item.units,
-          unit: 'sheets',
+          unit: materialListDisplayUnit(item),
         }))
     : [];
 
@@ -1508,7 +1511,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         <span className="text-gray-900 font-normal">{item.name}</span>
                         <div className="flex items-center gap-3">
                           <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
-                            {item.quantity} {item.unit}
+                            {item.quantityLabel ?? `${item.quantity} ${item.unit}`}
                           </span>
                           <svg
                             className={`w-5 h-5 text-gray-400 transition-transform ${expandedItems[item.id] ? 'rotate-180' : ''
@@ -1536,12 +1539,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-gray-600">Qty(s)</span>
                             <span className="text-gray-900">:</span>
-                            <input
-                              type="number"
-                              value={itemQuantities[item.id] ?? item.quantity}
-                              readOnly
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 bg-gray-50 cursor-not-allowed"
-                            />
+                            {item.quantityLabel ? (
+                              <span className="text-gray-900 font-medium">{item.quantityLabel}</span>
+                            ) : (
+                              <input
+                                type="number"
+                                value={itemQuantities[item.id] ?? item.quantity}
+                                readOnly
+                                className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 bg-gray-50 cursor-not-allowed"
+                              />
+                            )}
                           </div>
 
                           {/* Price */}
