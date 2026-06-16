@@ -9,6 +9,7 @@ import type { QuoteItemRow } from '@/types/quote';
 import {
   formatAccessoryQuantity,
   formatRubberMeters,
+  filterAccessoryTotalsForDisplay,
   getNetPaneCount,
   materialListDisplayUnit,
 } from '@/utils/calculationResultParser';
@@ -87,20 +88,45 @@ export function convertMaterialListToQuoteItems(
           total: 0,
         });
       });
+
+    calculationResult.materialList
+      .filter((item) => item.type === 'Roll')
+      .forEach((item) => {
+        items.push({
+          id: String(idCounter++),
+          description: `${item.item} (${materialListDisplayUnit(item)})`,
+          quantity: item.units,
+          unitPrice: 0,
+          total: 0,
+        });
+      });
+
+    calculationResult.materialList
+      .filter((item) => item.type === 'Accessory')
+      .forEach((item) => {
+        items.push({
+          id: String(idCounter++),
+          description: `${item.item} (${materialListDisplayUnit(item)})`,
+          quantity: item.units,
+          unitPrice: 0,
+          total: 0,
+        });
+      });
   }
 
-  // Add accessory items
-  if (calculationResult.accessoryTotals) {
-    calculationResult.accessoryTotals.forEach((item) => {
-      items.push({
-        id: String(idCounter++),
-        description: `${item.name} — ${formatAccessoryQuantity(item)}`,
-        quantity: item.qty,
-        unitPrice: 0, // User will enter price
-        total: 0,
-      });
+  const accessoryTotalsForQuote = filterAccessoryTotalsForDisplay(
+    calculationResult.accessoryTotals ?? [],
+    calculationResult.materialList ?? []
+  );
+  accessoryTotalsForQuote.forEach((item) => {
+    items.push({
+      id: String(idCounter++),
+      description: `${item.name} — ${formatAccessoryQuantity(item)}`,
+      quantity: item.qty,
+      unitPrice: 0,
+      total: 0,
     });
-  }
+  });
 
   // Add rubber items
   if (calculationResult.rubberTotals) {

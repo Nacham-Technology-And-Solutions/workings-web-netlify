@@ -73,6 +73,7 @@ function parseWarnings(raw: unknown): string[] {
 
 const MATERIAL_LIST_TYPES: MaterialListItem['type'][] = [
   'Profile',
+  'Accessory',
   'Accessory_Pair',
   'Sheet',
   'Roll',
@@ -141,21 +142,45 @@ export function formatAccessoryQuantity(item: Pick<AccessoryTotal, 'qty' | 'unit
   return `${qty} ${unit}`;
 }
 
-/** Label for material list quantity badge (API `unit` or type defaults per integration doc). */
-export function materialListDisplayUnit(item: Pick<MaterialListItem, 'type' | 'unit'>): string {
+/** Label for material list quantity badge (API `unit` or singular/plural defaults per integration doc). */
+export function materialListDisplayUnit(item: Pick<MaterialListItem, 'type' | 'unit' | 'units'>): string {
   if (item.unit) return item.unit;
+  const n = item.units;
   switch (item.type) {
     case 'Profile':
-      return 'lengths';
+      return n === 1 ? 'length' : 'lengths';
     case 'Sheet':
-      return 'sheets';
+      return n === 1 ? 'sheet' : 'sheets';
     case 'Roll':
-      return 'rolls';
+      return n === 1 ? 'roll' : 'rolls';
+    case 'Accessory':
+    case 'Accessory_Pair':
+      return n === 1 ? 'pc' : 'pcs';
     case 'Meter':
       return 'm';
     default:
-      return 'units';
+      return n === 1 ? 'unit' : 'units';
   }
+}
+
+/** Names of purchase-line accessories on materialList (e.g. Frame Screw) — hide duplicates from accessoryTotals. */
+export function materialListPurchaseAccessoryNames(materialList: MaterialListItem[]): Set<string> {
+  const names = new Set<string>();
+  for (const row of materialList) {
+    if (row.type === 'Accessory' || row.type === 'Accessory_Pair') {
+      names.add(row.item.trim().toLowerCase());
+    }
+  }
+  return names;
+}
+
+export function filterAccessoryTotalsForDisplay(
+  accessoryTotals: AccessoryTotal[],
+  materialList: MaterialListItem[]
+): AccessoryTotal[] {
+  const purchaseNames = materialListPurchaseAccessoryNames(materialList);
+  if (purchaseNames.size === 0) return accessoryTotals;
+  return accessoryTotals.filter((a) => !purchaseNames.has(a.name.trim().toLowerCase()));
 }
 
 /** Normalize API calculation result (calculate or lastCalculationResult). */

@@ -148,6 +148,44 @@ export function convertToGlazingDimensions(
   return glazingDimensions;
 }
 
+/** PATCH project calculate: stockLength must be 6 or 5.58 (metres). */
+export function stockLengthForProjectPatch(stockLength?: number): number {
+  return stockLength === 5.58 ? 5.58 : 6;
+}
+
+/**
+ * Validates glazing dimensions before project save/calculate (§8b).
+ * Returns an error message or null if valid.
+ */
+export function validateGlazingDimensions(dimensions: GlazingDimension[]): string | null {
+  for (const dim of dimensions) {
+    const p = dim.parameters;
+    const width = p.width ?? p.W ?? p.in_to_in_width;
+    const height = p.height ?? p.H ?? p.in_to_in_height;
+    const label = dim.title || dim.moduleId || 'Dimension';
+    if (width != null && Number.isFinite(width) && width <= 0) {
+      return `${label}: width must be greater than 0 mm`;
+    }
+    if (height != null && Number.isFinite(height) && height <= 0) {
+      return `${label}: height must be greater than 0 mm`;
+    }
+  }
+  return null;
+}
+
+/** Maps API glazing `parameters` to DimensionItem width/height strings (M8: width/height; M6/M7: in_to_in_*; others: W/H). */
+export function glazingParametersToDimensionStrings(
+  parameters: GlazingDimension['parameters'] | undefined
+): { width: string; height: string } {
+  if (!parameters) return { width: '', height: '' };
+  const w = parameters.width ?? parameters.W ?? parameters.in_to_in_width;
+  const h = parameters.height ?? parameters.H ?? parameters.in_to_in_height;
+  return {
+    width: w != null ? String(w) : '',
+    height: h != null ? String(h) : '',
+  };
+}
+
 /**
  * Converts GlazingDimension to ProjectCartItem format
  */
@@ -603,10 +641,12 @@ export function createProjectData(
     siteAddress: descriptionData.siteAddress,
     description: descriptionData.description,
     glazingDimensions,
-    calculationSettings: calculationSettings || {
-      stockLength: 6,
-      bladeKerf: 5,
-      wasteThreshold: 200,
+    calculationSettings: {
+      stockLength: stockLengthForProjectPatch(calculationSettings?.stockLength),
+      bladeKerf: calculationSettings?.bladeKerf ?? 5,
+      wasteThreshold: calculationSettings?.wasteThreshold ?? 200,
+      ...(calculationSettings?.netMargin != null ? { netMargin: calculationSettings.netMargin } : {}),
+      ...(calculationSettings?.netRoll ? { netRoll: calculationSettings.netRoll } : {}),
     },
   };
 }
@@ -618,10 +658,13 @@ export function projectDataToProjectCart(
   projectData: ProjectData
 ): { projectCart: ProjectCartItem[]; settings: CalculationSettings } {
   const projectCart = convertToProjectCart(projectData.glazingDimensions);
-  const settings = projectData.calculationSettings || {
-    stockLength: 6,
-    bladeKerf: 5,
-    wasteThreshold: 200,
+  const raw = projectData.calculationSettings;
+  const settings = {
+    stockLength: stockLengthForProjectPatch(raw?.stockLength),
+    bladeKerf: raw?.bladeKerf ?? 5,
+    wasteThreshold: raw?.wasteThreshold ?? 200,
+    ...(raw?.netMargin != null ? { netMargin: raw.netMargin } : {}),
+    ...(raw?.netRoll ? { netRoll: raw.netRoll } : {}),
   };
 
   return { projectCart, settings };

@@ -80,7 +80,7 @@ export interface CalculationResult {
 export interface MaterialListItem {
   item: string; // e.g., "Transom (55x55mm)"
   units: number; // Total quantity (stock bars for Profile, sheets for Sheet, etc.)
-  type: 'Profile' | 'Accessory_Pair' | 'Sheet' | 'Roll' | 'Meter';
+  type: 'Profile' | 'Accessory' | 'Accessory_Pair' | 'Sheet' | 'Roll' | 'Meter';
   /** Display/count unit from engine, e.g. "lengths" (profiles), "sheets" (glass). */
   unit?: string;
   unitPrice?: number;
@@ -89,8 +89,10 @@ export interface MaterialListItem {
 
 // One piece in a cutting plan bar (new format with element attribution)
 export interface CuttingPlanPiece {
-  cut: string; // e.g. "cut_1900mm", "offcut_2055mm"
+  cut: string; // e.g. "cut_1900mm", "540mm / 0.54m", "offcut_275mm"
   elementId?: string; // e.g. "el_0". Omitted for offcut/waste.
+  lengthMm?: number;
+  classification?: string;
 }
 
 export interface CuttingListItem {

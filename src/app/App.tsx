@@ -59,7 +59,12 @@ import { projectsService, quotesService, materialListsService } from '../service
 
 // Import utilities
 import { getApiResponseData, normalizeApiResponse, isApiResponseSuccess } from '../utils/apiResponseHelper';
-import { transformQuoteDataToBackend, transformBackendQuoteToPreview, transformStandaloneQuoteToBackend } from '../utils/dataTransformers';
+import {
+  transformQuoteDataToBackend,
+  transformBackendQuoteToPreview,
+  transformStandaloneQuoteToBackend,
+  glazingParametersToDimensionStrings,
+} from '../utils/dataTransformers';
 import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
 import { resolveTypeForCategory } from '../utils/moduleConfig';
 import type { GlazingCategory } from '../utils/moduleMapping';
@@ -400,11 +405,12 @@ const App: React.FC = () => {
           }
 
           // Convert GlazingDimension to DimensionItem
+          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
           const dimensionItem: any = {
             id: `dim-${Date.now()}-${index}`,
             type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width: String(glazingDim.parameters?.W || glazingDim.parameters?.in_to_in_width || ''),
-            height: String(glazingDim.parameters?.H || glazingDim.parameters?.in_to_in_height || ''),
+            width,
+            height,
             quantity: String(glazingDim.parameters?.qty || 1),
             panel: String(glazingDim.parameters?.N || glazingDim.parameters?.O || 1),
             ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
@@ -463,11 +469,12 @@ const App: React.FC = () => {
             const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
             if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
           }
+          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
           dimensions.push({
             id: `dim-${Date.now()}-${index}`,
             type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width: String(glazingDim.parameters?.W ?? glazingDim.parameters?.in_to_in_width ?? ''),
-            height: String(glazingDim.parameters?.H ?? glazingDim.parameters?.in_to_in_height ?? ''),
+            width,
+            height,
             quantity: String(glazingDim.parameters?.qty ?? 1),
             panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
             ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
@@ -514,11 +521,12 @@ const App: React.FC = () => {
             const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
             if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
           }
+          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
           dimensions.push({
             id: `dim-${Date.now()}-${index}`,
             type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width: String(glazingDim.parameters?.W ?? glazingDim.parameters?.in_to_in_width ?? ''),
-            height: String(glazingDim.parameters?.H ?? glazingDim.parameters?.in_to_in_height ?? ''),
+            width,
+            height,
             quantity: String(glazingDim.parameters?.qty ?? 1),
             panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
             ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
@@ -566,11 +574,12 @@ const App: React.FC = () => {
             const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
             if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
           }
+          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
           dimensions.push({
             id: `dim-${Date.now()}-${index}`,
             type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width: String(glazingDim.parameters?.W ?? glazingDim.parameters?.in_to_in_width ?? ''),
-            height: String(glazingDim.parameters?.H ?? glazingDim.parameters?.in_to_in_height ?? ''),
+            width,
+            height,
             quantity: String(glazingDim.parameters?.qty ?? 1),
             panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
             ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),

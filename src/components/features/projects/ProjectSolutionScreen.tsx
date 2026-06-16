@@ -21,7 +21,7 @@ import {
   shareData
 } from '@/services/export/exportService';
 import { projectsService } from '@/services/api';
-import { createProjectData } from '@/utils/dataTransformers';
+import { createProjectData, validateGlazingDimensions } from '@/utils/dataTransformers';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
 import {
@@ -31,44 +31,9 @@ import {
   formatRubberMeters,
   formatAccessoryQuantity,
   materialListDisplayUnit,
+  filterAccessoryTotalsForDisplay,
 } from '@/utils/calculationResultParser';
-import { parseCutKeyLengthMm, formatCutLengthLabel } from '@/utils/cutPlanKeys';
-
-/** True if the plan key or cut label denotes offcut/waste (should use checker style, not colored). */
-function isOffcutKey(cutKey: string): boolean {
-  const k = cutKey.toLowerCase();
-  return k.startsWith('offcut_') || k.startsWith('waste_');
-}
-
-/** Normalize cutting plan entry to a list of cuts (supports legacy string[] and new CuttingPlanPiece[] with elementId).
- * Backend may include offcut as a key (e.g. offcut_5492mm); we skip those so offcut is computed as
- * stockLength - sum(real cuts) to avoid mm rounding errors.
- * Cuts are ordered left-to-right largest to smallest (API convention), not object key order. */
-function normalizePlanEntryToCuts(planEntry: { [key: string]: string[] | CuttingPlanPiece[] }): Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> {
-  const result: Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> = [];
-  const cutKeys = Object.keys(planEntry)
-    .filter((key) => !isOffcutKey(key))
-    .sort((a, b) => parseCutKeyLengthMm(b) - parseCutKeyLengthMm(a));
-
-  cutKeys.forEach((cutKey) => {
-    const raw = planEntry[cutKey];
-    const lengthMm = parseCutKeyLengthMm(cutKey);
-    const lengthMeters = lengthMm / 1000;
-    const label = lengthMm > 0 ? formatCutLengthLabel(lengthMm) : cutKey;
-    if (!Array.isArray(raw) || raw.length === 0) return;
-    const isNewFormat = typeof raw[0] === 'object' && raw[0] !== null && 'cut' in (raw[0] as object);
-    if (isNewFormat) {
-      (raw as CuttingPlanPiece[]).forEach((piece) => {
-        result.push({ length: lengthMeters, label, elementId: piece.elementId, isOffcut: false });
-      });
-    } else {
-      (raw as string[]).forEach(() => {
-        result.push({ length: lengthMeters, label, isOffcut: false });
-      });
-    }
-  });
-  return result;
-}
+import { normalizePlanEntryToCuts } from '@/utils/cutPlanKeys';
 
 type CuttingPlanEntry = { [key: string]: string[] | CuttingPlanPiece[] };
 
@@ -112,8 +77,10 @@ function groupPlanEntriesByPattern(plan: CuttingPlanEntry[]): Array<{ planEntry:
 function buildCuttingLayoutViews(plan: CuttingPlanEntry[], stockLengthMeters: number) {
   return groupPlanEntriesByPattern(plan).map(({ planEntry, repetition }) => {
     const cuts = normalizePlanEntryToCuts(planEntry);
-    const totalUsed = cuts.reduce((sum, cut) => sum + cut.length, 0);
-    const offcut = stockLengthMeters - totalUsed;
+    const totalUsed = cuts
+      .filter((cut) => !cut.isOffcut)
+      .reduce((sum, cut) => sum + cut.length, 0);
+    const offcut = Math.max(0, stockLengthMeters - totalUsed);
     return { cuts, offcut, repetition, totalUsed, stockLength: stockLengthMeters };
   });
 }
@@ -341,14 +308,42 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         }))
     : [];
 
-  const allAccessoriesItems: MaterialItem[] = calculationResult?.accessoryTotals
-    ? calculationResult.accessoryTotals.map((item, index) => ({
-        id: `accessory-${index}`,
-        name: item.name,
-        quantity: item.qty,
-        unit: item.unit || 'pcs',
-        quantityLabel: formatAccessoryQuantity(item),
-      }))
+  const filteredAccessoryTotals = useMemo(() => {
+    if (!calculationResult?.accessoryTotals) return [];
+    return filterAccessoryTotalsForDisplay(
+      calculationResult.accessoryTotals,
+      calculationResult.materialList ?? []
+    );
+  }, [calculationResult?.accessoryTotals, calculationResult?.materialList]);
+
+  const allAccessoriesItems: MaterialItem[] = filteredAccessoryTotals.map((item, index) => ({
+    id: `accessory-${index}`,
+    name: item.name,
+    quantity: item.qty,
+    unit: item.unit || 'pcs',
+    quantityLabel: formatAccessoryQuantity(item),
+  }));
+
+  const allRollItems: MaterialItem[] = calculationResult?.materialList
+    ? calculationResult.materialList
+        .filter((item) => item.type === 'Roll')
+        .map((item, index) => ({
+          id: `roll-${index}`,
+          name: item.item,
+          quantity: item.units,
+          unit: materialListDisplayUnit(item),
+        }))
+    : [];
+
+  const allPurchaseAccessoryItems: MaterialItem[] = calculationResult?.materialList
+    ? calculationResult.materialList
+        .filter((item) => item.type === 'Accessory')
+        .map((item, index) => ({
+          id: `purchase-accessory-${index}`,
+          name: item.item,
+          quantity: item.units,
+          unit: materialListDisplayUnit(item),
+        }))
     : [];
 
   const allRubberItems: MaterialItem[] = calculationResult?.rubberTotals
@@ -498,6 +493,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         previousData.projectMeasurement
       );
 
+      const dimensionError = validateGlazingDimensions(projectData.glazingDimensions);
+      if (dimensionError) {
+        setError(dimensionError);
+        return;
+      }
+
       // Step 1: Create or update project with glazingDimensions so the backend has them stored
       let projectId: number;
       if (draftProjectId) {
@@ -595,6 +596,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         previousData.selectProject,
         previousData.projectMeasurement
       );
+
+      const dimensionError = validateGlazingDimensions(projectData.glazingDimensions);
+      if (dimensionError) {
+        setSaveError(dimensionError);
+        return;
+      }
 
       let response;
       
@@ -833,9 +840,27 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     allSheetItems.forEach(item => {
       total += getItemTotal(item.id, item.quantity);
     });
+
+    allRollItems.forEach((item) => {
+      total += getItemTotal(item.id, item.quantity);
+    });
+
+    allPurchaseAccessoryItems.forEach((item) => {
+      total += getItemTotal(item.id, item.quantity);
+    });
     
     return total;
-  }, [profileItems, accessoriesItems, allRubberItems, allScrewItems, allSheetItems, itemPrices, itemQuantities]);
+  }, [
+    profileItems,
+    accessoriesItems,
+    allRubberItems,
+    allScrewItems,
+    allSheetItems,
+    allRollItems,
+    allPurchaseAccessoryItems,
+    itemPrices,
+    itemQuantities,
+  ]);
 
   // Initialize quantities from items when calculation result changes
   useEffect(() => {
@@ -853,11 +878,21 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         : [];
       
       // Get accessory items
-      const accessories = calculationResult.accessoryTotals
-        ? calculationResult.accessoryTotals.map((item, index) => ({
-            id: `accessory-${index}`,
-            quantity: item.qty,
-          }))
+      const accessories = filteredAccessoryTotals.map((item, index) => ({
+        id: `accessory-${index}`,
+        quantity: item.qty,
+      }));
+
+      const rolls = calculationResult.materialList
+        ? calculationResult.materialList
+            .filter((item) => item.type === 'Roll')
+            .map((item, index) => ({ id: `roll-${index}`, quantity: item.units }))
+        : [];
+
+      const purchaseAccessories = calculationResult.materialList
+        ? calculationResult.materialList
+            .filter((item) => item.type === 'Accessory')
+            .map((item, index) => ({ id: `purchase-accessory-${index}`, quantity: item.units }))
         : [];
 
       const rubbers = calculationResult.rubberTotals
@@ -883,9 +918,11 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             }))
         : [];
       
-      [...profiles, ...accessories, ...rubbers, ...screws, ...sheets].forEach((item) => {
-        initialQuantities[item.id] = item.quantity;
-      });
+      [...profiles, ...accessories, ...rubbers, ...screws, ...sheets, ...rolls, ...purchaseAccessories].forEach(
+        (item) => {
+          initialQuantities[item.id] = item.quantity;
+        }
+      );
       
       setItemQuantities(prev => ({ ...prev, ...initialQuantities }));
     }
@@ -1598,6 +1635,26 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
               </div>
 
               <MaterialItemsSection
+                title="Net roll"
+                items={allRollItems}
+                expandedItems={expandedItems}
+                onToggle={toggleItemExpansion}
+                itemQuantities={itemQuantities}
+                itemPrices={itemPrices}
+                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
+                getItemTotal={getItemTotal}
+              />
+              <MaterialItemsSection
+                title="Materials (screws)"
+                items={allPurchaseAccessoryItems}
+                expandedItems={expandedItems}
+                onToggle={toggleItemExpansion}
+                itemQuantities={itemQuantities}
+                itemPrices={itemPrices}
+                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
+                getItemTotal={getItemTotal}
+              />
+              <MaterialItemsSection
                 title="Rubber / seal / spline"
                 items={allRubberItems}
                 expandedItems={expandedItems}
@@ -1642,11 +1699,24 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         Total panes: <span className="font-medium text-gray-900">{netPaneCount}</span>
                       </p>
                     </div>
-                    {calculationResult.netList.roll_type && (
+                    {(calculationResult.netList.roll_type || allRollItems.length > 0) && (
                       <p className="text-sm text-gray-600">
-                        Roll: <span className="font-medium">{calculationResult.netList.roll_type}</span>
-                        {calculationResult.netList.total_rolls != null && (
-                          <> · {calculationResult.netList.total_rolls} roll(s)</>
+                        {allRollItems.length > 0 && (
+                          <>
+                            Purchase:{' '}
+                            <span className="font-medium">
+                              {allRollItems.map((r) => `${r.name} (${r.quantity} ${r.unit})`).join(', ')}
+                            </span>
+                            {calculationResult.netList.roll_type ? ' · ' : ''}
+                          </>
+                        )}
+                        {calculationResult.netList.roll_type && (
+                          <>
+                            Roll: <span className="font-medium">{calculationResult.netList.roll_type}</span>
+                            {calculationResult.netList.total_rolls != null && (
+                              <> · {calculationResult.netList.total_rolls} roll(s)</>
+                            )}
+                          </>
                         )}
                       </p>
                     )}
