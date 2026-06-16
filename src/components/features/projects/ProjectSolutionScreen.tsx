@@ -32,7 +32,7 @@ import {
   buildMaterialDisplaySections,
   mergeAccessoryDisplaySections,
 } from '@/utils/calculationResultParser';
-import { normalizePlanEntryToCuts } from '@/utils/cutPlanKeys';
+import { normalizePlanEntryToCuts, formatOffcutLabelMm } from '@/utils/cutPlanKeys';
 
 type CuttingPlanEntry = { [key: string]: string[] | CuttingPlanPiece[] };
 
@@ -1491,7 +1491,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           {!isLoading && !error && activeTab === 'cutting' && (
             <div>
               {filteredCuttingList.length > 0 ? (
-                filteredCuttingList.map((cuttingItem, profileIndex) => {
+                <>
+                  <p className="text-xs text-gray-500 mb-6">All dimensions in the cutting diagram are shown in millimetres (mm).</p>
+                  {filteredCuttingList.map((cuttingItem, profileIndex) => {
                   const stockLengthMeters = cuttingItem.stock_length / 1000; // Convert mm to meters
                   
                   const layouts = buildCuttingLayoutViews(cuttingItem.plan, stockLengthMeters);
@@ -1550,7 +1552,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                   const showRightBorder = cutIndex < layout.cuts.length - 1 || layout.offcut > 0;
                                   const isOffcut = cut.isOffcut === true;
                                   const element = cut.elementId ? elementsMap[cut.elementId] : undefined;
-                                  const titleAttr = element ? `${cut.label} — ${element.title}` : cut.label;
+                                  const titleAttr = element
+                                    ? `${cut.diagramLabel} mm — ${element.title}`
+                                    : `${cut.diagramLabel} mm`;
                                   return (
                                     <div
                                       key={cutIndex}
@@ -1568,9 +1572,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                               backgroundColor: element?.color ?? '#6B9EB6',
                                             }),
                                       }}
-                                      title={isOffcut ? `Off-cut: ${cut.label}` : titleAttr}
+                                      title={isOffcut ? `Off-cut: ${formatOffcutLabelMm(cut.length)}` : titleAttr}
                                     >
-                                      {cut.label}
+                                      {cut.diagramLabel}
                                     </div>
                                   );
                                 })}
@@ -1591,7 +1595,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                               <div className="text-right">
                                 <span className="text-xs text-gray-500">Off-cut: </span>
                                 <span className="text-sm font-medium text-gray-900">
-                                  {layout.offcut > 0 ? `${layout.offcut.toFixed(2)}m` : '0m'}
+                                  {layout.offcut > 0 ? formatOffcutLabelMm(layout.offcut) : '0mm'}
                                 </span>
                               </div>
                             </button>
@@ -1600,7 +1604,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                       </div>
                     </div>
                   );
-                })
+                })}
+                </>
               ) : (
                 <div className="text-center py-12 text-gray-500">
                   <p>No cutting list data available</p>
@@ -1685,9 +1690,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                                   }
                                 : { backgroundColor: element?.color ?? '#6B9EB6' }),
                             }}
-                            title={element ? `${cut.label} — ${element.title}` : cut.label}
+                            title={element ? `${cut.diagramLabel} mm — ${element.title}` : `${cut.diagramLabel} mm`}
                           >
-                            {cut.label}
+                            {cut.diagramLabel}
                           </div>
                         );
                       })}
@@ -1708,7 +1713,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                     <div className="text-right">
                       <span className="text-sm text-gray-500">Off-cut: </span>
                       <span className="text-base font-semibold text-gray-900">
-                        {layout.offcut > 0 ? `${layout.offcut.toFixed(2)}m` : '0m'}
+                        {layout.offcut > 0 ? formatOffcutLabelMm(layout.offcut) : '0mm'}
                       </span>
                     </div>
                   </div>

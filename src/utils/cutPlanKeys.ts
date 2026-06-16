@@ -24,6 +24,27 @@ export function parseCutKeyLengthMm(cutKey: string): number {
   return Number.isFinite(mm) ? mm : 0;
 }
 
+/** Comma-formatted integer mm for cutting diagram segments (number only, no unit suffix). */
+export function formatCutDiagramLabel(lengthMm: number): string {
+  if (!Number.isFinite(lengthMm) || lengthMm <= 0) return '0';
+  return Math.round(lengthMm).toLocaleString('en-US');
+}
+
+/** Off-cut line under the stock bar, e.g. `1,500mm`. */
+export function formatOffcutLabelMm(offcutLengthMeters: number): string {
+  const mm = Math.max(0, Math.round(offcutLengthMeters * 1000));
+  return `${formatCutDiagramLabel(mm)}mm`;
+}
+
+export function lengthMmFromCutPiece(piece: CuttingPlanPiece, cutKey: string): number {
+  if (piece.lengthMm != null && Number.isFinite(piece.lengthMm) && piece.lengthMm > 0) {
+    return piece.lengthMm;
+  }
+  const fromKey = parseCutKeyLengthMm(cutKey);
+  if (fromKey > 0) return fromKey;
+  return parseCutKeyLengthMm(piece.cut ?? '');
+}
+
 /** Human-readable length for bar segments (supports sub-metre decimal mm from the engine). */
 export function formatCutLengthLabel(lengthMm: number): string {
   if (!Number.isFinite(lengthMm) || lengthMm <= 0) return '0m';
@@ -62,8 +83,8 @@ export function lengthMetersFromCutPiece(piece: CuttingPlanPiece, cutKey: string
  */
 export function normalizePlanEntryToCuts(planEntry: {
   [key: string]: string[] | CuttingPlanPiece[];
-}): Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> {
-  const result: Array<{ length: number; label: string; elementId?: string; isOffcut?: boolean }> = [];
+}): Array<{ length: number; lengthMm: number; label: string; diagramLabel: string; elementId?: string; isOffcut?: boolean }> {
+  const result: Array<{ length: number; lengthMm: number; label: string; diagramLabel: string; elementId?: string; isOffcut?: boolean }> = [];
   const cutKeys = Object.keys(planEntry)
     .filter((key) => !isOffcutKey(key))
     .sort((a, b) => parseCutKeyLengthMm(b) - parseCutKeyLengthMm(a));
@@ -75,10 +96,13 @@ export function normalizePlanEntryToCuts(planEntry: {
     if (isNewFormat) {
       (raw as CuttingPlanPiece[]).forEach((piece) => {
         const label = labelFromCutPiece(piece, cutKey);
+        const lengthMm = lengthMmFromCutPiece(piece, cutKey);
         const isOffcut = isOffcutLabel(label) || isOffcutLabel(piece.cut ?? '');
         result.push({
           length: lengthMetersFromCutPiece(piece, cutKey),
+          lengthMm,
           label,
+          diagramLabel: formatCutDiagramLabel(lengthMm),
           elementId: piece.elementId,
           isOffcut,
         });
@@ -88,7 +112,13 @@ export function normalizePlanEntryToCuts(planEntry: {
       const lengthMeters = lengthMm / 1000;
       const label = lengthMm > 0 ? formatCutLengthLabel(lengthMm) : cutKey;
       (raw as string[]).forEach(() => {
-        result.push({ length: lengthMeters, label, isOffcut: false });
+        result.push({
+          length: lengthMeters,
+          lengthMm,
+          label,
+          diagramLabel: formatCutDiagramLabel(lengthMm),
+          isOffcut: false,
+        });
       });
     }
   });
