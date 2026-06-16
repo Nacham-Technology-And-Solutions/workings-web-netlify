@@ -100,6 +100,10 @@ function parseMaterialList(raw: unknown): MaterialListItem[] {
       if (typeof r.unit === 'string' && r.unit.trim()) {
         item.unit = r.unit.trim();
       }
+      const pieceQty = Number(r.pieceQty);
+      if (Number.isFinite(pieceQty) && pieceQty > 0) {
+        item.pieceQty = pieceQty;
+      }
       if (r.unitPrice != null && Number.isFinite(Number(r.unitPrice))) {
         item.unitPrice = Number(r.unitPrice);
       }
@@ -181,6 +185,237 @@ export function filterAccessoryTotalsForDisplay(
   const purchaseNames = materialListPurchaseAccessoryNames(materialList);
   if (purchaseNames.size === 0) return accessoryTotals;
   return accessoryTotals.filter((a) => !purchaseNames.has(a.name.trim().toLowerCase()));
+}
+
+/** Display row for material list UI sections and quotes. */
+export interface MaterialDisplayItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  quantityLabel?: string;
+}
+
+export interface MaterialDisplaySections {
+  profiles: MaterialDisplayItem[];
+  accessories: MaterialDisplayItem[];
+  rolls: MaterialDisplayItem[];
+  sheets: MaterialDisplayItem[];
+  rubber: MaterialDisplayItem[];
+  screws: MaterialDisplayItem[];
+}
+
+type MaterialBucket = 'profile' | 'sheet' | 'roll' | 'rubber' | 'screw' | 'accessory';
+
+function normalizeMaterialUnit(unit?: string): string {
+  return (unit ?? '').trim().toLowerCase();
+}
+
+function isMetreUnit(unit: string): boolean {
+  return unit === 'm' || unit === 'meter' || unit === 'meters' || unit === 'metre' || unit === 'metres';
+}
+
+function isPieceUnit(unit: string): boolean {
+  return unit === 'pc' || unit === 'pcs';
+}
+
+function isScrewLineName(name: string): boolean {
+  return /screw/i.test(name);
+}
+
+function classifyMaterialListItem(item: MaterialListItem): MaterialBucket {
+  switch (item.type) {
+    case 'Profile':
+      return 'profile';
+    case 'Sheet':
+      return 'sheet';
+    case 'Roll':
+      return 'roll';
+    case 'Meter':
+      return 'rubber';
+    case 'Accessory_Pair':
+      return 'accessory';
+    case 'Accessory': {
+      const unit = normalizeMaterialUnit(item.unit);
+      if (isMetreUnit(unit)) return 'rubber';
+      if (isPieceUnit(unit)) return isScrewLineName(item.item) ? 'screw' : 'accessory';
+      if (unit === 'sheet' || unit === 'sheets') return 'sheet';
+      if (unit === 'roll' || unit === 'rolls') return 'roll';
+      return 'accessory';
+    }
+    default:
+      return 'accessory';
+  }
+}
+
+function materialListToDisplayItem(
+  item: MaterialListItem,
+  index: number,
+  prefix: string
+): MaterialDisplayItem {
+  const unit = materialListDisplayUnit(item);
+  const display: MaterialDisplayItem = {
+    id: `${prefix}-${index}`,
+    name: item.item,
+    quantity: item.units,
+    unit,
+  };
+  if (item.pieceQty != null && item.pieceQty > 0) {
+    display.quantityLabel = `${item.units} ${unit} (${item.pieceQty} pcs)`;
+  }
+  return display;
+}
+
+function mergeLegacyAccessoryTotals(
+  sections: MaterialDisplaySections,
+  accessoryTotals: AccessoryTotal[],
+  materialList: MaterialListItem[]
+): void {
+  const accNames = new Set(sections.accessories.map((a) => a.name.trim().toLowerCase()));
+  const screwNames = new Set(sections.screws.map((s) => s.name.trim().toLowerCase()));
+
+  for (const item of filterAccessoryTotalsForDisplay(accessoryTotals, materialList)) {
+    const key = item.name.trim().toLowerCase();
+    if (isScrewLineName(item.name)) {
+      if (screwNames.has(key)) continue;
+      screwNames.add(key);
+      sections.screws.push({
+        id: `screw-legacy-${sections.screws.length}`,
+        name: item.name,
+        quantity: item.qty,
+        unit: item.unit?.trim() || 'pcs',
+      });
+      continue;
+    }
+    if (accNames.has(key)) continue;
+    accNames.add(key);
+    sections.accessories.push({
+      id: `accessory-legacy-${sections.accessories.length}`,
+      name: item.name,
+      quantity: item.qty,
+      unit: item.unit || 'pcs',
+      quantityLabel: formatAccessoryQuantity(item),
+    });
+  }
+}
+
+function mergeLegacyRubberTotals(
+  sections: MaterialDisplaySections,
+  rubberTotals: CalculationResult['rubberTotals']
+): void {
+  const names = new Set(sections.rubber.map((r) => r.name.trim().toLowerCase()));
+  for (const item of rubberTotals) {
+    const key = item.name.trim().toLowerCase();
+    if (names.has(key)) continue;
+    names.add(key);
+    sections.rubber.push({
+      id: `rubber-legacy-${sections.rubber.length}`,
+      name: item.name,
+      quantity: item.total_meters,
+      unit: 'm',
+      quantityLabel: `${formatRubberMeters(item.name, item.total_meters)} m`,
+    });
+  }
+}
+
+function mergeLegacyScrewTotals(
+  sections: MaterialDisplaySections,
+  screwTotals: ScrewTotal[] | undefined
+): void {
+  if (!screwTotals?.length) return;
+  const names = new Set(sections.screws.map((s) => s.name.trim().toLowerCase()));
+  for (const item of screwTotals) {
+    const key = item.name.trim().toLowerCase();
+    if (names.has(key)) continue;
+    names.add(key);
+    sections.screws.push({
+      id: `screw-legacy-${sections.screws.length}`,
+      name: item.name,
+      quantity: item.qty,
+      unit: 'pcs',
+    });
+  }
+}
+
+/**
+ * Builds UI material sections from calculation result (integration doc copy 4).
+ * Primary source: `materialList` partitioned by type + unit; legacy totals merged when missing.
+ */
+export function buildMaterialDisplaySections(result: CalculationResult): MaterialDisplaySections {
+  const materialList = result.materialList ?? [];
+  const sections: MaterialDisplaySections = {
+    profiles: [],
+    accessories: [],
+    rolls: [],
+    sheets: [],
+    rubber: [],
+    screws: [],
+  };
+
+  const counters: Record<MaterialBucket, number> = {
+    profile: 0,
+    accessory: 0,
+    roll: 0,
+    sheet: 0,
+    rubber: 0,
+    screw: 0,
+  };
+
+  for (const item of materialList) {
+    const bucket = classifyMaterialListItem(item);
+    const prefix =
+      bucket === 'profile'
+        ? 'profile'
+        : bucket === 'roll'
+          ? 'roll'
+          : bucket === 'sheet'
+            ? 'sheet'
+            : bucket === 'rubber'
+              ? 'rubber'
+              : bucket === 'screw'
+                ? 'screw'
+                : 'accessory';
+    const display = materialListToDisplayItem(item, counters[bucket], prefix);
+    counters[bucket] += 1;
+
+    switch (bucket) {
+      case 'profile':
+        sections.profiles.push(display);
+        break;
+      case 'roll':
+        sections.rolls.push(display);
+        break;
+      case 'sheet':
+        sections.sheets.push(display);
+        break;
+      case 'rubber':
+        sections.rubber.push({ ...display, unit: 'm' });
+        break;
+      case 'screw':
+        sections.screws.push(display);
+        break;
+      case 'accessory':
+        sections.accessories.push(display);
+        break;
+    }
+  }
+
+  mergeLegacyAccessoryTotals(sections, result.accessoryTotals ?? [], materialList);
+  mergeLegacyRubberTotals(sections, result.rubberTotals ?? []);
+  mergeLegacyScrewTotals(sections, result.screwTotals);
+
+  return sections;
+}
+
+/** Non-profile material lines for a single Accessories UI section. */
+export function mergeAccessoryDisplaySections(sections: MaterialDisplaySections): MaterialDisplayItem[] {
+  return [
+    ...sections.accessories,
+    ...sections.rolls,
+    ...sections.rubber,
+    ...sections.screws,
+    ...sections.sheets,
+  ];
 }
 
 /** Normalize API calculation result (calculate or lastCalculationResult). */

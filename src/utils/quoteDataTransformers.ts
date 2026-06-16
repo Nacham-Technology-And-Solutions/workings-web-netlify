@@ -7,11 +7,10 @@ import type { DimensionItem, ProjectMeasurementData } from '@/types/project';
 import type { CalculationResult } from '@/types/calculations';
 import type { QuoteItemRow } from '@/types/quote';
 import {
-  formatAccessoryQuantity,
+  buildMaterialDisplaySections,
   formatRubberMeters,
-  filterAccessoryTotalsForDisplay,
   getNetPaneCount,
-  materialListDisplayUnit,
+  mergeAccessoryDisplaySections,
 } from '@/utils/calculationResultParser';
 
 /**
@@ -54,6 +53,24 @@ export function convertDimensionsToQuoteItems(
   });
 }
 
+function pushDisplaySection(
+  items: QuoteItemRow[],
+  idCounter: { value: number },
+  rows: { name: string; quantity: number; unit: string; quantityLabel?: string }[],
+  suffix: string
+): void {
+  rows.forEach((row) => {
+    const label = row.quantityLabel ?? `${row.quantity} ${row.unit}`;
+    items.push({
+      id: String(idCounter.value++),
+      description: `${row.name} (${label}${suffix})`,
+      quantity: row.quantity,
+      unitPrice: 0,
+      total: 0,
+    });
+  });
+}
+
 /**
  * Converts material list to quote item rows
  */
@@ -61,103 +78,30 @@ export function convertMaterialListToQuoteItems(
   calculationResult: CalculationResult
 ): QuoteItemRow[] {
   const items: QuoteItemRow[] = [];
-  let idCounter = 1;
+  const idCounter = { value: 1 };
+  const sections = buildMaterialDisplaySections(calculationResult);
 
-  // Add profile items
-  if (calculationResult.materialList) {
-    calculationResult.materialList
-      .filter(item => item.type === 'Profile')
-      .forEach((item) => {
-        items.push({
-          id: String(idCounter++),
-          description: `${item.item} (${materialListDisplayUnit(item)})`,
-          quantity: item.units,
-          unitPrice: 0, // User will enter price
-          total: 0,
-        });
-      });
+  pushDisplaySection(items, idCounter, sections.profiles, '');
 
-    calculationResult.materialList
-      .filter(item => item.type === 'Sheet')
-      .forEach((item) => {
-        items.push({
-          id: String(idCounter++),
-          description: `${item.item} (${materialListDisplayUnit(item)})`,
-          quantity: item.units,
-          unitPrice: 0,
-          total: 0,
-        });
-      });
-
-    calculationResult.materialList
-      .filter((item) => item.type === 'Roll')
-      .forEach((item) => {
-        items.push({
-          id: String(idCounter++),
-          description: `${item.item} (${materialListDisplayUnit(item)})`,
-          quantity: item.units,
-          unitPrice: 0,
-          total: 0,
-        });
-      });
-
-    calculationResult.materialList
-      .filter((item) => item.type === 'Accessory')
-      .forEach((item) => {
-        items.push({
-          id: String(idCounter++),
-          description: `${item.item} (${materialListDisplayUnit(item)})`,
-          quantity: item.units,
-          unitPrice: 0,
-          total: 0,
-        });
-      });
-  }
-
-  const accessoryTotalsForQuote = filterAccessoryTotalsForDisplay(
-    calculationResult.accessoryTotals ?? [],
-    calculationResult.materialList ?? []
-  );
-  accessoryTotalsForQuote.forEach((item) => {
+  mergeAccessoryDisplaySections(sections).forEach((row) => {
+    const label =
+      row.unit === 'm'
+        ? `${formatRubberMeters(row.name, row.quantity)} m`
+        : row.quantityLabel ?? `${row.quantity} ${row.unit}`;
     items.push({
-      id: String(idCounter++),
-      description: `${item.name} — ${formatAccessoryQuantity(item)}`,
-      quantity: item.qty,
+      id: String(idCounter.value++),
+      description: `${row.name} — ${label}`,
+      quantity: row.quantity,
       unitPrice: 0,
       total: 0,
     });
   });
 
-  // Add rubber items
-  if (calculationResult.rubberTotals) {
-    calculationResult.rubberTotals.forEach((item) => {
-      items.push({
-        id: String(idCounter++),
-        description: `${item.name} (${formatRubberMeters(item.name, item.total_meters)}m)`,
-        quantity: 1,
-        unitPrice: 0, // User will enter price
-        total: 0,
-      });
-    });
-  }
-
-  if (calculationResult.screwTotals) {
-    calculationResult.screwTotals.forEach((item) => {
-      items.push({
-        id: String(idCounter++),
-        description: item.name,
-        quantity: item.qty,
-        unitPrice: 0,
-        total: 0,
-      });
-    });
-  }
-
   const netPaneCount = getNetPaneCount(calculationResult.netList);
   if (netPaneCount > 0 && calculationResult.netList?.cuts) {
     calculationResult.netList.cuts.forEach((cut) => {
       items.push({
-        id: String(idCounter++),
+        id: String(idCounter.value++),
         description: `Net pane ${cut.w} × ${cut.h} mm`,
         quantity: cut.qty,
         unitPrice: 0,
@@ -203,12 +147,10 @@ export function getInitialQuoteItems(
       console.log('[getInitialQuoteItems] Material list requested but no material items found:', {
         hasCalculationResult: !!calculationResult,
         hasMaterialList: !!calculationResult?.materialList,
-        hasAccessoryTotals: !!calculationResult?.accessoryTotals,
-        hasRubberTotals: !!calculationResult?.rubberTotals
+        materialListLength: calculationResult?.materialList?.length ?? 0,
       });
     }
   }
 
   return [];
 }
-

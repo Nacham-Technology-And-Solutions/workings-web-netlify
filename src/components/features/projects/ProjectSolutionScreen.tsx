@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData, DimensionItem } from '@/types';
-import type { CalculationResult, MaterialListItem, CuttingListItem, RubberTotal, AccessoryTotal, GlazingElement, CuttingPlanPiece } from '@/types/calculations';
+import type { CalculationResult, CuttingListItem, GlazingElement, CuttingPlanPiece } from '@/types/calculations';
 import GlassCuttingNest from '@/components/features/projects/GlassCuttingNest';
 import {
   normalizeGlassListResult,
@@ -29,9 +29,8 @@ import {
   getNetPaneCount,
   hasNetCuttingData,
   formatRubberMeters,
-  formatAccessoryQuantity,
-  materialListDisplayUnit,
-  filterAccessoryTotalsForDisplay,
+  buildMaterialDisplaySections,
+  mergeAccessoryDisplaySections,
 } from '@/utils/calculationResultParser';
 import { normalizePlanEntryToCuts } from '@/utils/cutPlanKeys';
 
@@ -85,107 +84,6 @@ function buildCuttingLayoutViews(plan: CuttingPlanEntry[], stockLengthMeters: nu
   });
 }
 
-interface MaterialItemsSectionProps {
-  title: string;
-  items: MaterialItem[];
-  expandedItems: Record<string, boolean>;
-  onToggle: (id: string) => void;
-  itemQuantities: Record<string, number>;
-  itemPrices: Record<string, number>;
-  onPriceChange: (itemId: string, price: number) => void;
-  getItemTotal: (itemId: string, defaultQuantity: number) => number;
-  quantitySuffix?: string;
-}
-
-const MaterialItemsSection: React.FC<MaterialItemsSectionProps> = ({
-  title,
-  items,
-  expandedItems,
-  onToggle,
-  itemQuantities,
-  itemPrices,
-  onPriceChange,
-  getItemTotal,
-  quantitySuffix,
-}) => {
-  if (items.length === 0) return null;
-
-  return (
-    <div className="mt-8 lg:col-span-2">
-      <h3 className="text-base font-semibold text-gray-900 mb-4">{title}</h3>
-      <div className="space-y-3">
-        {items.map((item) => (
-          <div key={item.id}>
-            <button
-              type="button"
-              onClick={() => onToggle(item.id)}
-              className="w-full flex justify-between items-center py-3 px-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <span className="text-gray-900 font-normal">{item.name}</span>
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
-                  {item.unit === 'm'
-                    ? `${formatRubberMeters(item.name, itemQuantities[item.id] ?? item.quantity)} m`
-                    : item.quantityLabel
-                      ? item.quantityLabel
-                      : quantitySuffix
-                        ? `${item.quantity} ${quantitySuffix}`
-                        : `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`}
-                </span>
-                <svg
-                  className={`w-5 h-5 text-gray-400 transition-transform ${expandedItems[item.id] ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-            {expandedItems[item.id] && (
-              <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg space-y-4">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Item Info</span>
-                  <span className="text-gray-900">:</span>
-                  <span className="text-gray-900 font-medium">{item.name}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Qty(s)</span>
-                  <span className="text-gray-900">:</span>
-                  <span className="text-gray-900 font-medium">
-                    {item.quantityLabel ?? `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Price</span>
-                  <span className="text-gray-900">:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-gray-900">₦</span>
-                    <input
-                      type="number"
-                      placeholder="Enter your price..."
-                      value={itemPrices[item.id] || ''}
-                      onChange={(e) => onPriceChange(item.id, parseFloat(e.target.value) || 0)}
-                      className="w-32 px-2 py-1 border-b border-gray-300 text-right text-gray-900 focus:outline-none focus:border-gray-400"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
-                  <span className="text-gray-600">Total</span>
-                  <span className="text-gray-900">:</span>
-                  <span className="text-gray-900 font-bold">
-                    ₦{getItemTotal(item.id, item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 interface ProjectSolutionScreenProps {
   onBack: () => void;
   onGenerate: (materialCost: number) => void;
@@ -211,6 +109,16 @@ interface MaterialItem {
   unit: string;
   /** Full quantity label when unit alone is insufficient (e.g. `4 sets (16 pcs)`). */
   quantityLabel?: string;
+}
+
+function formatMaterialQuantityBadge(
+  item: MaterialItem,
+  itemQuantities: Record<string, number>
+): string {
+  if (item.unit === 'm') {
+    return `${formatRubberMeters(item.name, itemQuantities[item.id] ?? item.quantity)} m`;
+  }
+  return item.quantityLabel ?? `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`;
 }
 
 const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onProjectSaved, onCalculationComplete }) => {
@@ -296,84 +204,18 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     return () => window.clearTimeout(t);
   }, [projectSaved]);
 
-  // Transform calculation result to display format
-  const allProfileItems: MaterialItem[] = calculationResult?.materialList
-    ? calculationResult.materialList
-        .filter(item => item.type === 'Profile')
-        .map((item, index) => ({
-          id: `profile-${index}`,
-          name: item.item,
-          quantity: item.units,
-          unit: materialListDisplayUnit(item),
-        }))
-    : [];
+  // Transform calculation result to display format (materialList primary; legacy totals merged)
+  const materialSections = useMemo(
+    () => (calculationResult ? buildMaterialDisplaySections(calculationResult) : null),
+    [calculationResult]
+  );
 
-  const filteredAccessoryTotals = useMemo(() => {
-    if (!calculationResult?.accessoryTotals) return [];
-    return filterAccessoryTotalsForDisplay(
-      calculationResult.accessoryTotals,
-      calculationResult.materialList ?? []
-    );
-  }, [calculationResult?.accessoryTotals, calculationResult?.materialList]);
-
-  const allAccessoriesItems: MaterialItem[] = filteredAccessoryTotals.map((item, index) => ({
-    id: `accessory-${index}`,
-    name: item.name,
-    quantity: item.qty,
-    unit: item.unit || 'pcs',
-    quantityLabel: formatAccessoryQuantity(item),
-  }));
-
-  const allRollItems: MaterialItem[] = calculationResult?.materialList
-    ? calculationResult.materialList
-        .filter((item) => item.type === 'Roll')
-        .map((item, index) => ({
-          id: `roll-${index}`,
-          name: item.item,
-          quantity: item.units,
-          unit: materialListDisplayUnit(item),
-        }))
-    : [];
-
-  const allPurchaseAccessoryItems: MaterialItem[] = calculationResult?.materialList
-    ? calculationResult.materialList
-        .filter((item) => item.type === 'Accessory')
-        .map((item, index) => ({
-          id: `purchase-accessory-${index}`,
-          name: item.item,
-          quantity: item.units,
-          unit: materialListDisplayUnit(item),
-        }))
-    : [];
-
-  const allRubberItems: MaterialItem[] = calculationResult?.rubberTotals
-    ? calculationResult.rubberTotals.map((item, index) => ({
-        id: `rubber-${index}`,
-        name: item.name,
-        quantity: item.total_meters,
-        unit: 'm',
-      }))
-    : [];
-
-  const allScrewItems: MaterialItem[] = calculationResult?.screwTotals
-    ? calculationResult.screwTotals.map((item, index) => ({
-        id: `screw-${index}`,
-        name: item.name,
-        quantity: item.qty,
-        unit: 'pcs',
-      }))
-    : [];
-
-  const allSheetItems: MaterialItem[] = calculationResult?.materialList
-    ? calculationResult.materialList
-        .filter((item) => item.type === 'Sheet')
-        .map((item, index) => ({
-          id: `sheet-${index}`,
-          name: item.item,
-          quantity: item.units,
-          unit: materialListDisplayUnit(item),
-        }))
-    : [];
+  const allProfileItems: MaterialItem[] = materialSections?.profiles ?? [];
+  const allAccessoriesItems: MaterialItem[] = useMemo(
+    () => (materialSections ? mergeAccessoryDisplaySections(materialSections) : []),
+    [materialSections]
+  );
+  const netRollItems: MaterialItem[] = materialSections?.rolls ?? [];
 
   const netPaneCount = useMemo(
     () => getNetPaneCount(calculationResult?.netList),
@@ -829,104 +671,24 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       total += getItemTotal(item.id, item.quantity);
     });
 
-    allRubberItems.forEach(item => {
-      total += getItemTotal(item.id, item.quantity);
-    });
-
-    allScrewItems.forEach(item => {
-      total += getItemTotal(item.id, item.quantity);
-    });
-
-    allSheetItems.forEach(item => {
-      total += getItemTotal(item.id, item.quantity);
-    });
-
-    allRollItems.forEach((item) => {
-      total += getItemTotal(item.id, item.quantity);
-    });
-
-    allPurchaseAccessoryItems.forEach((item) => {
-      total += getItemTotal(item.id, item.quantity);
-    });
-    
     return total;
-  }, [
-    profileItems,
-    accessoriesItems,
-    allRubberItems,
-    allScrewItems,
-    allSheetItems,
-    allRollItems,
-    allPurchaseAccessoryItems,
-    itemPrices,
-    itemQuantities,
-  ]);
+  }, [profileItems, accessoriesItems, itemPrices, itemQuantities]);
 
   // Initialize quantities from items when calculation result changes
   useEffect(() => {
-    if (calculationResult) {
-      const initialQuantities: Record<string, number> = {};
-      
-      // Get profile items
-      const profiles = calculationResult.materialList
-        ? calculationResult.materialList
-            .filter(item => item.type === 'Profile')
-            .map((item, index) => ({
-              id: `profile-${index}`,
-              quantity: item.units,
-            }))
-        : [];
-      
-      // Get accessory items
-      const accessories = filteredAccessoryTotals.map((item, index) => ({
-        id: `accessory-${index}`,
-        quantity: item.qty,
-      }));
+    if (!materialSections) return;
 
-      const rolls = calculationResult.materialList
-        ? calculationResult.materialList
-            .filter((item) => item.type === 'Roll')
-            .map((item, index) => ({ id: `roll-${index}`, quantity: item.units }))
-        : [];
+    const initialQuantities: Record<string, number> = {};
+    const allItems = [
+      ...materialSections.profiles,
+      ...mergeAccessoryDisplaySections(materialSections),
+    ];
+    allItems.forEach((item) => {
+      initialQuantities[item.id] = item.quantity;
+    });
 
-      const purchaseAccessories = calculationResult.materialList
-        ? calculationResult.materialList
-            .filter((item) => item.type === 'Accessory')
-            .map((item, index) => ({ id: `purchase-accessory-${index}`, quantity: item.units }))
-        : [];
-
-      const rubbers = calculationResult.rubberTotals
-        ? calculationResult.rubberTotals.map((item, index) => ({
-            id: `rubber-${index}`,
-            quantity: item.total_meters,
-          }))
-        : [];
-
-      const screws = calculationResult.screwTotals
-        ? calculationResult.screwTotals.map((item, index) => ({
-            id: `screw-${index}`,
-            quantity: item.qty,
-          }))
-        : [];
-
-      const sheets = calculationResult.materialList
-        ? calculationResult.materialList
-            .filter((item) => item.type === 'Sheet')
-            .map((item, index) => ({
-              id: `sheet-${index}`,
-              quantity: item.units,
-            }))
-        : [];
-      
-      [...profiles, ...accessories, ...rubbers, ...screws, ...sheets, ...rolls, ...purchaseAccessories].forEach(
-        (item) => {
-          initialQuantities[item.id] = item.quantity;
-        }
-      );
-      
-      setItemQuantities(prev => ({ ...prev, ...initialQuantities }));
-    }
-  }, [calculationResult]);
+    setItemQuantities((prev) => ({ ...prev, ...initialQuantities }));
+  }, [materialSections]);
 
   return (
     <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
@@ -1440,9 +1202,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           {/* Material List Content */}
           {!isLoading && !error && activeTab === 'material' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Profile Section */}
+              {/* Profiles */}
               <div>
-                <h3 className="text-base font-semibold text-gray-900 mb-4">Profile</h3>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Profiles</h3>
                 <div className="space-y-3">
                   {profileItems.map((item) => (
                     <div key={item.id}>
@@ -1548,7 +1310,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         <span className="text-gray-900 font-normal">{item.name}</span>
                         <div className="flex items-center gap-3">
                           <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
-                            {item.quantityLabel ?? `${item.quantity} ${item.unit}`}
+                            {formatMaterialQuantityBadge(item, itemQuantities)}
                           </span>
                           <svg
                             className={`w-5 h-5 text-gray-400 transition-transform ${expandedItems[item.id] ? 'rotate-180' : ''
@@ -1576,8 +1338,10 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-gray-600">Qty(s)</span>
                             <span className="text-gray-900">:</span>
-                            {item.quantityLabel ? (
-                              <span className="text-gray-900 font-medium">{item.quantityLabel}</span>
+                            {item.quantityLabel || item.unit === 'm' ? (
+                              <span className="text-gray-900 font-medium">
+                                {formatMaterialQuantityBadge(item, itemQuantities)}
+                              </span>
                             ) : (
                               <input
                                 type="number"
@@ -1633,57 +1397,6 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   ))}
                 </div>
               </div>
-
-              <MaterialItemsSection
-                title="Net roll"
-                items={allRollItems}
-                expandedItems={expandedItems}
-                onToggle={toggleItemExpansion}
-                itemQuantities={itemQuantities}
-                itemPrices={itemPrices}
-                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
-                getItemTotal={getItemTotal}
-              />
-              <MaterialItemsSection
-                title="Materials (screws)"
-                items={allPurchaseAccessoryItems}
-                expandedItems={expandedItems}
-                onToggle={toggleItemExpansion}
-                itemQuantities={itemQuantities}
-                itemPrices={itemPrices}
-                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
-                getItemTotal={getItemTotal}
-              />
-              <MaterialItemsSection
-                title="Rubber / seal / spline"
-                items={allRubberItems}
-                expandedItems={expandedItems}
-                onToggle={toggleItemExpansion}
-                itemQuantities={itemQuantities}
-                itemPrices={itemPrices}
-                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
-                getItemTotal={getItemTotal}
-              />
-              <MaterialItemsSection
-                title="Screws"
-                items={allScrewItems}
-                expandedItems={expandedItems}
-                onToggle={toggleItemExpansion}
-                itemQuantities={itemQuantities}
-                itemPrices={itemPrices}
-                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
-                getItemTotal={getItemTotal}
-              />
-              <MaterialItemsSection
-                title="Glass sheets"
-                items={allSheetItems}
-                expandedItems={expandedItems}
-                onToggle={toggleItemExpansion}
-                itemQuantities={itemQuantities}
-                itemPrices={itemPrices}
-                onPriceChange={(itemId, price) => setItemPrices((prev) => ({ ...prev, [itemId]: price }))}
-                getItemTotal={getItemTotal}
-              />
             </div>
           )}
 
@@ -1699,13 +1412,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                         Total panes: <span className="font-medium text-gray-900">{netPaneCount}</span>
                       </p>
                     </div>
-                    {(calculationResult.netList.roll_type || allRollItems.length > 0) && (
+                    {(calculationResult.netList.roll_type || netRollItems.length > 0) && (
                       <p className="text-sm text-gray-600">
-                        {allRollItems.length > 0 && (
+                        {netRollItems.length > 0 && (
                           <>
                             Purchase:{' '}
                             <span className="font-medium">
-                              {allRollItems.map((r) => `${r.name} (${r.quantity} ${r.unit})`).join(', ')}
+                              {netRollItems.map((r) => `${r.name} (${r.quantity} ${r.unit})`).join(', ')}
                             </span>
                             {calculationResult.netList.roll_type ? ' · ' : ''}
                           </>

@@ -83,6 +83,8 @@ export interface MaterialListItem {
   type: 'Profile' | 'Accessory' | 'Accessory_Pair' | 'Sheet' | 'Roll' | 'Meter';
   /** Display/count unit from engine, e.g. "lengths" (profiles), "sheets" (glass). */
   unit?: string;
+  /** Total pieces when sold by set (e.g. Rollers on materialList). */
+  pieceQty?: number;
   unitPrice?: number;
   totalPrice?: number;
 }
