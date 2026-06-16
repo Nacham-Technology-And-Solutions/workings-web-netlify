@@ -2,8 +2,20 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useTemplateStore } from '@/stores/templateStore';
+import { getPdfAppLogo, preloadPdfAppLogo, type PdfAppLogo } from '@/utils/pdfAppLogo';
+import { drawPdfHeaderLogo, applyPdfWatermarks } from '@/utils/pdfBranding';
+import {
+  ensurePdfUnicodeFonts,
+  setPdfUnicodeFont,
+  pdfTableFontStyles,
+  pdfTableHeadFontStyles,
+  pdfAutoTableUnicodeHooks,
+} from '@/utils/pdfFonts';
+import { formatNairaForPdf } from '@/utils/formatters';
 import type { GlassPlacement } from '@/types/calculations';
 import type { DimensionItem } from '@/types/project';
+
+preloadPdfAppLogo();
 
 /** One project cart line for PDF cover tables (cutting / glass exports). */
 export interface ProjectCartExportRow {
@@ -45,21 +57,12 @@ export function buildProjectCartExportRows(
   }));
 }
 
-function drawPdfLogoPlaceholder(doc: jsPDF, pageW: number, margin: number, y: number): void {
-  doc.setFillColor(75, 85, 99);
-  doc.rect(pageW - margin - 30, y - 6, 30, 12, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Logo', pageW - margin - 15, y + 1, { align: 'center' });
-  doc.setTextColor(55, 65, 81);
-}
-
 /** Page 1 cover: document title + project cart table. */
 function drawProjectCartCoverPage(
   doc: jsPDF,
   documentTitle: string,
-  cover: ProjectExportCoverInfo
+  cover: ProjectExportCoverInfo,
+  logo: PdfAppLogo | null
 ): void {
   const margin = 14;
   const pageW = doc.internal.pageSize.getWidth();
@@ -69,7 +72,7 @@ function drawProjectCartCoverPage(
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(55, 65, 81);
   doc.text(documentTitle, margin, startY);
-  drawPdfLogoPlaceholder(doc, pageW, margin, startY);
+  drawPdfHeaderLogo(doc, pageW, margin, startY, logo);
   startY += 14;
 
   doc.setFontSize(10);
@@ -126,6 +129,7 @@ function drawProjectCartCoverPage(
       0: { cellWidth: 10 },
       1: { cellWidth: 32 },
       3: { cellWidth: 38 },
+      ...(colorColIndex >= 0 ? { [colorColIndex]: { cellWidth: 14, halign: 'center' } } : {}),
     },
     margin: { left: margin, right: margin },
     didParseCell: (data) => {
@@ -140,11 +144,9 @@ function drawProjectCartCoverPage(
       const [r, g, b] = hexToRgb(hex);
       doc.setFillColor(r, g, b);
       doc.setDrawColor(209, 213, 219);
-      doc.circle(data.cell.x + 5, data.cell.y + data.cell.height / 2, 2, 'FD');
-      doc.setFontSize(8);
-      doc.setTextColor(84, 84, 84);
-      doc.text(hex.toUpperCase(), data.cell.x + 9, data.cell.y + data.cell.height / 2 + 1);
-      doc.setTextColor(0, 0, 0);
+      const cx = data.cell.x + data.cell.width / 2;
+      const cy = data.cell.y + data.cell.height / 2;
+      doc.circle(cx, cy, 2, 'FD');
     },
   } as any);
 }
@@ -214,6 +216,170 @@ interface MaterialItem {
   total: number;
 }
 
+export interface MaterialListExportRow {
+  name: string;
+  quantity: number;
+  unit: string;
+  /** Display string when unit alone is insufficient (e.g. `4 sets (16 pcs)`). */
+  quantityDisplay?: string;
+  unitPrice?: number;
+  total?: number;
+}
+
+export interface MaterialListExportSection {
+  title: string;
+  rows: MaterialListExportRow[];
+}
+
+export type MaterialListExportMode = 'bom' | 'priced';
+
+function materialListExportFilename(projectName: string, mode: MaterialListExportMode, ext: string): string {
+  const slug = projectName.replace(/\s+/g, '-');
+  return mode === 'bom' ? `Material-List-BOM-${slug}.${ext}` : `Material-List-${slug}.${ext}`;
+}
+
+/** Export calculation material list with Profiles / Accessories sections. */
+export const exportProjectMaterialListToPDF = async (
+  sections: MaterialListExportSection[],
+  projectName: string,
+  customerName: string,
+  grandTotal: number,
+  mode: MaterialListExportMode
+) => {
+  const logo = await getPdfAppLogo();
+  const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const headerY = 20;
+  await ensurePdfUnicodeFonts(doc);
+  const priced = mode === 'priced';
+
+  doc.setFontSize(22);
+  setPdfUnicodeFont(doc, 'bold');
+  doc.setTextColor(55, 65, 81);
+  doc.text('MATERIAL LIST', margin, headerY);
+  drawPdfHeaderLogo(doc, pageW, margin, headerY, logo);
+
+  doc.setFontSize(10);
+  setPdfUnicodeFont(doc, 'normal');
+  doc.text(`Project: ${projectName}`, margin, 34);
+  if (customerName) {
+    doc.text(`Customer: ${customerName}`, margin, 40);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 46);
+  } else {
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 40);
+  }
+
+  let startY = customerName ? 54 : 48;
+
+  sections.forEach((section) => {
+    if (!section.rows.length) return;
+
+    doc.setFontSize(11);
+    setPdfUnicodeFont(doc, 'bold');
+    doc.setTextColor(31, 41, 55);
+    doc.text(section.title, 14, startY);
+    startY += 6;
+
+    const tableData = section.rows.map((row, index) => {
+      const qtyCell = row.quantityDisplay ?? `${row.quantity} ${row.unit}`;
+      if (priced) {
+        return [
+          index + 1,
+          row.name,
+          qtyCell,
+          row.unit,
+          formatNairaForPdf(row.unitPrice ?? 0),
+          formatNairaForPdf(row.total ?? 0),
+        ];
+      }
+      return [index + 1, row.name, qtyCell];
+    });
+
+    autoTable(doc, {
+      startY,
+      head: priced
+        ? [['S/N', 'Item', 'Quantity', 'Unit', 'Unit Price', 'Total']]
+        : [['S/N', 'Item', 'Quantity']],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 9, ...pdfTableFontStyles() },
+      headStyles: { fillColor: [55, 65, 81], ...pdfTableHeadFontStyles() },
+      bodyStyles: pdfTableFontStyles(),
+      ...pdfAutoTableUnicodeHooks(),
+    });
+
+    startY = ((doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY) + 10;
+  });
+
+  if (priced) {
+    doc.setFontSize(12);
+    setPdfUnicodeFont(doc, 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, startY);
+  }
+
+  applyPdfWatermarks(doc, logo);
+  doc.save(materialListExportFilename(projectName, mode, 'pdf'));
+};
+
+export const exportProjectMaterialListToExcel = (
+  sections: MaterialListExportSection[],
+  projectName: string,
+  customerName: string,
+  grandTotal: number,
+  mode: MaterialListExportMode
+) => {
+  const priced = mode === 'priced';
+  const wsData: (string | number)[][] = [
+    ['Material List'],
+    [],
+    ['Project:', projectName],
+    ['Customer:', customerName || '—'],
+    ['Date:', new Date().toLocaleDateString()],
+    [],
+  ];
+
+  sections.forEach((section) => {
+    if (!section.rows.length) return;
+    wsData.push([section.title]);
+    wsData.push(
+      priced
+        ? ['S/N', 'Item', 'Quantity', 'Unit', 'Unit Price (₦)', 'Total (₦)']
+        : ['S/N', 'Item', 'Quantity']
+    );
+    section.rows.forEach((row, index) => {
+      const qtyCell = row.quantityDisplay ?? `${row.quantity} ${row.unit}`;
+      if (priced) {
+        wsData.push([
+          index + 1,
+          row.name,
+          qtyCell,
+          row.unit,
+          row.unitPrice ?? 0,
+          row.total ?? 0,
+        ]);
+      } else {
+        wsData.push([index + 1, row.name, qtyCell]);
+      }
+    });
+    wsData.push([]);
+  });
+
+  if (priced) {
+    wsData.push(['', '', '', '', 'Grand Total:', grandTotal]);
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = priced
+    ? [{ wch: 6 }, { wch: 28 }, { wch: 18 }, { wch: 10 }, { wch: 15 }, { wch: 15 }]
+    : [{ wch: 6 }, { wch: 28 }, { wch: 18 }];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Material List');
+  XLSX.writeFile(wb, materialListExportFilename(projectName, mode, 'xlsx'));
+};
+
 export interface CuttingLayout {
   id?: string;
   layout: string;
@@ -238,52 +404,57 @@ export interface CuttingListSection {
   layouts: CuttingLayout[];
 }
 
-export const exportMaterialListToPDF = (
+export const exportMaterialListToPDF = async (
   materials: MaterialItem[],
   projectName: string,
   customerName: string,
   grandTotal: number
 ) => {
+  const logo = await getPdfAppLogo();
   const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const headerY = 20;
+  await ensurePdfUnicodeFonts(doc);
 
-  // Header
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Material List', 14, 20);
+  doc.setFontSize(22);
+  setPdfUnicodeFont(doc, 'bold');
+  doc.setTextColor(55, 65, 81);
+  doc.text('MATERIAL LIST', margin, headerY);
+  drawPdfHeaderLogo(doc, pageW, margin, headerY, logo);
 
-  // Project Info
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Project: ${projectName}`, 14, 30);
-  doc.text(`Customer: ${customerName}`, 14, 36);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 42);
+  setPdfUnicodeFont(doc, 'normal');
+  doc.text(`Project: ${projectName}`, margin, 34);
+  doc.text(`Customer: ${customerName}`, margin, 40);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 46);
 
-  // Material Table
   const tableData = materials.map((item, index) => [
     index + 1,
     item.name,
     item.quantity,
     item.unit,
-    `₦${item.unitPrice.toLocaleString()}`,
-    `₦${item.total.toLocaleString()}`
+    formatNairaForPdf(item.unitPrice),
+    formatNairaForPdf(item.total),
   ]);
 
   autoTable(doc, {
-    startY: 50,
+    startY: 54,
     head: [['S/N', 'Item', 'Quantity', 'Unit', 'Unit Price', 'Total']],
     body: tableData,
     theme: 'grid',
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' }
+    styles: { fontSize: 9, ...pdfTableFontStyles() },
+    headStyles: { fillColor: [55, 65, 81], ...pdfTableHeadFontStyles() },
+    bodyStyles: pdfTableFontStyles(),
+    ...pdfAutoTableUnicodeHooks(),
   });
 
-  // Grand Total
-  const finalY = (doc as any).lastAutoTable.finalY || 50;
+  const finalY = (doc as any).lastAutoTable.finalY || 54;
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Grand Total: ₦${grandTotal.toLocaleString()}`, 14, finalY + 10);
+  setPdfUnicodeFont(doc, 'bold');
+  doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, finalY + 10);
 
-  // Save
+  applyPdfWatermarks(doc, logo);
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -299,13 +470,14 @@ interface FullMaterialListItem {
 /**
  * Export material list to PDF (accepts FullMaterialList format with description, not name)
  */
-export const exportFullMaterialListToPDF = (
+export const exportFullMaterialListToPDF = async (
   items: FullMaterialListItem[],
   projectName: string,
   preparedBy: string,
   grandTotal: number,
   date?: string
 ) => {
+  const logo = await getPdfAppLogo();
   const materials: MaterialItem[] = items.map((item) => ({
     id: item.id,
     name: item.description,
@@ -315,40 +487,49 @@ export const exportFullMaterialListToPDF = (
     total: item.total,
   }));
   const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const headerY = 20;
+  await ensurePdfUnicodeFonts(doc);
 
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Material List', 14, 20);
+  doc.setFontSize(22);
+  setPdfUnicodeFont(doc, 'bold');
+  doc.setTextColor(55, 65, 81);
+  doc.text('MATERIAL LIST', margin, headerY);
+  drawPdfHeaderLogo(doc, pageW, margin, headerY, logo);
 
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Project: ${projectName}`, 14, 30);
-  doc.text(`Prepared by: ${preparedBy}`, 14, 36);
-  doc.text(`Date: ${date ? new Date(date).toLocaleDateString() : new Date().toLocaleDateString()}`, 14, 42);
+  setPdfUnicodeFont(doc, 'normal');
+  doc.text(`Project: ${projectName}`, margin, 34);
+  doc.text(`Prepared by: ${preparedBy}`, margin, 40);
+  doc.text(`Date: ${date ? new Date(date).toLocaleDateString() : new Date().toLocaleDateString()}`, margin, 46);
 
   const tableData = materials.map((item, index) => [
     index + 1,
     item.name,
     item.quantity,
     item.unit,
-    `₦${item.unitPrice.toLocaleString()}`,
-    `₦${item.total.toLocaleString()}`,
+    formatNairaForPdf(item.unitPrice),
+    formatNairaForPdf(item.total),
   ]);
 
   autoTable(doc, {
-    startY: 50,
+    startY: 54,
     head: [['S/N', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Total']],
     body: tableData,
     theme: 'grid',
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
+    styles: { fontSize: 9, ...pdfTableFontStyles() },
+    headStyles: { fillColor: [55, 65, 81], ...pdfTableHeadFontStyles() },
+    bodyStyles: pdfTableFontStyles(),
+    ...pdfAutoTableUnicodeHooks(),
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY || 50;
+  const finalY = (doc as any).lastAutoTable.finalY || 54;
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Grand Total: ₦${grandTotal.toLocaleString()}`, 14, finalY + 10);
+  setPdfUnicodeFont(doc, 'bold');
+  doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, finalY + 10);
 
+  applyPdfWatermarks(doc, logo);
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -400,7 +581,8 @@ function formatCuttingBarLabelM(lengthMeters: number): string {
 }
 
 function formatOffcutSummaryM(offcutMeters: number): string {
-  return `${offcutMeters.toFixed(1)}m`;
+  const mm = Math.max(0, Math.round(offcutMeters * 1000));
+  return `${formatLengthMmDisplay(mm)}mm (${offcutMeters.toFixed(1)}m)`;
 }
 
 function formatLengthMmDisplay(lengthMm: number): string {
@@ -453,17 +635,29 @@ function drawCutColumnTable(
   return rowY;
 }
 
+/** Shared X positions for Layout / Repetition / Off-cuts — left-clustered columns (matches docs/cutting-list-page.tsx gap-20). */
+function cuttingListLayoutColumns(margin: number, contentWidth: number) {
+  const pad = 6;
+  const colWidth = 28;
+  const layoutX = margin + pad;
+  const repetitionX = layoutX + colWidth;
+  const offcutsX = repetitionX + colWidth;
+  const tablesX = Math.min(offcutsX + colWidth + 10, margin + contentWidth * 0.52);
+  return { layoutX, repetitionX, offcutsX, tablesX };
+}
+
 /** Page-level column guide (Layout | Repetition | Off-cuts) */
-function drawCuttingListColumnGuide(doc: jsPDF, x: number, y: number, width: number): number {
+function drawCuttingListColumnGuide(doc: jsPDF, margin: number, y: number, contentWidth: number): number {
+  const cols = cuttingListLayoutColumns(margin, contentWidth);
   const h = 8;
-  doc.setFillColor(243, 244, 246);
-  doc.rect(x, y, width, h, 'F');
+  doc.setFillColor(237, 237, 237);
+  doc.roundedRect(margin, y, contentWidth, h, 1.5, 1.5, 'F');
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(107, 114, 128);
-  doc.text('Layout', x + 4, y + 5.5);
-  doc.text('Repetition', x + width * 0.36, y + 5.5);
-  doc.text('Off-cuts', x + width * 0.68, y + 5.5);
+  doc.setTextColor(84, 84, 84);
+  doc.text('Layout', cols.layoutX, y + 5.5);
+  doc.text('Repetition', cols.repetitionX, y + 5.5);
+  doc.text('Off-cuts', cols.offcutsX, y + 5.5);
   return y + h + 4;
 }
 
@@ -482,14 +676,15 @@ function drawCuttingListDocumentHeader(
   margin: number,
   projectName: string,
   startY: number,
-  logoEnabled: boolean
+  logoEnabled: boolean,
+  logo: PdfAppLogo | null
 ): number {
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(55, 65, 81);
   doc.text('CUTTING LIST', margin, startY);
   if (logoEnabled) {
-    drawPdfLogoPlaceholder(doc, pageW, margin, startY);
+    drawPdfHeaderLogo(doc, pageW, margin, startY, logo);
   }
   startY += 12;
   doc.setFontSize(10);
@@ -523,11 +718,12 @@ function drawProfileCuttingSectionHeader(
   return startY + 10;
 }
 
-export const exportCuttingListToPDF = (
+export const exportCuttingListToPDF = async (
   sections: CuttingListSection[],
   projectName: string,
   cover?: ProjectExportCoverInfo
 ) => {
+  const logo = await getPdfAppLogo();
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -542,7 +738,7 @@ export const exportCuttingListToPDF = (
     drawProjectCartCoverPage(doc, 'CUTTING LIST', {
       ...cover,
       projectName: cover.projectName || projectName,
-    });
+    }, logo);
     doc.addPage();
   }
 
@@ -555,11 +751,13 @@ export const exportCuttingListToPDF = (
     }
 
     if (sectionIndex === 0) {
-      startY = drawCuttingListDocumentHeader(doc, pageW, margin, projectName, startY, logoEnabled);
+      const showDocumentLogo = logoEnabled && !(cover?.rows?.length);
+      startY = drawCuttingListDocumentHeader(doc, pageW, margin, projectName, startY, showDocumentLogo, logo);
     }
 
     startY = drawProfileCuttingSectionHeader(doc, margin, pageW, section, startY);
-    startY = drawCuttingListColumnGuide(doc, margin, startY, pageW - 2 * margin);
+    const contentWidth = pageW - 2 * margin;
+    startY = drawCuttingListColumnGuide(doc, margin, startY, contentWidth);
 
     section.layouts.forEach((layout, layoutIndex) => {
       if (layoutIndex > 0 && startY > contentBottom - 100) {
@@ -572,12 +770,12 @@ export const exportCuttingListToPDF = (
       const stockLength = layout.stockLength ?? section.materialLength;
       const cardPadding = 6;
       const grouped = groupCutsForTables(layout.cuts, layout.repetition);
+      const cols = cuttingListLayoutColumns(margin, contentWidth);
       const innerLeft = margin + cardPadding;
-      const innerW = pageW - 2 * margin - 2 * cardPadding;
-      const metaW = 38;
+      const innerW = contentWidth - 2 * cardPadding;
       const tableGap = 6;
-      const tableW = (innerW - metaW - tableGap) / 2;
-      const tablesX = innerLeft + metaW + tableGap;
+      const tablesRight = margin + contentWidth - cardPadding;
+      const tableW = (tablesRight - cols.tablesX - tableGap) / 2;
       const rowCount = grouped.length;
       const tableBlockH = 7 + 2 + rowCount * (7 + 2);
       const cardContentH = Math.max(22, tableBlockH) + 8 + 10 + 8;
@@ -589,22 +787,25 @@ export const exportCuttingListToPDF = (
       }
 
       const cardY = startY;
-      doc.setDrawColor(209, 213, 219);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.35);
       doc.setFillColor(255, 255, 255);
-      doc.roundedRect(margin, cardY - 2, pageW - 2 * margin, estimatedCardH, 2, 2, 'FD');
+      doc.roundedRect(margin, cardY - 2, contentWidth, estimatedCardH, 2, 2, 'FD');
 
       const contentY = cardY + cardPadding;
+      const metaRowY = contentY + 5;
 
-      // Left: layout letter, repetition, off-cut summary (mock: A | 4X | 1.5m)
-      doc.setFontSize(12);
+      // Layout row — aligned under column guide (Layout | Repetition | Off-cuts)
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(31, 41, 55);
-      doc.text(layout.layout, innerLeft, contentY + 5);
-      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(layout.layout, cols.layoutX, metaRowY);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(107, 114, 128);
-      doc.text(`${layout.repetition}X`, innerLeft + 14, contentY + 5);
-      doc.text(formatOffcutSummaryM(layout.offCut), innerLeft + 28, contentY + 5);
+      doc.setTextColor(68, 68, 68);
+      doc.text(`${layout.repetition}X`, cols.repetitionX, metaRowY);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(formatOffcutSummaryM(layout.offCut), cols.offcutsX, metaRowY);
 
       // Right: Cut/Length + Cut across repetition tables
       const cutRows = grouped.map((r) => ({
@@ -618,13 +819,13 @@ export const exportCuttingListToPDF = (
         elementColor: r.elementColor,
       }));
       const tablesEndY = Math.max(
-        drawCutColumnTable(doc, tablesX, contentY, tableW, 'Cut/Length', cutRows),
-        drawCutColumnTable(doc, tablesX + tableW + tableGap, contentY, tableW, 'Cut across repetition', acrossRows)
+        drawCutColumnTable(doc, cols.tablesX, contentY, tableW, 'Cut/Length', cutRows),
+        drawCutColumnTable(doc, cols.tablesX + tableW + tableGap, contentY, tableW, 'Cut across repetition', acrossRows)
       );
 
       // Dashed rule above stock bar
       let barSectionY = tablesEndY + 4;
-      doc.setDrawColor(156, 163, 175);
+      doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.3);
       if (typeof doc.setLineDashPattern === 'function') {
         doc.setLineDashPattern([1.2, 1.2], 0);
@@ -641,15 +842,16 @@ export const exportCuttingListToPDF = (
       let barX = innerLeft;
       const barY = barSectionY;
 
-      doc.setDrawColor(209, 213, 219);
-      doc.setLineWidth(0.35);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.4);
       doc.rect(innerLeft, barY, barW, barH, 'S');
 
       layout.cuts.forEach((c) => {
         const segW = (c.length / stockLength) * barW;
         const [r, g, b] = c.elementColor ? hexToRgb(c.elementColor) : [107, 158, 182];
         doc.setFillColor(r, g, b);
-        doc.setDrawColor(209, 213, 219);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.35);
         doc.rect(barX, barY, segW, barH, 'FD');
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
@@ -664,7 +866,8 @@ export const exportCuttingListToPDF = (
         const offcutW = (layout.offCut / stockLength) * barW;
         doc.setFillColor(255, 255, 255);
         doc.rect(barX, barY, offcutW, barH, 'F');
-        doc.setDrawColor(209, 213, 219);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.35);
         doc.rect(barX, barY, offcutW, barH, 'S');
         doc.setFillColor(203, 213, 225);
         for (let i = 0; i < offcutW; i += 3) {
@@ -700,6 +903,7 @@ export const exportCuttingListToPDF = (
     }
   }
 
+  applyPdfWatermarks(doc, logo);
   doc.save(`Cutting-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -767,13 +971,13 @@ export const exportCuttingListToExcel = (
     wsData.push(['Material Length:', `${section.materialLength} meters`]);
     wsData.push(['Quantity:', `${section.totalQuantity} length`]);
     wsData.push([]);
-    wsData.push(['Layout', 'Repetition', 'Cuts', 'Off-cut (m)']);
+    wsData.push(['Layout', 'Repetition', 'Cuts', 'Off-cut']);
     section.layouts.forEach((layout) => {
       wsData.push([
         layout.layout,
         `${layout.repetition}X`,
         layout.cuts.map(c => c.elementTitle ? `${c.length}${c.unit} (${c.elementTitle})` : `${c.length}${c.unit}`).join(', '),
-        layout.offCut
+        formatOffcutSummaryM(layout.offCut),
       ]);
     });
     wsData.push([]);
@@ -912,18 +1116,7 @@ function drawGlassNestOnPdf(
       if (lab && rw > 10 && rh > 6) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.5);
-        const colorHex = p.fillHex;
-        if (colorHex && rw > 14) {
-          drawElementColorDot(doc, x + rw / 2 - 8, y + rh / 2 + 2.2, colorHex);
-          doc.text(
-            lab.length > 18 ? `${lab.slice(0, 17)}…` : lab,
-            x + rw / 2 + 1,
-            y + rh / 2 + 2.2,
-            { align: 'center' }
-          );
-        } else {
-          doc.text(lab.length > 22 ? `${lab.slice(0, 21)}…` : lab, x + rw / 2, y + rh / 2 + 2.2, { align: 'center' });
-        }
+        doc.text(lab.length > 22 ? `${lab.slice(0, 21)}…` : lab, x + rw / 2, y + rh / 2 + 2.2, { align: 'center' });
         doc.setFont('helvetica', 'normal');
       }
       doc.setTextColor(0, 0, 0);
@@ -1061,11 +1254,12 @@ export const exportGlassCuttingListToCSV = (layouts: GlassCuttingLayout[], proje
   URL.revokeObjectURL(url);
 };
 
-export const exportGlassCuttingListToPDF = (
+export const exportGlassCuttingListToPDF = async (
   layouts: GlassCuttingLayout[],
   projectName: string,
   cover?: ProjectExportCoverInfo
 ) => {
+  const logo = await getPdfAppLogo();
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 14;
@@ -1077,7 +1271,7 @@ export const exportGlassCuttingListToPDF = (
     drawProjectCartCoverPage(doc, 'GLASS CUTTING PLAN', {
       ...cover,
       projectName: cover.projectName || projectName,
-    });
+    }, logo);
 
     if (first) {
       let stockY = (docWithTable.lastAutoTable?.finalY ?? 120) + 10;
@@ -1103,22 +1297,25 @@ export const exportGlassCuttingListToPDF = (
   let cursorY = margin;
 
   if (!cover?.rows?.length) {
-    doc.setFontSize(18);
+    const titleY = 20;
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('GLASS CUTTING PLAN', margin, 18);
+    doc.setTextColor(55, 65, 81);
+    doc.text('GLASS CUTTING PLAN', margin, titleY);
+    drawPdfHeaderLogo(doc, pageW, margin, titleY, logo);
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Project: ${projectName}`, margin, 26);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 32);
-    doc.text(`Total physical sheets: ${layouts.length}`, margin, 38);
+    doc.text(`Project: ${projectName}`, margin, 34);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 40);
+    doc.text(`Total physical sheets: ${layouts.length}`, margin, 46);
 
     if (first) {
       doc.setFont('helvetica', 'bold');
-      doc.text('Required stock', margin, 46);
+      doc.text('Required stock', margin, 54);
       doc.setFont('helvetica', 'normal');
       autoTable(doc, {
-        startY: 49,
+        startY: 57,
         head: [['Stock (W × H mm)', 'Sheets']],
         body: [[`${first.sheetWidth} × ${first.sheetHeight}`, String(layouts.length)]],
         theme: 'striped',
@@ -1128,12 +1325,15 @@ export const exportGlassCuttingListToPDF = (
       });
     }
 
-    cursorY = (docWithTable.lastAutoTable?.finalY ?? 58) + 12;
+    cursorY = (docWithTable.lastAutoTable?.finalY ?? 66) + 12;
   } else {
-    doc.setFontSize(18);
+    const titleY = cursorY;
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('GLASS CUTTING PLAN', margin, cursorY);
-    cursorY += 10;
+    doc.setTextColor(55, 65, 81);
+    doc.text('GLASS CUTTING PLAN', margin, titleY);
+    drawPdfHeaderLogo(doc, pageW, margin, titleY, logo);
+    cursorY += 14;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Project: ${projectName}`, margin, cursorY);
@@ -1273,6 +1473,7 @@ export const exportGlassCuttingListToPDF = (
     cursorY += 4;
   });
 
+  applyPdfWatermarks(doc, logo);
   doc.save(`Glass-Cutting-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -1398,7 +1599,8 @@ interface QuoteData {
 /**
  * Export quote to PDF
  */
-export const exportQuoteToPDF = (quote: QuoteData) => {
+export const exportQuoteToPDF = async (quote: QuoteData) => {
+  const logo = await getPdfAppLogo();
   // Get PDF export configuration from template store
   const pdfConfig = useTemplateStore.getState().pdfExport.quote;
   const fileNamingConfig = useTemplateStore.getState().pdfExport.fileNaming;
@@ -1413,8 +1615,12 @@ export const exportQuoteToPDF = (quote: QuoteData) => {
     unit: 'mm',
     format: pageSize,
   });
+  await ensurePdfUnicodeFonts(doc);
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const headerTitleY = 20;
 
-  let currentY = pdfConfig.header.enabled ? pdfConfig.header.height : 20;
+  let currentY = pdfConfig.header.enabled ? pdfConfig.header.height : headerTitleY;
 
   // Header section (if enabled)
   if (pdfConfig.header.enabled) {
@@ -1429,32 +1635,38 @@ export const exportQuoteToPDF = (quote: QuoteData) => {
     // Company name and tagline
     if (quoteFormat.header.companyName) {
       doc.setFontSize(pdfConfig.fonts.headingSize);
-      doc.setFont(pdfConfig.fonts.family as any, 'bold');
+      setPdfUnicodeFont(doc, 'bold');
       doc.setTextColor(pdfConfig.fonts.headingColor);
-      doc.text(quoteFormat.header.companyName, 14, 20);
+      doc.text(quoteFormat.header.companyName, margin, headerTitleY);
+      drawPdfHeaderLogo(doc, pageW, margin, headerTitleY, logo);
       currentY = 30;
       
       if (quoteFormat.header.tagline) {
         doc.setFontSize(pdfConfig.fonts.bodySize);
-        doc.setFont(pdfConfig.fonts.family as any, 'normal');
-        doc.text(quoteFormat.header.tagline, 14, currentY);
+        setPdfUnicodeFont(doc, 'normal');
+        doc.text(quoteFormat.header.tagline, margin, currentY);
         currentY += 10;
       }
     } else {
-      // Default header
       doc.setFontSize(pdfConfig.fonts.headingSize);
-      doc.setFont(pdfConfig.fonts.family as any, 'bold');
+      setPdfUnicodeFont(doc, 'bold');
       doc.setTextColor(pdfConfig.fonts.headingColor);
-      doc.text('QUOTE', 14, currentY);
-      currentY += 10;
+      doc.text('QUOTE', margin, headerTitleY);
+      drawPdfHeaderLogo(doc, pageW, margin, headerTitleY, logo);
+      currentY = 30;
     }
   } else {
-    currentY = 20;
+    currentY = headerTitleY;
+    doc.setFontSize(pdfConfig.fonts.headingSize);
+    setPdfUnicodeFont(doc, 'bold');
+    doc.text('QUOTE', margin, headerTitleY);
+    drawPdfHeaderLogo(doc, pageW, margin, headerTitleY, logo);
+    currentY = 30;
   }
 
   // Quote Info
+  setPdfUnicodeFont(doc, 'normal');
   doc.setFontSize(pdfConfig.fonts.bodySize);
-  doc.setFont(pdfConfig.fonts.family as any, 'normal');
   doc.setTextColor(pdfConfig.fonts.bodyColor);
   doc.text(`Quote ID: ${quote.quoteId}`, 14, currentY);
   currentY += 6;
@@ -1481,8 +1693,8 @@ export const exportQuoteToPDF = (quote: QuoteData) => {
     index + 1,
     item.description,
     item.quantity,
-    `₦${item.unitPrice.toLocaleString()}`,
-    `₦${item.total.toLocaleString()}`
+    formatNairaForPdf(item.unitPrice),
+    formatNairaForPdf(item.total),
   ]);
 
   autoTable(doc, {
@@ -1492,38 +1704,38 @@ export const exportQuoteToPDF = (quote: QuoteData) => {
     theme: 'grid',
     styles: { 
       fontSize: pdfConfig.fonts.tableSize,
-      font: pdfConfig.fonts.family as any,
-      textColor: pdfConfig.fonts.bodyColor,
+      ...pdfTableFontStyles({ textColor: pdfConfig.fonts.bodyColor }),
     },
     headStyles: { 
-      fillColor: [55, 65, 81], 
-      fontStyle: 'bold',
-      textColor: [255, 255, 255],
-    }
+      fillColor: [55, 65, 81] as [number, number, number],
+      ...pdfTableHeadFontStyles({ textColor: [255, 255, 255] }),
+    },
+    bodyStyles: pdfTableFontStyles({ textColor: pdfConfig.fonts.bodyColor }),
+    ...pdfAutoTableUnicodeHooks(),
   });
 
   // Summary
   const finalY = (doc as any).lastAutoTable.finalY || currentY;
   currentY = finalY + 10;
 
+  setPdfUnicodeFont(doc, 'normal');
   doc.setFontSize(pdfConfig.fonts.bodySize);
-  doc.setFont(pdfConfig.fonts.family as any, 'normal');
   doc.setTextColor(pdfConfig.fonts.bodyColor);
-  doc.text(`Subtotal: ₦${quote.summary.subtotal.toLocaleString()}`, 14, currentY);
+  doc.text(`Subtotal: ${formatNairaForPdf(quote.summary.subtotal)}`, 14, currentY);
   currentY += 6;
 
   // Charges
   quote.summary.charges.forEach(charge => {
-    doc.text(`${charge.label}: ₦${charge.amount.toLocaleString()}`, 14, currentY);
+    doc.text(`${charge.label}: ${formatNairaForPdf(charge.amount)}`, 14, currentY);
     currentY += 6;
   });
 
   // Grand Total
   currentY += 3;
   doc.setFontSize(pdfConfig.fonts.headingSize);
-  doc.setFont(pdfConfig.fonts.family as any, 'bold');
+  setPdfUnicodeFont(doc, 'bold');
   doc.setTextColor(pdfConfig.fonts.headingColor);
-  doc.text(`Grand Total: ₦${quote.summary.grandTotal.toLocaleString()}`, 14, currentY);
+  doc.text(`Grand Total: ${formatNairaForPdf(quote.summary.grandTotal)}`, 14, currentY);
   currentY += 10;
 
   // Payment Information (only if enabled in config and payment info exists)
@@ -1566,6 +1778,7 @@ export const exportQuoteToPDF = (quote: QuoteData) => {
 
   // Generate filename from pattern
   const fileName = generateFileName(fileNamingConfig.pattern, quote, fileNamingConfig.dateFormat) + '.pdf';
+  applyPdfWatermarks(doc, logo);
   doc.save(fileName);
 };
 

@@ -11,10 +11,11 @@ import {
   pieceCountOnLayout,
 } from '@/utils/glassLayout';
 import {
-  exportMaterialListToPDF,
   exportCuttingListToPDF,
-  exportMaterialListToExcel,
   exportCuttingListToExcel,
+  exportProjectMaterialListToPDF,
+  exportProjectMaterialListToExcel,
+  type MaterialListExportSection,
   exportGlassCuttingListToPDF,
   exportGlassCuttingListToExcel,
   exportGlassCuttingListToCSV,
@@ -163,7 +164,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const [glassElementFilter, setGlassElementFilter] = useState<string>('all');
   
   // Export dropdown states
-  const [showExportDropdown, setShowExportDropdown] = useState<'cutting' | 'glass' | null>(null);
+  const [showExportDropdown, setShowExportDropdown] = useState<'material' | 'cutting' | 'glass' | null>(null);
   /** Mobile: filters panel open (All Profiles / All elements behind a button) */
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   /** Cutting list: full-screen expanded card { profileIndex (in filtered list), layoutIndex } */
@@ -562,6 +563,43 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     };
   };
 
+  const buildMaterialExportSections = (): MaterialListExportSection[] => {
+    const toRow = (item: MaterialItem) => {
+      const quantity = itemQuantities[item.id] ?? item.quantity;
+      const unitPrice = itemPrices[item.id] ?? 0;
+      return {
+        name: item.name,
+        quantity,
+        unit: item.unit,
+        quantityDisplay: formatMaterialQuantityBadge(item, itemQuantities),
+        unitPrice,
+        total: quantity * unitPrice,
+      };
+    };
+
+    return [
+      { title: 'Profiles', rows: profileItems.map(toRow) },
+      { title: 'Accessories', rows: accessoriesItems.map(toRow) },
+    ].filter((section) => section.rows.length > 0);
+  };
+
+  const handleExportMaterialList = (format: 'pdf' | 'excel', mode: 'bom' | 'priced') => {
+    if (!previousData?.projectDescription) return;
+
+    const projectName = previousData.projectDescription.projectName || 'Project';
+    const customerName = previousData.projectDescription.customerName || '';
+    const sections = buildMaterialExportSections();
+    if (!sections.length) return;
+
+    if (format === 'pdf') {
+      void exportProjectMaterialListToPDF(sections, projectName, customerName, grandTotal, mode);
+    } else {
+      exportProjectMaterialListToExcel(sections, projectName, customerName, grandTotal, mode);
+    }
+
+    setShowExportDropdown(null);
+  };
+
   // Export handlers — one PDF/Excel with all profiles (Cutting List) or all layouts (Glass List)
   const handleExportCuttingList = (format: 'pdf' | 'excel') => {
     if (!calculationResult?.cuttingList || !previousData?.projectDescription) return;
@@ -598,7 +636,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     });
     
     if (format === 'pdf') {
-      exportCuttingListToPDF(sections, projectName, buildExportCover());
+      void exportCuttingListToPDF(sections, projectName, buildExportCover());
     } else {
       exportCuttingListToExcel(sections, projectName);
     }
@@ -663,7 +701,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     });
 
     if (format === 'pdf') {
-      exportGlassCuttingListToPDF(layouts, projectName, buildExportCover());
+      void exportGlassCuttingListToPDF(layouts, projectName, buildExportCover());
     } else if (format === 'csv') {
       exportGlassCuttingListToCSV(layouts, projectName);
     } else {
@@ -762,6 +800,52 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             {!isLoading && !error && calculationResult && (
               <div className="hidden md:flex items-center gap-3 flex-shrink-0">
                 {activeTab === 'material' && (
+                <>
+                <div className="relative export-dropdown-container">
+                  <button
+                    onClick={() => setShowExportDropdown(showExportDropdown === 'material' ? null : 'material')}
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded transition-colors bg-white text-gray-900 border border-gray-300 hover:bg-gray-50"
+                  >
+                    <span>Export Material List</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {showExportDropdown === 'material' && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                        BOM (quantities)
+                      </div>
+                      <button
+                        onClick={() => handleExportMaterialList('pdf', 'bom')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        onClick={() => handleExportMaterialList('excel', 'bom')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm border-b border-gray-100"
+                      >
+                        Export as Excel
+                      </button>
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                        With pricing
+                      </div>
+                      <button
+                        onClick={() => handleExportMaterialList('pdf', 'priced')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        onClick={() => handleExportMaterialList('excel', 'priced')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg text-sm"
+                      >
+                        Export as Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => {
                     // Debug logging
@@ -789,6 +873,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 >
                   Generate Quote
                 </button>
+                </>
                 )}
                 {activeTab === 'cutting' && (
                 <div className="relative export-dropdown-container">
@@ -2051,19 +2136,42 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       {!isLoading && !error && calculationResult && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3 safe-area-pb">
           {activeTab === 'material' && (
-            <button
-              onClick={() => {
-                if (onCreateQuote) {
-                  onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
-                } else {
-                  onGenerate(grandTotal);
-                }
-              }}
-              disabled={isSaving}
-              className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Generate Quote
-            </button>
+            <div className="space-y-2">
+              <div className="relative export-dropdown-container">
+                <button
+                  onClick={() => setShowExportDropdown(showExportDropdown === 'material' ? null : 'material')}
+                  className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800"
+                >
+                  <span>Export Material List</span>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </button>
+                {showExportDropdown === 'material' && (
+                  <div className="absolute left-0 right-0 bottom-full mb-2 py-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">BOM (quantities)</div>
+                    <button onClick={() => handleExportMaterialList('pdf', 'bom')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">Export as PDF</button>
+                    <button onClick={() => handleExportMaterialList('excel', 'bom')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm border-b border-gray-100">Export as Excel</button>
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">With pricing</div>
+                    <button onClick={() => handleExportMaterialList('pdf', 'priced')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">Export as PDF</button>
+                    <button onClick={() => handleExportMaterialList('excel', 'priced')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg text-sm">Export as Excel</button>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  if (onCreateQuote) {
+                    onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
+                  } else {
+                    onGenerate(grandTotal);
+                  }
+                }}
+                disabled={isSaving}
+                className="w-full py-3 font-semibold rounded-lg bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Generate Quote
+              </button>
+            </div>
           )}
           {activeTab === 'cutting' && (
             <div className="relative export-dropdown-container">

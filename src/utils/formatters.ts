@@ -16,6 +16,17 @@ export const formatNaira = (amount: number): string => {
   }).format(amount).replace('NGN', '₦');
 };
 
+/** Naira formatting for jsPDF — symbol + amount (WorkingsSans font required). */
+export const PDF_NAIRA_SYMBOL = '\u20A6';
+
+export const formatNairaForPdf = (amount: number): string => {
+  const formatted = amount.toLocaleString('en-NG', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  return `${PDF_NAIRA_SYMBOL}${formatted}`;
+};
+
 /**
  * Formats a date to a readable string
  * @param date - Date string or Date object
