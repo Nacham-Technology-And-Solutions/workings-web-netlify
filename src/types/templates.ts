@@ -107,10 +107,14 @@ export interface PDFExportConfig {
 export interface MaterialPrice {
   id: string;
   name: string;
-  category: 'Profile' | 'Glass' | 'Accessory' | 'Rubber' | 'Other';
+  /** Stable key for estimation price-fill matching (e.g. profile.track) */
+  itemKey?: string;
+  category: 'Profile' | 'Glass' | 'Accessory' | 'Rubber' | 'Net' | 'Other';
   unit: string;
   unitPrice: number;
   description?: string;
+  /** Library row origin for estimation matching */
+  source?: 'user' | 'system';
   createdAt: string;
   updatedAt: string;
   priceHistory?: Array<{
@@ -128,6 +132,7 @@ export interface MaterialPricesConfig {
     Glass?: number;
     Accessory?: number;
     Rubber?: number;
+    Net?: number;
     Other?: number;
   };
 }

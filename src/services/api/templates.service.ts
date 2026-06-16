@@ -9,6 +9,10 @@ import type {
   SavedTemplate,
   SavedTemplateType,
 } from '@/types/templates';
+import {
+  mergeMaterialPriceResponse,
+  normalizeMaterialPrice,
+} from '@/utils/materialPriceHelpers';
 
 export interface TemplateConfig {
   quoteFormat: QuoteFormatConfig;
@@ -133,15 +137,56 @@ export const templatesService = {
   /**
    * Get material prices from API
    */
-  getMaterialPrices: async (): Promise<MaterialPrice[]> => {
+  getMaterialPrices: async (params?: {
+    category?: string;
+    search?: string;
+  }): Promise<MaterialPrice[]> => {
     try {
-      const response = await apiClient.get<ApiResponse<{ materialPrices: MaterialPrice[] }>>(
-        '/api/v1/templates/material-prices'
-      );
-      return response.data.response.materialPrices;
+      const qs = new URLSearchParams();
+      if (params?.category && params.category !== 'all') {
+        qs.append('category', params.category);
+      }
+      if (params?.search?.trim()) {
+        qs.append('search', params.search.trim());
+      }
+      const query = qs.toString();
+      const url = query
+        ? `/api/v1/templates/material-prices?${query}`
+        : '/api/v1/templates/material-prices';
+      const response = await apiClient.get<ApiResponse<{ materialPrices: MaterialPrice[] }>>(url);
+      const rows = response.data.response.materialPrices ?? [];
+      return rows.map((row) => normalizeMaterialPrice(row));
     } catch (error: any) {
       console.warn('[TemplatesService] API unavailable for material prices:', error.message);
       return [];
+    }
+  },
+
+  /**
+   * Bulk import material prices via API
+   */
+  importMaterialPrices: async (
+    prices: Array<Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt' | 'priceHistory'>>
+  ): Promise<{
+    imported: number;
+    failed: number;
+    materialPrices: MaterialPrice[];
+  } | null> => {
+    try {
+      const response = await apiClient.post<
+        ApiResponse<{ imported: number; failed: number; materialPrices: MaterialPrice[] }>
+      >('/api/v1/templates/material-prices/import', { prices });
+      const result = response.data.response;
+      return {
+        ...result,
+        materialPrices: (result.materialPrices ?? []).map((row, index) =>
+          mergeMaterialPriceResponse(normalizeMaterialPrice(row), prices[index]) ??
+          normalizeMaterialPrice(row)
+        ),
+      };
+    } catch (error: any) {
+      console.warn('[TemplatesService] API unavailable for material prices import:', error.message);
+      return null;
     }
   },
 
@@ -156,7 +201,10 @@ export const templatesService = {
         '/api/v1/templates/material-prices',
         price
       );
-      return response.data.response.materialPrice;
+      return mergeMaterialPriceResponse(
+        response.data.response.materialPrice,
+        price
+      );
     } catch (error: any) {
       console.warn('[TemplatesService] API unavailable for creating material price:', error.message);
       return null;
@@ -172,7 +220,7 @@ export const templatesService = {
         `/api/v1/templates/material-prices/${id}`,
         price
       );
-      return response.data.response.materialPrice;
+      return mergeMaterialPriceResponse(response.data.response.materialPrice, price);
     } catch (error: any) {
       console.warn('[TemplatesService] API unavailable for updating material price:', error.message);
       return null;

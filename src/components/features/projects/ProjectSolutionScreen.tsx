@@ -36,6 +36,10 @@ import {
   mergeAccessoryDisplaySections,
 } from '@/utils/calculationResultParser';
 import { normalizePlanEntryToCuts, formatOffcutLabelMm } from '@/utils/cutPlanKeys';
+import EstimationPricingPanel from '@/components/features/estimation/EstimationPricingPanel';
+import GenerateQuoteModal from '@/components/features/estimation/GenerateQuoteModal';
+import { useEstimationStore } from '@/stores/estimationStore';
+import type { EstimationSavedQuote } from '@/types/estimation';
 
 type CuttingPlanEntry = { [key: string]: string[] | CuttingPlanPiece[] };
 
@@ -100,6 +104,7 @@ interface ProjectSolutionScreenProps {
   initialCalculationResult?: CalculationResult | null;
   draftProjectId?: number | null;
   onCreateQuote?: (materialCost?: number, calculationResult?: CalculationResult, projectMeasurement?: ProjectMeasurementData) => void;
+  onEstimationQuoteSaved?: (quote: EstimationSavedQuote) => void;
   onProjectSaved?: () => void;
   /** Called when calculation completes so parent can cache the result for "Return to Calculation Results" */
   onCalculationComplete?: (result: CalculationResult) => void;
@@ -124,12 +129,14 @@ function formatMaterialQuantityBadge(
   return item.quantityLabel ?? `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`;
 }
 
-const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onProjectSaved, onCalculationComplete }) => {
+const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onEstimationQuoteSaved, onProjectSaved, onCalculationComplete }) => {
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass' | 'net'>(initialTab);
   const [warningsDismissed, setWarningsDismissed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
+  const [calculatedProjectId, setCalculatedProjectId] = useState<number | null>(draftProjectId ?? null);
+  const [showGenerateQuoteModal, setShowGenerateQuoteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -144,6 +151,15 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const saveInProgressRef = useRef(false);
   const hasCalculatedRef = useRef(false);
   const hasSavedRef = useRef(false);
+  const estimationBootstrappedRef = useRef(false);
+
+  const {
+    initFromProjectSettings,
+    setProjectId: setEstimationProjectId,
+    loadPriceFill,
+    previewResult,
+    reset: resetEstimation,
+  } = useEstimationStore();
   
   // State for prices and quantities (itemId -> value) - persist to localStorage
   const [itemPrices, setItemPrices] = useState<Record<string, number>>(() => {
@@ -187,6 +203,48 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showExportDropdown]);
+
+  const estimationProjectId = calculatedProjectId ?? draftProjectId ?? null;
+
+  const bootstrapEstimation = async (projectId: number) => {
+    if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
+      return;
+    }
+    const projectData = createProjectData(
+      previousData.projectDescription,
+      previousData.selectProject,
+      previousData.projectMeasurement
+    );
+    initFromProjectSettings(projectData.calculationSettings);
+    setEstimationProjectId(projectId);
+    await loadPriceFill(projectId);
+  };
+
+  useEffect(() => {
+    if (!estimationProjectId || !calculationResult) return;
+    if (estimationBootstrappedRef.current) return;
+    estimationBootstrappedRef.current = true;
+    void bootstrapEstimation(estimationProjectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estimationProjectId, calculationResult]);
+
+  useEffect(() => {
+    return () => {
+      resetEstimation();
+    };
+  }, [resetEstimation]);
+
+  const handleOpenGenerateQuote = () => {
+    if (estimationProjectId && onEstimationQuoteSaved) {
+      setShowGenerateQuoteModal(true);
+      return;
+    }
+    if (onCreateQuote) {
+      onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
+    } else {
+      onGenerate(grandTotal);
+    }
+  };
 
   // Auto-dismiss calculation success (points/balance) notification after 5 seconds
   const showCalculationNotification = pointsDeducted !== null || balanceAfter !== null || responseMessage;
@@ -396,6 +454,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       const validatedData = parseCalculationResult(calculationData);
 
       setCalculationResult(validatedData);
+      setCalculatedProjectId(projectId);
+      estimationBootstrappedRef.current = false;
+      void bootstrapEstimation(projectId);
       setWarningsDismissed(false);
       if (validatedData.glassList.total_sheets > 0) {
         setSelectedSheet('sheet1');
@@ -847,27 +908,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   )}
                 </div>
                 <button
-                  onClick={() => {
-                    // Debug logging
-                    if (import.meta.env.DEV) {
-                      console.log('[ProjectSolutionScreen] Generate Quote clicked:', {
-                        hasOnCreateQuote: !!onCreateQuote,
-                        hasCalculationResult: !!calculationResult,
-                        hasProjectMeasurement: !!previousData?.projectMeasurement,
-                        calculationResultType: typeof calculationResult,
-                        projectMeasurementType: typeof previousData?.projectMeasurement,
-                        calculationResultKeys: calculationResult ? Object.keys(calculationResult) : [],
-                        projectMeasurementKeys: previousData?.projectMeasurement ? Object.keys(previousData.projectMeasurement) : [],
-                        grandTotal
-                      });
-                    }
-                    
-                    if (onCreateQuote) {
-                      onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
-                    } else {
-                      onGenerate(grandTotal);
-                    }
-                  }}
+                  onClick={handleOpenGenerateQuote}
                   disabled={isSaving}
                   className="px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1302,6 +1343,37 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
           {/* Material List Content */}
           {!isLoading && !error && activeTab === 'material' && (
+            <>
+            {estimationProjectId && (
+              <EstimationPricingPanel projectId={estimationProjectId} />
+            )}
+            {previewResult?.quoteSource === 'material_list' && 'lines' in previewResult && previewResult.lines.length > 0 && (
+              <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Material list quote preview</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500 border-b border-gray-200">
+                        <th className="py-2 pr-4 font-medium">Item</th>
+                        <th className="py-2 pr-4 font-medium">Qty</th>
+                        <th className="py-2 pr-4 font-medium text-right">Unit price</th>
+                        <th className="py-2 font-medium text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewResult.lines.map((line) => (
+                        <tr key={line.itemKey} className="border-b border-gray-100">
+                          <td className="py-2 pr-4 text-gray-900">{line.description}</td>
+                          <td className="py-2 pr-4 text-gray-600">{line.quantity} {line.unit}</td>
+                          <td className="py-2 pr-4 text-right text-gray-900">₦{line.unitPrice.toLocaleString()}</td>
+                          <td className="py-2 text-right font-medium text-gray-900">₦{line.totalPrice.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Profiles */}
               <div>
@@ -1499,6 +1571,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 </div>
               </div>
             </div>
+            </>
           )}
 
           {/* Net cutting list */}
@@ -2159,13 +2232,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 )}
               </div>
               <button
-                onClick={() => {
-                  if (onCreateQuote) {
-                    onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
-                  } else {
-                    onGenerate(grandTotal);
-                  }
-                }}
+                onClick={handleOpenGenerateQuote}
                 disabled={isSaving}
                 className="w-full py-3 font-semibold rounded-lg bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -2225,6 +2292,17 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             </div>
           </div>
         </div>
+      )}
+
+      {showGenerateQuoteModal && estimationProjectId && onEstimationQuoteSaved && (
+        <GenerateQuoteModal
+          isOpen={showGenerateQuoteModal}
+          onClose={() => setShowGenerateQuoteModal(false)}
+          projectId={estimationProjectId}
+          customerName={previousData?.projectDescription?.customerName ?? ''}
+          customerAddress={previousData?.projectDescription?.siteAddress}
+          onQuoteSaved={onEstimationQuoteSaved}
+        />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import type { TemplateTab } from '@/types/templates';
 import PaymentMethodSection from '../prebuilt-templates/PaymentMethodSection';
 import QuoteFormatSection from '../prebuilt-templates/QuoteFormatSection';
 import PDFExportSection from '../prebuilt-templates/PDFExportSection';
+import MaterialPricesSection from '../prebuilt-templates/MaterialPricesSection';
 import TemplatePreviewCanvas from '../prebuilt-templates/TemplatePreviewCanvas';
 
 interface ExportSettingsSectionProps {
@@ -22,7 +23,6 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
   }, []);
 
   const handleTabChange = (tab: TemplateTab) => {
-    if (tab === 'materialPrices') return;
     if (hasUnsavedChanges) {
       setPendingTab(tab);
       setShowUnsavedWarning(true);
@@ -68,7 +68,7 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
     { id: 'quoteFormat', label: 'Quote Format' },
     { id: 'paymentMethod', label: 'Payment Method' },
     { id: 'pdfExport', label: 'PDF Export' },
-    { id: 'materialPrices', label: 'Material Prices', comingSoon: true },
+    { id: 'materialPrices', label: 'Material Prices' },
   ];
 
   const content = (
@@ -132,13 +132,12 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
                 </div>
               )}
               {activeTab === 'materialPrices' && (
-                <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                  <p className="text-4xl text-gray-300 mb-4">📋</p>
-                  <h2 className="text-xl font-semibold text-gray-700 mb-2">Material Prices Library</h2>
-                  <p className="text-gray-500">Coming soon</p>
-                  <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                    Manage custom prices for material lists. Add, edit, or import material prices to use in your projects.
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Material Prices Library</h2>
+                  <p className="text-gray-600 mb-6">
+                    Manage unit prices for the estimation engine. Each row needs an item key so prices auto-fill when you select <strong>My prices</strong> on a calculated project.
                   </p>
+                  <MaterialPricesSection />
                 </div>
               )}
             </div>

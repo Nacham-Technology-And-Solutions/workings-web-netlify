@@ -71,6 +71,7 @@ import type { GlazingCategory } from '../utils/moduleMapping';
 
 // Import types and constants
 import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
+import type { EstimationSavedQuote } from '../types/estimation';
 import type { SelectProjectData } from '../types/project';
 import type { GlazingDimension } from '../types/project';
 import { sampleFloorPlan, initialEstimates, sampleFullQuotes, sampleFullMaterialLists } from '../constants';
@@ -781,6 +782,39 @@ const App: React.FC = () => {
     
     // Navigate to unified quote overview screen (same as standalone flow)
     navigate('quoteOverview');
+  };
+
+  const handleEstimationQuoteSaved = (quote: EstimationSavedQuote) => {
+    setEditingQuoteId(null);
+    const previewData = transformBackendQuoteToPreview(
+      {
+        ...quote,
+        items: quote.items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          ...('width' in item && item.width != null
+            ? { width: item.width, height: item.height }
+            : {}),
+        })),
+        estimationSnapshot: quote.estimationSnapshot,
+        project: {
+          projectName: projectDescriptionData?.projectName,
+          siteAddress: projectDescriptionData?.siteAddress,
+        },
+      },
+      {
+        quoteName: projectDescriptionData?.projectName,
+        siteAddress: projectDescriptionData?.siteAddress,
+      }
+    );
+    setGeneratedQuote(previewData);
+    if (draftProjectId) {
+      setDraftProjectId(null);
+    }
+    setRefreshQuotes((prev) => prev + 1);
+    navigate('quotePreview');
   };
 
   const handleQuoteConfigurationComplete = async (quoteData: any) => {
@@ -1903,6 +1937,7 @@ const App: React.FC = () => {
               onNavigateToStep={(step) => navigate(step as any)}
               onGenerate={handleProjectSolutionGenerate}
               onCreateQuote={handleCreateQuoteFromSolution}
+              onEstimationQuoteSaved={handleEstimationQuoteSaved}
               previousData={combinedData || undefined}
               initialCalculationResult={initialCalculationResult}
               draftProjectId={draftProjectId}

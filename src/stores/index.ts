@@ -7,4 +7,5 @@ export { useQuoteStore } from './quoteStore';
 export { useMaterialListStore } from './materialListStore';
 export { useSyncStore } from './syncStore';
 export { useTemplateStore } from './templateStore';
+export { useEstimationStore } from './estimationStore';
 

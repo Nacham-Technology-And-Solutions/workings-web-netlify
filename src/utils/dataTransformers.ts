@@ -222,8 +222,50 @@ export function convertToProjectCart(glazingDimensions: GlazingDimension[]): Pro
 /**
  * Creates ProjectData from project flow data
  */
+import type { EstimationSnapshot } from '@/types/estimation';
+
+function buildEstimationExtraCharges(
+  subtotal: number,
+  snapshot?: EstimationSnapshot
+): Array<{ label: string; amount: number }> {
+  const charges: Array<{ label: string; amount: number }> = [];
+  const extras = snapshot?.quoteSettings?.extraCharges;
+  if (!extras) return charges;
+
+  if (extras.labour && extras.labour > 0) {
+    charges.push({ label: 'Labour', amount: extras.labour });
+  }
+  if (extras.installation && extras.installation > 0) {
+    charges.push({ label: 'Installation', amount: extras.installation });
+  }
+  if (extras.transport && extras.transport > 0) {
+    charges.push({ label: 'Transport', amount: extras.transport });
+  }
+  if (extras.miscellaneous && extras.miscellaneous > 0) {
+    charges.push({ label: 'Miscellaneous', amount: extras.miscellaneous });
+  }
+  if (extras.profitFixed && extras.profitFixed > 0) {
+    charges.push({ label: 'Profit', amount: extras.profitFixed });
+  }
+  if (extras.profitPercent && extras.profitPercent > 0) {
+    charges.push({
+      label: `Profit (${extras.profitPercent}%)`,
+      amount: Math.round((subtotal * extras.profitPercent) / 100),
+    });
+  }
+  if (extras.discountFixed && extras.discountFixed > 0) {
+    charges.push({ label: 'Discount', amount: -extras.discountFixed });
+  }
+  if (extras.discountPercent && extras.discountPercent > 0) {
+    charges.push({
+      label: `Discount (${extras.discountPercent}%)`,
+      amount: -Math.round((subtotal * extras.discountPercent) / 100),
+    });
+  }
+  return charges;
+}
+
 /**
- * Transform backend quote response to QuotePreviewData format
  * @param backendQuote - Quote response from backend API
  * @param quoteConfig - Original quote configuration data (for payment info and dates)
  * @returns QuotePreviewData for preview screen
@@ -246,6 +288,7 @@ export function transformBackendQuoteToPreview(
     total: number;
     project?: { projectName?: string; siteAddress?: string } | null;
     paymentInfo?: { accountName?: string; accountNumber?: string; bankName?: string } | null;
+    estimationSnapshot?: EstimationSnapshot;
   },
   quoteConfig?: {
     quoteName?: string;
@@ -285,19 +328,38 @@ export function transformBackendQuoteToPreview(
   };
 } {
   // Transform items from backend format to preview format
-  const items = backendQuote.items.map((item, index) => ({
-    id: `item-${index}`,
-    description: item.description,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    total: item.totalPrice,
-    type: 'material' as const, // All items from backend are material type
-  }));
+  const items = backendQuote.items.map((item, index) => {
+    const withDims = item as {
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+      width?: number;
+      height?: number;
+    };
+    const isDimension = withDims.width != null && withDims.height != null;
+    return {
+      id: `item-${index}`,
+      description: withDims.description,
+      quantity: withDims.quantity,
+      unitPrice: withDims.unitPrice,
+      total: withDims.totalPrice,
+      type: isDimension ? ('dimension' as const) : ('material' as const),
+      width: withDims.width,
+      height: withDims.height,
+    };
+  });
 
-  // Build charges array from extra charges and tax
+  // Build charges array from estimation extras, manual extras, and tax
   const charges: Array<{ label: string; amount: number }> = [];
+
+  if (backendQuote.estimationSnapshot) {
+    charges.push(
+      ...buildEstimationExtraCharges(backendQuote.subtotal, backendQuote.estimationSnapshot)
+    );
+  }
   
-  // Add extra charges from extrasNotesData if available
+  // Add extra charges from extrasNotesData if available (legacy quote flow)
   if (extrasNotesData?.addedCharges && extrasNotesData.addedCharges.length > 0) {
     extrasNotesData.addedCharges.forEach((charge) => {
       if (charge.description && charge.amount > 0) {
@@ -308,7 +370,15 @@ export function transformBackendQuoteToPreview(
   
   // Add tax if it exists
   if (backendQuote.tax > 0) {
-    charges.push({ label: 'Tax (VAT)', amount: backendQuote.tax });
+    charges.push({ label: 'Tax', amount: backendQuote.tax });
+  }
+
+  // Estimation quotes: show unlabeled remainder if extras don't fully explain total
+  if (backendQuote.estimationSnapshot && charges.length === 0) {
+    const remainder = backendQuote.total - backendQuote.subtotal - backendQuote.tax;
+    if (remainder !== 0) {
+      charges.push({ label: 'Project extras', amount: remainder });
+    }
   }
 
   // Get project name and site address

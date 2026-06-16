@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import type { QuotePreviewData } from '@/types';
-import { ChevronLeftIcon, EditIcon, FolderIcon, LocationIcon, MoreVerticalIcon } from '@/assets/icons/IconComponents';
+import { ChevronLeftIcon, EditIcon, FolderIcon, LocationIcon } from '@/assets/icons/IconComponents';
 import { exportQuoteToPDF, exportQuoteToExcel } from '@/services/export/exportService';
 
 interface QuotePreviewScreenProps {
@@ -68,158 +68,153 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
         </div>
       </div>
 
-      {/* Header with Title and Actions */}
-      <header className="px-8 py-6 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="text-gray-600 hover:text-gray-900" aria-label="Go back">
+      {/* Header */}
+      <header className="px-4 sm:px-8 py-4 sm:py-6 bg-white border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={onBack} className="text-gray-600 hover:text-gray-900 flex-shrink-0" aria-label="Go back">
               <ChevronLeftIcon />
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Quote Preview</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Quote Preview</h1>
           </div>
-
-          {/* Customers' Information */}
-          <section className="mb-8">
-            <SectionHeader title="CUSTOMERS' INFORMATION" />
-            <div className="space-y-3 text-base">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Customer's name:</span>
-                <span className="font-medium text-gray-800">{quote.customerName}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Customer's email address:</span>
-                <span className="font-medium text-gray-800">{quote.customerEmail}</span>
-              </div>
-            </div>
-          </section>
-
-          {/* Quote Information */}
-          <section className="mb-8">
-            <SectionHeader title="QUOTE INFORMATION" />
-            <div className="space-y-3 text-base">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Quote ID:</span>
-                <span className="font-medium text-gray-800">{quote.quoteId}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Issue Date:</span>
-                <span className="font-medium text-gray-800">{quote.issueDate}</span>
-              </div>
-            </div>
-          </section>
-
-          {/* Item Lists */}
-          <section className="mb-8">
-            <SectionHeader title="ITEM LISTS" />
-
-            {/* Material Items */}
-            {quote.items.some(item => !item.type || item.type === 'material') && (
-              <div className="mb-6">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Material Items</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-gray-500 border-b border-gray-200">
-                        <th className="pb-2 font-medium w-1/2">Description</th>
-                        <th className="pb-2 font-medium text-center">Qty</th>
-                        <th className="pb-2 font-medium text-right">Unit Price</th>
-                        <th className="pb-2 font-medium text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quote.items.filter(item => !item.type || item.type === 'material').map(item => (
-                        <tr key={item.id} className="border-t border-gray-200">
-                          <td className="py-3 pr-2 font-medium text-gray-800">{item.description}</td>
-                          <td className="py-3 text-center text-gray-600">{item.quantity}</td>
-                          <td className="py-3 text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
-                          <td className="py-3 text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Dimension Items */}
-            {quote.items.some(item => item.type === 'dimension') && (
-              <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Dimension Items</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-gray-500 border-b border-gray-200">
-                        <th className="pb-2 font-medium w-1/3">Description</th>
-                        <th className="pb-2 font-medium text-center">Dimension</th>
-                        <th className="pb-2 font-medium text-center">Qty</th>
-                        <th className="pb-2 font-medium text-right">Price/m²</th>
-                        <th className="pb-2 font-medium text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quote.items.filter(item => item.type === 'dimension').map(item => (
-                        <tr key={item.id} className="border-t border-gray-200">
-                          <td className="py-3 pr-2 font-medium text-gray-800">{item.description}</td>
-                          <td className="py-3 text-center text-gray-600 text-xs">
-                            {item.width}×{item.height}mm
-                            {item.panels && item.panels > 1 && (
-                              <span className="text-gray-500 ml-1">({item.panels}P)</span>
-                            )}
-                          </td>
-                          <td className="py-3 text-center text-gray-600">{item.quantity}</td>
-                          <td className="py-3 text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
-                          <td className="py-3 text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Summary */}
-          <section className="mb-8">
-            <SectionHeader title="SUMMARY" />
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-base">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium text-gray-800">{formatNaira(quote.summary.subtotal)}</span>
-              </div>
-              {quote.summary.charges.map(charge => (
-                <div key={charge.label} className="flex justify-between items-center text-base">
-                  <span className="text-gray-600">{charge.label}</span>
-                  <span className="font-medium text-gray-800">{formatNaira(charge.amount)}</span>
-                </div>
-              ))}
-              <div className="border-t border-gray-200 my-3"></div>
-              <div className="flex justify-between items-center text-xl">
-                <span className="font-bold text-gray-900">Grand Total</span>
-                <span className="font-bold text-gray-900">{formatNaira(quote.summary.grandTotal)}</span>
-              </div>
-            </div>
-          </section>
-
-          {/* Payment Information */}
-          <section>
-            <SectionHeader title="PAYMENT INFORMATION" />
-            <div className="space-y-3 text-base">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Account Name:</span>
-                <span className="font-medium text-gray-800">{quote.paymentInfo.accountName}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Account Number:</span>
-                <span className="font-medium text-gray-800">{quote.paymentInfo.accountNumber}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Bank Name:</span>
-                <span className="font-medium text-gray-800">{quote.paymentInfo.bankName}</span>
-              </div>
-            </div>
-          </section>
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex-shrink-0"
+          >
+            <EditIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Edit</span>
+          </button>
         </div>
       </header>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8 pb-28">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Quote Information Card */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                <SectionHeader title="CUSTOMER & QUOTE" />
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-sm text-gray-600">Quote ID: </span>
+                    <span className="text-sm font-medium text-gray-800">{quote.quoteId}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Issue Date: </span>
+                    <span className="text-sm font-medium text-gray-800">{quote.issueDate}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Billed to: </span>
+                    <span className="text-sm font-bold text-gray-800">{quote.customerName}</span>
+                  </div>
+                  {quote.customerEmail ? (
+                    <div>
+                      <span className="text-sm text-gray-600">Email: </span>
+                      <span className="text-sm font-medium text-gray-800">{quote.customerEmail}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex items-start gap-3">
+                    <FolderIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm text-gray-600">Project: </span>
+                      <span className="text-sm font-bold text-gray-800">{quote.projectName}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <LocationIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm text-gray-600">Location: </span>
+                      <span className="text-sm font-bold text-gray-800">{quote.siteAddress}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Item Lists Card */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                <SectionHeader title="ITEM LISTS" />
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {quote.items.map((item) => (
+                        <tr key={item.id}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                            {item.description}
+                            {item.type === 'dimension' && item.width != null && item.height != null && (
+                              <span className="block text-xs text-gray-500 mt-0.5">
+                                {item.width} × {item.height} mm
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center text-gray-600">{item.quantity}</td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
+                          <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Summary Card */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                <SectionHeader title="SUMMARY" />
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center gap-4 text-base">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-medium text-gray-800 text-right">{formatNaira(quote.summary.subtotal)}</span>
+                  </div>
+                  {quote.summary.charges.map((charge) => (
+                    <div key={charge.label} className="flex justify-between items-center gap-4 text-base">
+                      <span className="text-gray-600">{charge.label}</span>
+                      <span className={`font-medium text-right ${charge.amount < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                        {formatNaira(charge.amount)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="border-t border-gray-200 my-3"></div>
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-xl font-bold text-gray-900">Grand Total</span>
+                    <span className="text-xl font-bold text-gray-900 text-right">{formatNaira(quote.summary.grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information Card */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                <SectionHeader title="PAYMENT INFORMATION" />
+                <div className="space-y-3 text-base">
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-gray-600">Account Name:</span>
+                    <span className="font-bold text-gray-800 text-right">{quote.paymentInfo.accountName || '—'}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-gray-600">Account Number:</span>
+                    <span className="font-bold text-gray-800 text-right">{quote.paymentInfo.accountNumber || '—'}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-gray-600">Bank Name:</span>
+                    <span className="font-bold text-gray-800 text-right">{quote.paymentInfo.bankName || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
 
       <footer className="bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200">
         <div className="max-w-3xl mx-auto">
@@ -231,6 +226,16 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
           </button>
         </div>
       </footer>
+
+      {exportMessage && (
+        <div
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${
+            exportMessage.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+          }`}
+        >
+          {exportMessage.text}
+        </div>
+      )}
 
       {/* Export Options Modal */}
       {showExportModal && (
@@ -286,119 +291,6 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
           </div>
         </div>
       )}
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto px-8 py-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-6">
-              {/* Quote Information Card */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-sm text-gray-600">Quote ID: </span>
-                    <span className="text-sm font-medium text-gray-800">{quote.quoteId}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-600">Issue Date: </span>
-                    <span className="text-sm font-medium text-gray-800">{quote.issueDate}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-600">Billed to: </span>
-                    <span className="text-sm font-bold text-gray-800">{quote.customerName}</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <FolderIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="text-sm text-gray-600">Project: </span>
-                      <span className="text-sm font-bold text-gray-800">{quote.projectName}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <LocationIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="text-sm text-gray-600">Location: </span>
-                      <span className="text-sm font-bold text-gray-800">{quote.siteAddress}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Item Lists Card */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                <SectionHeader title="ITEM LISTS" />
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 border-b border-gray-200">
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {quote.items.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.description}</td>
-                          <td className="px-4 py-3 text-sm text-center text-gray-600">{item.quantity}</td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-600">{formatNaira(item.unitPrice)}</td>
-                          <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{formatNaira(item.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Summary Card */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                <SectionHeader title="SUMMARY" />
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-base">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium text-gray-800 text-right">{formatNaira(quote.summary.subtotal)}</span>
-                  </div>
-                  {quote.summary.charges.map((charge) => (
-                    <div key={charge.label} className="flex justify-between items-center text-base">
-                      <span className="text-gray-600">{charge.label}</span>
-                      <span className="font-medium text-gray-800 text-right">{formatNaira(charge.amount)}</span>
-                    </div>
-                  ))}
-                  <div className="border-t border-gray-200 my-3"></div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xl font-bold text-gray-900">Grand Total</span>
-                    <span className="text-xl font-bold text-gray-900 text-right">{formatNaira(quote.summary.grandTotal)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Information Card */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                <SectionHeader title="PAYMENT INFORMATION" />
-                <div className="space-y-3 text-base">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Account Name:</span>
-                    <span className="font-bold text-gray-800 text-right">{quote.paymentInfo.accountName}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Account Number:</span>
-                    <span className="font-bold text-gray-800 text-right">{quote.paymentInfo.accountNumber}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Bank Name:</span>
-                    <span className="font-bold text-gray-800 text-right">{quote.paymentInfo.bankName}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
     </div>
   );
 };

@@ -16,7 +16,9 @@ import type {
   SavedTemplateType,
 } from '@/types/templates';
 import { templatesService } from '@/services/api/templates.service';
+import { estimationService } from '@/services/api/estimation.service';
 import { extractErrorMessage } from '@/utils/errorHandler';
+import { enrichMaterialPricesFromCatalog } from '@/utils/materialPriceHelpers';
 
 interface TemplateState {
   // Quote Format
@@ -32,6 +34,7 @@ interface TemplateState {
   // Material Prices
   materialPrices: MaterialPrice[];
   materialPricesConfig: MaterialPricesConfig;
+  isLoadingMaterialPrices: boolean;
   
   // UI State
   isLoading: boolean;
@@ -63,6 +66,10 @@ interface TemplateState {
   addMaterialPrice: (price: Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateMaterialPrice: (id: string, price: Partial<MaterialPrice>) => Promise<void>;
   deleteMaterialPrice: (id: string) => Promise<void>;
+  loadMaterialPrices: (params?: { category?: string; search?: string }) => Promise<void>;
+  bulkImportMaterialPrices: (
+    prices: Array<Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt' | 'priceHistory'>>
+  ) => Promise<{ imported: number; failed: number } | null>;
   importMaterialPrices: (prices: MaterialPrice[]) => void;
   updateMaterialPricesConfig: (config: Partial<MaterialPricesConfig>) => void;
   
@@ -195,6 +202,7 @@ export const useTemplateStore = create<TemplateState>()(
         defaultMarkup: 0,
         categoryMarkups: {},
       },
+      isLoadingMaterialPrices: false,
       isLoading: false,
       isSaving: false,
       hasUnsavedChanges: false,
@@ -617,6 +625,62 @@ export const useTemplateStore = create<TemplateState>()(
             };
           });
         }
+      },
+      loadMaterialPrices: async (params) => {
+        set({ isLoadingMaterialPrices: true });
+        try {
+          const [prices, catalogResponse] = await Promise.all([
+            templatesService.getMaterialPrices(params),
+            estimationService.getMaterialCatalog().catch(() => null),
+          ]);
+
+          const catalogItems = catalogResponse?.response?.items ?? [];
+          const enriched = enrichMaterialPricesFromCatalog(prices, catalogItems);
+
+          const syncTargets = enriched.filter((price) => {
+            const original = prices.find((row) => row.id === price.id);
+            return Boolean(price.itemKey && !original?.itemKey);
+          });
+
+          if (syncTargets.length > 0) {
+            await Promise.allSettled(
+              syncTargets.map((price) =>
+                templatesService.updateMaterialPrice(price.id, {
+                  itemKey: price.itemKey,
+                  name: price.name,
+                  category: price.category,
+                  unit: price.unit,
+                })
+              )
+            );
+          }
+
+          set((state) => ({
+            materialPrices: enriched,
+            materialPricesConfig: {
+              ...state.materialPricesConfig,
+              prices: enriched,
+            },
+            isLoadingMaterialPrices: false,
+          }));
+        } catch (error) {
+          console.error('[TemplateStore] Error loading material prices:', error);
+          set({ isLoadingMaterialPrices: false });
+        }
+      },
+      bulkImportMaterialPrices: async (prices) => {
+        const result = await templatesService.importMaterialPrices(prices);
+        if (result) {
+          set((state) => ({
+            materialPrices: result.materialPrices,
+            materialPricesConfig: {
+              ...state.materialPricesConfig,
+              prices: result.materialPrices,
+            },
+          }));
+          return { imported: result.imported, failed: result.failed };
+        }
+        return null;
       },
       importMaterialPrices: (prices) => {
         set((state) => ({

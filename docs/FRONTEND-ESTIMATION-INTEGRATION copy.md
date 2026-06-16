@@ -36,48 +36,6 @@ Every saved quote stores an immutable `estimationSnapshot` on the `Quote` record
 
 ## Endpoints
 
-### `GET /api/v1/estimation/material-catalog`
-
-**Auth:** session + access token
-
-Returns the **full enumerated** estimation material catalog (all canonical `itemKey` values). Use this to populate pricing dropdowns when adding or editing Material Prices.
-
-**Query (optional):**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `category` | `Profile` \| `Glass` \| `Accessory` \| `Rubber` \| `Net` \| `Other` | Filter by category |
-| `search` | string | Case-insensitive match on `itemKey` or `itemName` |
-
-**Response:**
-
-```json
-{
-  "responseMessage": "Material catalog retrieved successfully",
-  "response": {
-    "items": [
-      {
-        "itemKey": "profile.track",
-        "itemName": "Track Profile",
-        "category": "Profile",
-        "unit": "length"
-      }
-    ],
-    "total": 52,
-    "totalUnfiltered": 52
-  }
-}
-```
-
-**Notes:**
-
-- One row per canonical `itemKey` (engine display aliases are deduplicated).
-- Includes all profiles, accessories, and rubbers from the estimation registry, plus standard glass sheets (`3310x2140`) and net mesh roll heights (`1220`, `1500`, `1800` mm).
-- `GET /estimation/price-fill` returns only **itemKeys present in a calculated project**; use **material-catalog** for the complete list when building Material Prices UI.
-- Source of truth in code: `src/domains/estimation/itemKeyRegistry.ts` → `listMaterialCatalog()`.
-
----
-
 ### `GET /api/v1/estimation/price-fill`
 
 **Auth:** session + access token
