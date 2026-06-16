@@ -3,8 +3,164 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { GlassPlacement } from '@/types/calculations';
+import type { DimensionItem } from '@/types/project';
 
-// Helper function to get page size dimensions
+/** One project cart line for PDF cover tables (cutting / glass exports). */
+export interface ProjectCartExportRow {
+  index: number;
+  name: string;
+  type: string;
+  dimensions: string;
+  quantity: string;
+  panels?: string;
+  color?: string;
+}
+
+export interface ProjectExportCoverInfo {
+  projectName: string;
+  customerName?: string;
+  siteAddress?: string;
+  rows: ProjectCartExportRow[];
+}
+
+export function buildProjectCartExportRows(
+  dimensions: DimensionItem[],
+  unit = 'mm'
+): ProjectCartExportRow[] {
+  return dimensions.map((dim, i) => ({
+    index: i + 1,
+    name: dim.title?.trim() || `Item ${i + 1}`,
+    type: dim.type || '—',
+    dimensions: `${dim.width} × ${dim.height} ${unit}`,
+    quantity: dim.quantity || '1',
+    panels:
+      dim.panel && dim.panel !== '1'
+        ? dim.panel
+        : dim.openingPanels
+          ? `${dim.openingPanels} opening`
+          : dim.verticalPanels && dim.horizontalPanels
+            ? `${dim.verticalPanels}×${dim.horizontalPanels}`
+            : undefined,
+    color: dim.color,
+  }));
+}
+
+function drawPdfLogoPlaceholder(doc: jsPDF, pageW: number, margin: number, y: number): void {
+  doc.setFillColor(75, 85, 99);
+  doc.rect(pageW - margin - 30, y - 6, 30, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Logo', pageW - margin - 15, y + 1, { align: 'center' });
+  doc.setTextColor(55, 65, 81);
+}
+
+/** Page 1 cover: document title + project cart table. */
+function drawProjectCartCoverPage(
+  doc: jsPDF,
+  documentTitle: string,
+  cover: ProjectExportCoverInfo
+): void {
+  const margin = 14;
+  const pageW = doc.internal.pageSize.getWidth();
+  let startY = 20;
+
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(55, 65, 81);
+  doc.text(documentTitle, margin, startY);
+  drawPdfLogoPlaceholder(doc, pageW, margin, startY);
+  startY += 14;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Project: ${cover.projectName}`, margin, startY);
+  startY += 6;
+  if (cover.customerName?.trim()) {
+    doc.text(`Customer: ${cover.customerName.trim()}`, margin, startY);
+    startY += 6;
+  }
+  if (cover.siteAddress?.trim()) {
+    const site =
+      cover.siteAddress.length > 72
+        ? `${cover.siteAddress.slice(0, 71)}…`
+        : cover.siteAddress.trim();
+    doc.text(`Site: ${site}`, margin, startY);
+    startY += 6;
+  }
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, startY);
+  startY += 10;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Project cart', margin, startY);
+  startY += 4;
+
+  const hasPanels = cover.rows.some((r) => r.panels);
+  const hasColor = cover.rows.some((r) => r.color);
+  const head = hasPanels
+    ? hasColor
+      ? ['#', 'Name', 'Type', 'Dimensions', 'Qty', 'Panels', 'Color']
+      : ['#', 'Name', 'Type', 'Dimensions', 'Qty', 'Panels']
+    : hasColor
+      ? ['#', 'Name', 'Type', 'Dimensions', 'Qty', 'Color']
+      : ['#', 'Name', 'Type', 'Dimensions', 'Qty'];
+
+  const body = cover.rows.map((row) => {
+    const base = [String(row.index), row.name, row.type, row.dimensions, row.quantity];
+    if (hasPanels) base.push(row.panels ?? '—');
+    if (hasColor) base.push(row.color ?? '');
+    return base;
+  });
+
+  const colorColIndex = head.indexOf('Color');
+
+  autoTable(doc, {
+    startY,
+    head: [head],
+    body,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold', textColor: 255 },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 32 },
+      3: { cellWidth: 38 },
+    },
+    margin: { left: margin, right: margin },
+    didParseCell: (data) => {
+      if (colorColIndex >= 0 && data.section === 'body' && data.column.index === colorColIndex) {
+        data.cell.text = [];
+      }
+    },
+    didDrawCell: (data) => {
+      if (colorColIndex < 0 || data.section !== 'body' || data.column.index !== colorColIndex) return;
+      const hex = cover.rows[data.row.index]?.color;
+      if (!hex) return;
+      const [r, g, b] = hexToRgb(hex);
+      doc.setFillColor(r, g, b);
+      doc.setDrawColor(209, 213, 219);
+      doc.circle(data.cell.x + 5, data.cell.y + data.cell.height / 2, 2, 'FD');
+      doc.setFontSize(8);
+      doc.setTextColor(84, 84, 84);
+      doc.text(hex.toUpperCase(), data.cell.x + 9, data.cell.y + data.cell.height / 2 + 1);
+      doc.setTextColor(0, 0, 0);
+    },
+  } as any);
+}
+
+function formatElementWithColorLabel(title: string): string {
+  return title;
+}
+
+function drawElementColorDot(doc: jsPDF, x: number, y: number, color?: string): void {
+  if (!color) return;
+  const [r, g, b] = hexToRgb(color);
+  doc.setFillColor(r, g, b);
+  doc.setDrawColor(209, 213, 219);
+  doc.circle(x, y, 1.6, 'FD');
+}
+
 const getPageSize = (pageSize: string, customSize?: { width: number; height: number; unit: 'mm' | 'in' }) => {
   if (pageSize === 'Custom' && customSize) {
     return customSize.unit === 'mm' 
@@ -62,7 +218,14 @@ export interface CuttingLayout {
   id?: string;
   layout: string;
   repetition: number;
-  cuts: { length: number; unit: string; elementTitle?: string; elementColor?: string }[];
+  cuts: {
+    length: number;
+    lengthMm?: number;
+    diagramLabel?: string;
+    unit: string;
+    elementTitle?: string;
+    elementColor?: string;
+  }[];
   offCut: number;
   stockLength?: number; // meters, for visual bar proportion
 }
@@ -206,10 +369,13 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 /** Group cuts by (length mm, elementColor) for Cut/Length and Cut across repetition tables */
-function groupCutsForTables(cuts: { length: number; unit: string; elementTitle?: string; elementColor?: string }[], repetition: number) {
+function groupCutsForTables(
+  cuts: CuttingLayout['cuts'],
+  repetition: number
+) {
   const map = new Map<string, { lengthMm: number; qtyPerBar: number; elementTitle?: string; elementColor?: string }>();
   cuts.forEach((c) => {
-    const lengthMm = Math.round(c.length * 1000);
+    const lengthMm = c.lengthMm ?? Math.round(c.length * 1000);
     const key = `${lengthMm}_${c.elementColor ?? 'default'}`;
     const existing = map.get(key);
     if (existing) {
@@ -229,9 +395,138 @@ function groupCutsForTables(cuts: { length: number; unit: string; elementTitle?:
   }));
 }
 
+function formatCuttingBarLabelM(lengthMeters: number): string {
+  return `${lengthMeters.toFixed(1)}m`;
+}
+
+function formatOffcutSummaryM(offcutMeters: number): string {
+  return `${offcutMeters.toFixed(1)}m`;
+}
+
+function formatLengthMmDisplay(lengthMm: number): string {
+  return Math.round(lengthMm).toLocaleString('en-US');
+}
+
+/** Draw column header + bordered rows (dot, length mm, N pcs) — matches docs/cutting-list-page.tsx */
+function drawCutColumnTable(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  width: number,
+  title: string,
+  rows: { lengthMm: number; qty: number; elementColor?: string }[]
+): number {
+  const headerH = 7;
+  const rowH = 7;
+  const rowGap = 2;
+
+  doc.setFillColor(237, 237, 237);
+  doc.setDrawColor(237, 237, 237);
+  doc.roundedRect(x, y, width, headerH, 1, 1, 'F');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(84, 84, 84);
+  doc.text(title, x + 3, y + 4.8);
+
+  let rowY = y + headerH + 2;
+  rows.forEach((row) => {
+    doc.setDrawColor(237, 237, 237);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(x, rowY, width, rowH, 1, 1, 'FD');
+
+    const [r, g, b] = row.elementColor ? hexToRgb(row.elementColor) : [34, 197, 94];
+    doc.setFillColor(r, g, b);
+    doc.circle(x + 4.5, rowY + rowH / 2, 1.4, 'F');
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(31, 41, 55);
+    doc.text(formatLengthMmDisplay(row.lengthMm), x + 9, rowY + 4.8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128);
+    doc.text(`${row.qty} pcs`, x + width - 3, rowY + 4.8, { align: 'right' });
+
+    rowY += rowH + rowGap;
+  });
+
+  return rowY;
+}
+
+/** Page-level column guide (Layout | Repetition | Off-cuts) */
+function drawCuttingListColumnGuide(doc: jsPDF, x: number, y: number, width: number): number {
+  const h = 8;
+  doc.setFillColor(243, 244, 246);
+  doc.rect(x, y, width, h, 'F');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(107, 114, 128);
+  doc.text('Layout', x + 4, y + 5.5);
+  doc.text('Repetition', x + width * 0.36, y + 5.5);
+  doc.text('Off-cuts', x + width * 0.68, y + 5.5);
+  return y + h + 4;
+}
+
+function formatMaterialLengthMeters(meters: number): string {
+  const s = meters.toFixed(2);
+  return s.replace(/\.?0+$/, '') || '0';
+}
+
+function formatStockQuantityLabel(qty: number): string {
+  return qty === 1 ? '1 length' : `${qty} lengths`;
+}
+
+function drawCuttingListDocumentHeader(
+  doc: jsPDF,
+  pageW: number,
+  margin: number,
+  projectName: string,
+  startY: number,
+  logoEnabled: boolean
+): number {
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(55, 65, 81);
+  doc.text('CUTTING LIST', margin, startY);
+  if (logoEnabled) {
+    drawPdfLogoPlaceholder(doc, pageW, margin, startY);
+  }
+  startY += 12;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Project: ${projectName}`, margin, startY);
+  startY += 6;
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, startY);
+  return startY + 10;
+}
+
+function drawProfileCuttingSectionHeader(
+  doc: jsPDF,
+  margin: number,
+  pageW: number,
+  section: CuttingListSection,
+  startY: number
+): number {
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(31, 41, 55);
+  doc.text(section.profileName, margin, startY);
+  startY += 8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(55, 65, 81);
+  doc.text(
+    `Material Length: ${formatMaterialLengthMeters(section.materialLength)} meters | Total Quantity: ${formatStockQuantityLabel(section.totalQuantity)}`,
+    margin,
+    startY
+  );
+  return startY + 10;
+}
+
 export const exportCuttingListToPDF = (
   sections: CuttingListSection[],
-  projectName: string
+  projectName: string,
+  cover?: ProjectExportCoverInfo
 ) => {
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
@@ -241,187 +536,145 @@ export const exportCuttingListToPDF = (
   const contentBottom = pageH - footerHeight;
 
   const quoteFormat = useTemplateStore.getState().quoteFormat;
-  // Always show logo placeholder for Cutting List (matches destination layout)
   const logoEnabled = true;
+
+  if (cover?.rows?.length) {
+    drawProjectCartCoverPage(doc, 'CUTTING LIST', {
+      ...cover,
+      projectName: cover.projectName || projectName,
+    });
+    doc.addPage();
+  }
 
   let startY = 20;
 
   sections.forEach((section, sectionIndex) => {
-    // Profile header for sections after the first (first profile title is in the document header block)
     if (sectionIndex > 0) {
-      if (startY > contentBottom - 100) {
-        doc.addPage();
-        startY = 20;
-      } else {
-        startY += 6;
-      }
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(55, 65, 81);
-      doc.text(`Profile: ${section.profileName}`, margin, startY);
-      startY += 10;
+      doc.addPage();
+      startY = 20;
     }
 
+    if (sectionIndex === 0) {
+      startY = drawCuttingListDocumentHeader(doc, pageW, margin, projectName, startY, logoEnabled);
+    }
+
+    startY = drawProfileCuttingSectionHeader(doc, margin, pageW, section, startY);
+    startY = drawCuttingListColumnGuide(doc, margin, startY, pageW - 2 * margin);
+
     section.layouts.forEach((layout, layoutIndex) => {
-      const isFirst = sectionIndex === 0 && layoutIndex === 0;
-      if (!isFirst && startY > contentBottom - 100) {
+      if (layoutIndex > 0 && startY > contentBottom - 100) {
         doc.addPage();
         startY = 20;
-      } else if (!isFirst) {
+      } else if (layoutIndex > 0) {
         startY += 8;
-      }
-
-      if (isFirst) {
-        // Header: CUTTING LIST left, Logo placeholder right
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(55, 65, 81);
-        doc.text('CUTTING LIST', margin, startY);
-        if (logoEnabled) {
-          doc.setFillColor(75, 85, 99);
-          doc.rect(pageW - margin - 30, startY - 6, 30, 12, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'normal');
-          doc.text('Logo', pageW - margin - 15, startY + 1, { align: 'center' });
-          doc.setTextColor(55, 65, 81);
-        }
-        startY += 12;
-
-        // Project info
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Project: ${projectName}`, margin, startY);
-        startY += 6;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Profile: ${section.profileName}`, margin, startY);
-        startY += 8;
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Material Length: ${section.materialLength} meters`, margin, startY);
-        startY += 6;
-        doc.text(`Quantity: ${section.totalQuantity} length`, margin, startY);
-        startY += 6;
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, startY);
-        startY += 12;
       }
 
       const stockLength = layout.stockLength ?? section.materialLength;
       const cardPadding = 6;
-      const cardTop = startY;
       const grouped = groupCutsForTables(layout.cuts, layout.repetition);
       const innerLeft = margin + cardPadding;
       const innerW = pageW - 2 * margin - 2 * cardPadding;
+      const metaW = 38;
+      const tableGap = 6;
+      const tableW = (innerW - metaW - tableGap) / 2;
+      const tablesX = innerLeft + metaW + tableGap;
+      const rowCount = grouped.length;
+      const tableBlockH = 7 + 2 + rowCount * (7 + 2);
+      const cardContentH = Math.max(22, tableBlockH) + 8 + 10 + 8;
+      const estimatedCardH = cardContentH + cardPadding * 2;
 
-      // Card background (white cards like destination)
-      const estimatedCardH = 68 + grouped.length * 11 + 30;
-      doc.setDrawColor(229, 231, 235);
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(margin, cardTop - 2, pageW - 2 * margin, estimatedCardH, 2, 2, 'FD');
+      if (startY + estimatedCardH > contentBottom) {
+        doc.addPage();
+        startY = 20;
+      }
 
-      // Summary: grey bar + Layout / Repetition / Off-cuts (jspdf-autotable v5 has no startX — use one table or draw)
-      const summaryBarH = 12;
-      doc.setFillColor(243, 244, 246);
-      doc.rect(innerLeft, startY, innerW, summaryBarH, 'F');
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(107, 114, 128);
-      const sumCol1 = innerLeft + 4;
-      const sumCol2 = innerLeft + innerW * 0.36;
-      const sumCol3 = innerLeft + innerW * 0.68;
-      doc.text('Layout', sumCol1, startY + 8);
-      doc.text('Repetition', sumCol2, startY + 8);
-      doc.text('Off-cuts', sumCol3, startY + 8);
-      startY += summaryBarH + 2;
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(55, 65, 81);
-      doc.text(layout.layout, sumCol1, startY + 5);
-      doc.text(`${layout.repetition}X`, sumCol2, startY + 5);
-      doc.text(`${layout.offCut.toFixed(1)}m`, sumCol3, startY + 5);
-      startY += 12;
-
-      // Single two-column table — avoids v5 ignoring startX (dual tables both sat at margin.left: 0 and overlapped)
-      const tableMargin = { left: innerLeft, right: margin + cardPadding, top: 0, bottom: 0 };
-      const cutTableDidParseCell = (data: any) => {
-        if (data.section === 'body' && (data.column.index === 0 || data.column.index === 1)) {
-          const rowIdx = data.row.index;
-          const color = grouped[rowIdx]?.elementColor;
-          const [r, g, b] = color ? hexToRgb(color) : [147, 197, 253];
-          data.cell.styles.fillColor = [r, g, b];
-          data.cell.styles.textColor = [255, 255, 255];
-        }
-      };
-
-      autoTable(doc, {
-        startY,
-        head: [['Cut/Length', 'Cut across repetition']],
-        body: grouped.map((r) => [
-          `${r.lengthMm} ${r.qtyPerBar} pcs`,
-          `${r.lengthMm} ${r.qtyAcrossRepetition} pcs`,
-        ]),
-        theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 3 },
-        headStyles: { fillColor: [229, 231, 235], fontStyle: 'bold', textColor: [55, 65, 81] },
-        columnStyles: {
-          0: { cellWidth: innerW / 2 - 1 },
-          1: { cellWidth: innerW / 2 - 1 },
-        },
-        margin: tableMargin,
-        tableWidth: innerW,
-        didParseCell: cutTableDidParseCell,
-      } as any);
-
-      startY = (doc as any).lastAutoTable.finalY + 8;
-
-      // Dashed rule above stock bar (matches in-app cutting list)
+      const cardY = startY;
       doc.setDrawColor(209, 213, 219);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(margin, cardY - 2, pageW - 2 * margin, estimatedCardH, 2, 2, 'FD');
+
+      const contentY = cardY + cardPadding;
+
+      // Left: layout letter, repetition, off-cut summary (mock: A | 4X | 1.5m)
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(31, 41, 55);
+      doc.text(layout.layout, innerLeft, contentY + 5);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.text(`${layout.repetition}X`, innerLeft + 14, contentY + 5);
+      doc.text(formatOffcutSummaryM(layout.offCut), innerLeft + 28, contentY + 5);
+
+      // Right: Cut/Length + Cut across repetition tables
+      const cutRows = grouped.map((r) => ({
+        lengthMm: r.lengthMm,
+        qty: r.qtyPerBar,
+        elementColor: r.elementColor,
+      }));
+      const acrossRows = grouped.map((r) => ({
+        lengthMm: r.lengthMm,
+        qty: r.qtyAcrossRepetition,
+        elementColor: r.elementColor,
+      }));
+      const tablesEndY = Math.max(
+        drawCutColumnTable(doc, tablesX, contentY, tableW, 'Cut/Length', cutRows),
+        drawCutColumnTable(doc, tablesX + tableW + tableGap, contentY, tableW, 'Cut across repetition', acrossRows)
+      );
+
+      // Dashed rule above stock bar
+      let barSectionY = tablesEndY + 4;
+      doc.setDrawColor(156, 163, 175);
       doc.setLineWidth(0.3);
       if (typeof doc.setLineDashPattern === 'function') {
         doc.setLineDashPattern([1.2, 1.2], 0);
       }
-      doc.line(innerLeft, startY, innerLeft + innerW, startY);
+      doc.line(innerLeft, barSectionY, innerLeft + innerW, barSectionY);
       if (typeof doc.setLineDashPattern === 'function') {
         doc.setLineDashPattern([], 0);
       }
-      startY += 6;
+      barSectionY += 6;
 
       // Visual bar
       const barW = innerW;
       const barH = 10;
-      let barX = margin + cardPadding;
-      const barY = startY;
+      let barX = innerLeft;
+      const barY = barSectionY;
+
+      doc.setDrawColor(209, 213, 219);
+      doc.setLineWidth(0.35);
+      doc.rect(innerLeft, barY, barW, barH, 'S');
 
       layout.cuts.forEach((c) => {
         const segW = (c.length / stockLength) * barW;
         const [r, g, b] = c.elementColor ? hexToRgb(c.elementColor) : [107, 158, 182];
         doc.setFillColor(r, g, b);
-        doc.setDrawColor(100, 116, 139); // 1px solid outline (slate-600)
-        doc.setLineWidth(0.35); // ~1px
+        doc.setDrawColor(209, 213, 219);
         doc.rect(barX, barY, segW, barH, 'FD');
-        doc.setFontSize(7);
+        doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(255, 255, 255);
-        doc.text(c.unit, barX + segW / 2, barY + barH / 2 + 1.5, { align: 'center' });
-        doc.setTextColor(55, 65, 81);
+        const label = c.unit || formatCuttingBarLabelM(c.length);
+        const textR = r * 0.299 + g * 0.587 + b * 0.114;
+        doc.setTextColor(textR > 160 ? 31 : 255, textR > 160 ? 41 : 255, textR > 160 ? 55 : 255);
+        doc.text(label, barX + segW / 2, barY + barH / 2 + 1.5, { align: 'center' });
         barX += segW;
       });
 
       if (layout.offCut > 0) {
         const offcutW = (layout.offCut / stockLength) * barW;
-        // Light grey dotted pattern for off-cut
-        doc.setFillColor(226, 232, 240);
+        doc.setFillColor(255, 255, 255);
         doc.rect(barX, barY, offcutW, barH, 'F');
+        doc.setDrawColor(209, 213, 219);
+        doc.rect(barX, barY, offcutW, barH, 'S');
         doc.setFillColor(203, 213, 225);
-        for (let i = 0; i < offcutW; i += 4) {
-          for (let j = 0; j < barH; j += 4) {
-            doc.rect(barX + i, barY + j, 1.5, 1.5, 'F');
+        for (let i = 0; i < offcutW; i += 3) {
+          for (let j = 0; j < barH; j += 3) {
+            doc.circle(barX + i + 0.5, barY + j + 0.5, 0.4, 'F');
           }
         }
       }
 
-      startY += barH + 8;
+      startY = barY + barH + cardPadding + 6;
     });
   });
 
@@ -557,6 +810,7 @@ export interface GlassCuttingLayout {
     qty: number;
     elementTitle?: string;
     elementId?: string;
+    elementColor?: string;
   }>;
   totalCuts: number;
   layoutId?: string;
@@ -577,17 +831,19 @@ function aggregatePanelsOnSheet(placements: GlassExportPlacement[]): Array<{
   h: number;
   qty: number;
   elementTitle: string;
+  elementColor?: string;
 }> {
   const pieces = placements.filter((p) => p.kind === 'piece');
   const key = (p: GlassExportPlacement) =>
     `${Math.round(p.widthMm)}x${Math.round(p.heightMm)}|${p.elementId ?? ''}|${Math.round(p.nominalWidthMm ?? 0)}x${Math.round(p.nominalHeightMm ?? 0)}`;
-  const map = new Map<string, { w: number; h: number; qty: number; elementTitle: string }>();
+  const map = new Map<string, { w: number; h: number; qty: number; elementTitle: string; elementColor?: string }>();
   pieces.forEach((p) => {
     const k = key(p);
     const title = p.elementTitle ?? p.elementId ?? '';
+    const color = p.fillHex && p.kind === 'piece' ? p.fillHex : undefined;
     const cur = map.get(k);
     if (cur) cur.qty += 1;
-    else map.set(k, { w: Math.round(p.widthMm), h: Math.round(p.heightMm), qty: 1, elementTitle: title });
+    else map.set(k, { w: Math.round(p.widthMm), h: Math.round(p.heightMm), qty: 1, elementTitle: title, elementColor: color });
   });
   return Array.from(map.values()).sort((a, b) => b.qty - a.qty || b.w * b.h - a.w * a.h);
 }
@@ -656,7 +912,18 @@ function drawGlassNestOnPdf(
       if (lab && rw > 10 && rh > 6) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.5);
-        doc.text(lab.length > 22 ? `${lab.slice(0, 21)}…` : lab, x + rw / 2, y + rh / 2 + 2.2, { align: 'center' });
+        const colorHex = p.fillHex;
+        if (colorHex && rw > 14) {
+          drawElementColorDot(doc, x + rw / 2 - 8, y + rh / 2 + 2.2, colorHex);
+          doc.text(
+            lab.length > 18 ? `${lab.slice(0, 17)}…` : lab,
+            x + rw / 2 + 1,
+            y + rh / 2 + 2.2,
+            { align: 'center' }
+          );
+        } else {
+          doc.text(lab.length > 22 ? `${lab.slice(0, 21)}…` : lab, x + rw / 2, y + rh / 2 + 2.2, { align: 'center' });
+        }
         doc.setFont('helvetica', 'normal');
       }
       doc.setTextColor(0, 0, 0);
@@ -796,40 +1063,84 @@ export const exportGlassCuttingListToCSV = (layouts: GlassCuttingLayout[], proje
 
 export const exportGlassCuttingListToPDF = (
   layouts: GlassCuttingLayout[],
-  projectName: string
+  projectName: string,
+  cover?: ProjectExportCoverInfo
 ) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 14;
 
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Glass cutting plan', margin, 18);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Project: ${projectName}`, margin, 26);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 32);
-  doc.text(`Total physical sheets: ${layouts.length}`, margin, 38);
-
   const first = layouts[0];
-  if (first) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Required stock', margin, 46);
-    doc.setFont('helvetica', 'normal');
-    autoTable(doc, {
-      startY: 49,
-      head: [['Stock (W × H mm)', 'Sheets']],
-      body: [[`${first.sheetWidth} × ${first.sheetHeight}`, String(layouts.length)]],
-      theme: 'striped',
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
-      margin: { left: margin, right: margin },
+  const docWithTable = doc as { lastAutoTable?: { finalY: number } };
+
+  if (cover?.rows?.length) {
+    drawProjectCartCoverPage(doc, 'GLASS CUTTING PLAN', {
+      ...cover,
+      projectName: cover.projectName || projectName,
     });
+
+    if (first) {
+      let stockY = (docWithTable.lastAutoTable?.finalY ?? 120) + 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('Required stock', margin, stockY);
+      stockY += 4;
+      doc.setFont('helvetica', 'normal');
+      autoTable(doc, {
+        startY: stockY,
+        head: [['Stock (W × H mm)', 'Sheets']],
+        body: [[`${first.sheetWidth} × ${first.sheetHeight}`, String(layouts.length)]],
+        theme: 'striped',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
+        margin: { left: margin, right: margin },
+      });
+    }
+
+    doc.addPage();
   }
 
-  const docWithTable = doc as { lastAutoTable?: { finalY: number } };
-  let cursorY = (docWithTable.lastAutoTable?.finalY ?? 58) + 12;
+  let cursorY = margin;
+
+  if (!cover?.rows?.length) {
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GLASS CUTTING PLAN', margin, 18);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Project: ${projectName}`, margin, 26);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 32);
+    doc.text(`Total physical sheets: ${layouts.length}`, margin, 38);
+
+    if (first) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Required stock', margin, 46);
+      doc.setFont('helvetica', 'normal');
+      autoTable(doc, {
+        startY: 49,
+        head: [['Stock (W × H mm)', 'Sheets']],
+        body: [[`${first.sheetWidth} × ${first.sheetHeight}`, String(layouts.length)]],
+        theme: 'striped',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
+        margin: { left: margin, right: margin },
+      });
+    }
+
+    cursorY = (docWithTable.lastAutoTable?.finalY ?? 58) + 12;
+  } else {
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GLASS CUTTING PLAN', margin, cursorY);
+    cursorY += 10;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Project: ${projectName}`, margin, cursorY);
+    cursorY += 6;
+    doc.text(`Total physical sheets: ${layouts.length}`, margin, cursorY);
+    cursorY += 10;
+  }
 
   const ensureSpace = (neededMm: number) => {
     const pageH = doc.internal.pageSize.getHeight();
@@ -878,17 +1189,33 @@ export const exportGlassCuttingListToPDF = (
       cursorY += diagramH + 10;
 
       const hasEl = panelRows.some((r) => r.elementTitle);
+      const elementColIndex = hasEl ? 2 : -1;
       autoTable(doc, {
         startY: cursorY,
         head: [hasEl ? ['Panel (W × H mm)', 'Qty', 'Element'] : ['Panel (W × H mm)', 'Qty']],
         body: hasEl
-          ? panelRows.map((r) => [`${r.w} × ${r.h}`, String(r.qty), r.elementTitle])
+          ? panelRows.map((r) => [`${r.w} × ${r.h}`, String(r.qty), formatElementWithColorLabel(r.elementTitle)])
           : panelRows.map((r) => [`${r.w} × ${r.h}`, String(r.qty)]),
         theme: 'grid',
-        styles: { fontSize: 9 },
+        styles: { fontSize: 9, cellPadding: { left: hasEl ? 8 : 3, top: 2, right: 3, bottom: 2 } },
         headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
         margin: { left: margin, right: margin },
-      });
+        didParseCell: (data) => {
+          if (hasEl && data.section === 'body' && data.column.index === elementColIndex) {
+            const row = panelRows[data.row.index];
+            if (row?.elementColor) data.cell.text = [];
+          }
+        },
+        didDrawCell: (data) => {
+          if (!hasEl || data.section !== 'body' || data.column.index !== elementColIndex) return;
+          const row = panelRows[data.row.index];
+          if (!row?.elementColor) return;
+          drawElementColorDot(doc, data.cell.x + 3, data.cell.y + data.cell.height / 2, row.elementColor);
+          doc.setFontSize(9);
+          doc.setTextColor(0, 0, 0);
+          doc.text(row.elementTitle, data.cell.x + 7, data.cell.y + data.cell.height / 2 + 1);
+        },
+      } as any);
       cursorY = docWithTable.lastAutoTable!.finalY + 6;
       doc.setFontSize(9);
       doc.text(
@@ -904,9 +1231,16 @@ export const exportGlassCuttingListToPDF = (
       doc.setTextColor(0, 0, 0);
       cursorY += 6;
       const hasElement = layout.cuts.some((c) => c.elementTitle);
-      const tableData = layout.cuts.map((cut) =>
+      const cutsWithColor = layout.cuts as Array<{
+        w: number;
+        h: number;
+        qty: number;
+        elementTitle?: string;
+        elementColor?: string;
+      }>;
+      const tableData = cutsWithColor.map((cut) =>
         hasElement
-          ? [`${cut.w} × ${cut.h}`, cut.qty, cut.elementTitle ?? '']
+          ? [`${cut.w} × ${cut.h}`, cut.qty, formatElementWithColorLabel(cut.elementTitle ?? '')]
           : [`${cut.w} × ${cut.h}`, cut.qty]
       );
       autoTable(doc, {
@@ -914,10 +1248,25 @@ export const exportGlassCuttingListToPDF = (
         head: hasElement ? [['Panel (W × H mm)', 'Qty', 'Element']] : [['Panel (W × H mm)', 'Qty']],
         body: tableData,
         theme: 'grid',
-        styles: { fontSize: 9 },
+        styles: { fontSize: 9, cellPadding: { left: hasElement ? 8 : 3, top: 2, right: 3, bottom: 2 } },
         headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
         margin: { left: margin, right: margin },
-      });
+        didParseCell: (data) => {
+          if (hasElement && data.section === 'body' && data.column.index === 2) {
+            const cut = cutsWithColor[data.row.index];
+            if (cut?.elementColor) data.cell.text = [];
+          }
+        },
+        didDrawCell: (data) => {
+          if (!hasElement || data.section !== 'body' || data.column.index !== 2) return;
+          const cut = cutsWithColor[data.row.index];
+          if (!cut?.elementColor) return;
+          drawElementColorDot(doc, data.cell.x + 3, data.cell.y + data.cell.height / 2, cut.elementColor);
+          doc.setFontSize(9);
+          doc.setTextColor(0, 0, 0);
+          doc.text(cut.elementTitle ?? '', data.cell.x + 7, data.cell.y + data.cell.height / 2 + 1);
+        },
+      } as any);
       cursorY = docWithTable.lastAutoTable!.finalY + 8;
     }
 

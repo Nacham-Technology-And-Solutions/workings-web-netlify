@@ -18,7 +18,9 @@ import {
   exportGlassCuttingListToPDF,
   exportGlassCuttingListToExcel,
   exportGlassCuttingListToCSV,
-  shareData
+  buildProjectCartExportRows,
+  shareData,
+  type ProjectExportCoverInfo,
 } from '@/services/export/exportService';
 import { projectsService } from '@/services/api';
 import { createProjectData, validateGlazingDimensions } from '@/utils/dataTransformers';
@@ -549,6 +551,17 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     return quantity * price;
   };
 
+  const buildExportCover = (): ProjectExportCoverInfo | undefined => {
+    const dims = previousData?.projectMeasurement?.dimensions;
+    if (!dims?.length) return undefined;
+    return {
+      projectName: previousData?.projectDescription?.projectName || 'Project',
+      customerName: previousData?.projectDescription?.customerName,
+      siteAddress: previousData?.projectDescription?.siteAddress,
+      rows: buildProjectCartExportRows(dims, previousData?.projectMeasurement?.unit ?? 'mm'),
+    };
+  };
+
   // Export handlers — one PDF/Excel with all profiles (Cutting List) or all layouts (Glass List)
   const handleExportCuttingList = (format: 'pdf' | 'excel') => {
     if (!calculationResult?.cuttingList || !previousData?.projectDescription) return;
@@ -563,7 +576,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
         layout: String.fromCharCode(65 + planIndex),
         cuts: layout.cuts.map((c) => ({
           length: c.length,
-          unit: c.label,
+          lengthMm: c.lengthMm,
+          diagramLabel: c.diagramLabel,
+          unit: `${c.length.toFixed(1)}m`,
           elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
           elementColor: c.elementId ? elMap[c.elementId]?.color : undefined,
         })),
@@ -583,7 +598,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     });
     
     if (format === 'pdf') {
-      exportCuttingListToPDF(sections, projectName);
+      exportCuttingListToPDF(sections, projectName, buildExportCover());
     } else {
       exportCuttingListToExcel(sections, projectName);
     }
@@ -609,6 +624,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       qty: c.qty,
       elementId: c.elementId,
       elementTitle: c.elementId ? elMap[c.elementId]?.title : undefined,
+      elementColor: c.elementId ? elMap[c.elementId]?.color : undefined,
     }));
 
     const totalPhysical = Math.max(0, glassList.total_sheets);
@@ -647,7 +663,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     });
 
     if (format === 'pdf') {
-      exportGlassCuttingListToPDF(layouts, projectName);
+      exportGlassCuttingListToPDF(layouts, projectName, buildExportCover());
     } else if (format === 'csv') {
       exportGlassCuttingListToCSV(layouts, projectName);
     } else {
