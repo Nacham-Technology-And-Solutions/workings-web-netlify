@@ -156,3 +156,60 @@ export function enrichMaterialPricesFromCatalog(
 ): MaterialPrice[] {
   return prices.map((price) => enrichMaterialPriceFromCatalog(price, catalogItems));
 }
+
+export function buildLibraryPriceLookup(
+  prices: MaterialPrice[]
+): Map<string, MaterialPrice> {
+  const sorted = [...prices].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+  const byKey = new Map<string, MaterialPrice>();
+
+  for (const price of sorted) {
+    if (price.itemKey?.trim()) {
+      byKey.set(normalizeItemKey(price.itemKey), price);
+    }
+  }
+
+  return byKey;
+}
+
+export function buildLibraryNameLookup(prices: MaterialPrice[]): Map<string, MaterialPrice> {
+  const sorted = [...prices].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+  const byName = new Map<string, MaterialPrice>();
+  for (const price of sorted) {
+    byName.set(price.name.trim().toLowerCase(), price);
+  }
+  return byName;
+}
+
+/** Overlay Material Prices library onto price-fill rows when user selects My prices. */
+export function applyUserLibraryToPricingInputs(
+  inputs: PricingInput[],
+  library: MaterialPrice[]
+): { inputs: PricingInput[]; matchedCount: number } {
+  const byKey = buildLibraryPriceLookup(library);
+  const byName = buildLibraryNameLookup(library);
+  let matchedCount = 0;
+
+  const merged = inputs.map((row) => {
+    const libraryRow =
+      byKey.get(normalizeItemKey(row.itemKey)) ??
+      byName.get(row.itemName.trim().toLowerCase());
+
+    if (!libraryRow || libraryRow.unitPrice <= 0) {
+      return row;
+    }
+
+    matchedCount += 1;
+    return {
+      ...row,
+      unitPrice: libraryRow.unitPrice,
+      source: 'user_library' as const,
+    };
+  });
+
+  return { inputs: merged, matchedCount };
+}

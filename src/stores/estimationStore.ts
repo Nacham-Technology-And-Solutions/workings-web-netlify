@@ -11,9 +11,11 @@ import type {
   EstimationSaveResponse,
 } from '@/types/estimation';
 import { estimationService } from '@/services/api/estimation.service';
+import { templatesService } from '@/services/api/templates.service';
 import { buildDefaultQuoteSettings } from '@/utils/estimationDefaults';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { getApiResponseData } from '@/utils/apiResponseHelper';
+import { applyUserLibraryToPricingInputs } from '@/utils/materialPriceHelpers';
 
 export type EstimationPreviewResult =
   | EstimationPreviewProjectCartResponse['response']
@@ -75,13 +77,22 @@ export const useEstimationStore = create<EstimationState>((set, get) => ({
 
   loadPriceFill: async (projectId, source) => {
     const fillSource = source ?? get().fillSource;
-    set({ isLoadingFill: true, error: null, projectId });
+    set({ isLoadingFill: true, error: null, projectId, fillSource });
     try {
       const response = await estimationService.getPriceFill(projectId, fillSource);
       const data = response.response;
+      let pricingInputs = data.pricingInputs;
+
+      if (fillSource === 'user_library') {
+        const library = await templatesService.getMaterialPrices();
+        const applied = applyUserLibraryToPricingInputs(pricingInputs, library);
+        pricingInputs = applied.inputs;
+      }
+
       set({
-        fillSource: data.fillSource,
-        pricingInputs: data.pricingInputs,
+        fillSource,
+        pricingInputs,
+        previewResult: null,
         isLoadingFill: false,
       });
     } catch (err) {

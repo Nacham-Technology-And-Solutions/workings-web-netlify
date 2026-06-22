@@ -37,9 +37,14 @@ import {
 } from '@/utils/calculationResultParser';
 import { normalizePlanEntryToCuts, formatOffcutLabelMm } from '@/utils/cutPlanKeys';
 import EstimationPricingPanel from '@/components/features/estimation/EstimationPricingPanel';
+import MaterialBomPricedItem from '@/components/features/estimation/MaterialBomPricedItem';
 import GenerateQuoteModal from '@/components/features/estimation/GenerateQuoteModal';
 import { useEstimationStore } from '@/stores/estimationStore';
 import type { EstimationSavedQuote } from '@/types/estimation';
+import {
+  buildMaterialPreviewLookup,
+  findPreviewLineForMaterial,
+} from '@/utils/estimationMaterialMatch';
 
 type CuttingPlanEntry = { [key: string]: string[] | CuttingPlanPiece[] };
 
@@ -157,7 +162,11 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     initFromProjectSettings,
     setProjectId: setEstimationProjectId,
     loadPriceFill,
+    preview: runEstimationPreview,
+    pricingInputs,
+    quoteSettings,
     previewResult,
+    isPreviewing,
     reset: resetEstimation,
   } = useEstimationStore();
   
@@ -205,6 +214,36 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   }, [showExportDropdown]);
 
   const estimationProjectId = calculatedProjectId ?? draftProjectId ?? null;
+  const estimationMode = Boolean(estimationProjectId);
+
+  const materialPreviewLines =
+    previewResult?.quoteSource === 'material_list' && 'lines' in previewResult
+      ? previewResult.lines
+      : [];
+
+  const materialPreviewLookup = useMemo(
+    () => buildMaterialPreviewLookup(materialPreviewLines, pricingInputs),
+    [materialPreviewLines, pricingInputs]
+  );
+
+  const pricingSnapshot = useMemo(
+    () => JSON.stringify({ pricingInputs, quoteSettings }),
+    [pricingInputs, quoteSettings]
+  );
+
+  useEffect(() => {
+    if (!estimationProjectId || pricingInputs.length === 0) return;
+    const timer = window.setTimeout(() => {
+      void runEstimationPreview('material_list');
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [estimationProjectId, pricingSnapshot, pricingInputs.length, runEstimationPreview]);
+
+  const estimationGrandTotal =
+    previewResult?.quoteSource === 'material_list' ? previewResult.grandTotal : null;
+
+  const estimationSubtotal =
+    previewResult?.quoteSource === 'material_list' ? previewResult.subtotal : null;
 
   const bootstrapEstimation = async (projectId: number) => {
     if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
@@ -626,6 +665,20 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
   const buildMaterialExportSections = (): MaterialListExportSection[] => {
     const toRow = (item: MaterialItem) => {
+      if (estimationMode && materialPreviewLookup.size > 0) {
+        const line = findPreviewLineForMaterial(item.name, materialPreviewLookup);
+        if (line) {
+          return {
+            name: item.name,
+            quantity: line.quantity,
+            unit: line.unit,
+            quantityDisplay: formatMaterialQuantityBadge(item, itemQuantities),
+            unitPrice: line.unitPrice,
+            total: line.totalPrice,
+          };
+        }
+      }
+
       const quantity = itemQuantities[item.id] ?? item.quantity;
       const unitPrice = itemPrices[item.id] ?? 0;
       return {
@@ -653,9 +706,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     if (!sections.length) return;
 
     if (format === 'pdf') {
-      void exportProjectMaterialListToPDF(sections, projectName, customerName, grandTotal, mode);
+      void exportProjectMaterialListToPDF(sections, projectName, customerName, displayGrandTotal, mode);
     } else {
-      exportProjectMaterialListToExcel(sections, projectName, customerName, grandTotal, mode);
+      exportProjectMaterialListToExcel(sections, projectName, customerName, displayGrandTotal, mode);
     }
 
     setShowExportDropdown(null);
@@ -772,7 +825,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     setShowExportDropdown(null);
   };
 
-  // Calculate grand total from all items
+  // Calculate grand total from all items (legacy manual pricing)
   const grandTotal = useMemo(() => {
     let total = 0;
     
@@ -788,6 +841,9 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
     return total;
   }, [profileItems, accessoriesItems, itemPrices, itemQuantities]);
+
+  const displayGrandTotal =
+    estimationMode && estimationGrandTotal != null ? estimationGrandTotal : grandTotal;
 
   // Initialize quantities from items when calculation result changes
   useEffect(() => {
@@ -1347,226 +1403,55 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
             {estimationProjectId && (
               <EstimationPricingPanel projectId={estimationProjectId} />
             )}
-            {previewResult?.quoteSource === 'material_list' && 'lines' in previewResult && previewResult.lines.length > 0 && (
-              <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Material list quote preview</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-gray-500 border-b border-gray-200">
-                        <th className="py-2 pr-4 font-medium">Item</th>
-                        <th className="py-2 pr-4 font-medium">Qty</th>
-                        <th className="py-2 pr-4 font-medium text-right">Unit price</th>
-                        <th className="py-2 font-medium text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewResult.lines.map((line) => (
-                        <tr key={line.itemKey} className="border-b border-gray-100">
-                          <td className="py-2 pr-4 text-gray-900">{line.description}</td>
-                          <td className="py-2 pr-4 text-gray-600">{line.quantity} {line.unit}</td>
-                          <td className="py-2 pr-4 text-right text-gray-900">₦{line.unitPrice.toLocaleString()}</td>
-                          <td className="py-2 text-right font-medium text-gray-900">₦{line.totalPrice.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            {estimationMode && (
+              <p className="mb-4 text-sm text-gray-500">
+                Quantities from calculation · Unit prices and line totals from estimation engine
+                {isPreviewing ? ' (updating…)' : ''}
+              </p>
             )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Profiles */}
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Profiles</h3>
                 <div className="space-y-3">
                   {profileItems.map((item) => (
-                    <div key={item.id}>
-                      <button
-                        onClick={() => toggleItemExpansion(item.id)}
-                        className="w-full flex justify-between items-center py-3 px-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <span className="text-gray-900 font-normal">{item.name}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
-                            {item.quantity} {item.unit}
-                          </span>
-                          <svg
-                            className={`w-5 h-5 text-gray-400 transition-transform ${expandedItems[item.id] ? 'rotate-180' : ''
-                              }`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </button>
-
-                      {/* Expanded Content */}
-                      {expandedItems[item.id] && (
-                        <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg space-y-4">
-                          {/* Item Info */}
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Item Info</span>
-                            <span className="text-gray-900">:</span>
-                            <span className="text-gray-900 font-medium">{item.name}</span>
-                          </div>
-
-                          {/* Quantity */}
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Qty(s)</span>
-                            <span className="text-gray-900">:</span>
-                            <input
-                              type="number"
-                              value={itemQuantities[item.id] ?? item.quantity}
-                              readOnly
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 bg-gray-50 cursor-not-allowed"
-                            />
-                          </div>
-
-                          {/* Price */}
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Price</span>
-                            <span className="text-gray-900">:</span>
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-900">₦</span>
-                              <input
-                                type="number"
-                                placeholder="Enter your price..."
-                                value={itemPrices[item.id] || ''}
-                                onChange={(e) => {
-                                  const newPrice = parseFloat(e.target.value) || 0;
-                                  setItemPrices(prev => ({ ...prev, [item.id]: newPrice }));
-                                }}
-                                className="w-32 px-2 py-1 border-b border-gray-300 text-right text-gray-900 focus:outline-none focus:border-gray-400"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Total */}
-                          <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
-                            <span className="text-gray-600">Total</span>
-                            <span className="text-gray-900">:</span>
-                            <span className="text-gray-900 font-bold">₦{getItemTotal(item.id, item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2 pt-2">
-                            <button className="p-2 border border-blue-500 text-blue-500 rounded hover:bg-blue-50 transition-colors">
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                            <button className="p-2 border border-red-500 text-red-500 rounded hover:bg-red-50 transition-colors">
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <MaterialBomPricedItem
+                      key={item.id}
+                      item={item}
+                      quantityDisplay={formatMaterialQuantityBadge(item, itemQuantities)}
+                      isExpanded={Boolean(expandedItems[item.id])}
+                      onToggle={() => toggleItemExpansion(item.id)}
+                      estimationMode={estimationMode}
+                      pricedLine={findPreviewLineForMaterial(item.name, materialPreviewLookup)}
+                      isPreviewing={isPreviewing}
+                      legacyUnitPrice={itemPrices[item.id] ?? 0}
+                      legacyLineTotal={getItemTotal(item.id, item.quantity)}
+                      onLegacyPriceChange={(price) =>
+                        setItemPrices((prev) => ({ ...prev, [item.id]: price }))
+                      }
+                    />
                   ))}
                 </div>
               </div>
 
-              {/* Accessories Section */}
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Accessories</h3>
                 <div className="space-y-3">
                   {accessoriesItems.map((item) => (
-                    <div key={item.id}>
-                      <button
-                        onClick={() => toggleItemExpansion(item.id)}
-                        className="w-full flex justify-between items-center py-3 px-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <span className="text-gray-900 font-normal">{item.name}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
-                            {formatMaterialQuantityBadge(item, itemQuantities)}
-                          </span>
-                          <svg
-                            className={`w-5 h-5 text-gray-400 transition-transform ${expandedItems[item.id] ? 'rotate-180' : ''
-                              }`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </button>
-
-                      {/* Expanded Content */}
-                      {expandedItems[item.id] && (
-                        <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg space-y-4">
-                          {/* Item Info */}
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Item Info</span>
-                            <span className="text-gray-900">:</span>
-                            <span className="text-gray-900 font-medium">{item.name}</span>
-                          </div>
-
-                          {/* Quantity */}
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Qty(s)</span>
-                            <span className="text-gray-900">:</span>
-                            {item.quantityLabel || item.unit === 'm' ? (
-                              <span className="text-gray-900 font-medium">
-                                {formatMaterialQuantityBadge(item, itemQuantities)}
-                              </span>
-                            ) : (
-                              <input
-                                type="number"
-                                value={itemQuantities[item.id] ?? item.quantity}
-                                readOnly
-                                className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-gray-900 bg-gray-50 cursor-not-allowed"
-                              />
-                            )}
-                          </div>
-
-                          {/* Price */}
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Price</span>
-                            <span className="text-gray-900">:</span>
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-900">₦</span>
-                              <input
-                                type="number"
-                                placeholder="Enter your price..."
-                                value={itemPrices[item.id] || ''}
-                                onChange={(e) => {
-                                  const newPrice = parseFloat(e.target.value) || 0;
-                                  setItemPrices(prev => ({ ...prev, [item.id]: newPrice }));
-                                }}
-                                className="w-32 px-2 py-1 border-b border-gray-300 text-right text-gray-900 focus:outline-none focus:border-gray-400"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Total */}
-                          <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
-                            <span className="text-gray-600">Total</span>
-                            <span className="text-gray-900">:</span>
-                            <span className="text-gray-900 font-bold">₦{getItemTotal(item.id, item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2 pt-2">
-                            <button className="p-2 border border-blue-500 text-blue-500 rounded hover:bg-blue-50 transition-colors">
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                            <button className="p-2 border border-red-500 text-red-500 rounded hover:bg-red-50 transition-colors">
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <MaterialBomPricedItem
+                      key={item.id}
+                      item={item}
+                      quantityDisplay={formatMaterialQuantityBadge(item, itemQuantities)}
+                      isExpanded={Boolean(expandedItems[item.id])}
+                      onToggle={() => toggleItemExpansion(item.id)}
+                      estimationMode={estimationMode}
+                      pricedLine={findPreviewLineForMaterial(item.name, materialPreviewLookup)}
+                      isPreviewing={isPreviewing}
+                      legacyUnitPrice={itemPrices[item.id] ?? 0}
+                      legacyLineTotal={getItemTotal(item.id, item.quantity)}
+                      onLegacyPriceChange={(price) =>
+                        setItemPrices((prev) => ({ ...prev, [item.id]: price }))
+                      }
+                    />
                   ))}
                 </div>
               </div>
@@ -2285,10 +2170,27 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       {/* Footer with Grand Total - Material List tab only; extra bottom padding on mobile for fixed bar */}
       {!isLoading && !error && calculationResult && activeTab === 'material' && (
         <div className="border-t border-gray-200 bg-white px-4 md:px-8 py-6 pb-20 md:pb-6">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto space-y-2">
+            {estimationMode && estimationSubtotal != null && (
+              <div className="flex justify-between items-center text-sm text-gray-600">
+                <span>Materials subtotal</span>
+                <span>
+                  {isPreviewing ? 'Updating…' : `₦${estimationSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold text-gray-900">Grand Total</span>
-              <span className="text-2xl font-bold text-gray-900">₦{grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <div>
+                <span className="text-lg font-semibold text-gray-900">Grand Total</span>
+                {estimationMode && (
+                  <p className="text-xs text-gray-500 mt-0.5">Includes labour, profit, and other quote settings</p>
+                )}
+              </div>
+              <span className="text-2xl font-bold text-gray-900">
+                {isPreviewing && estimationMode && estimationGrandTotal == null
+                  ? '…'
+                  : `₦${displayGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </span>
             </div>
           </div>
         </div>

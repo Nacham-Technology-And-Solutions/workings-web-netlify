@@ -3,6 +3,9 @@ import type { PriceFillSource } from '@/types/estimation';
 import { useEstimationStore } from '@/stores/estimationStore';
 import { pricingSourceBadgeClass, pricingSourceLabel, formatEstimationUnit } from '@/utils/estimationDisplay';
 
+const formatMoney = (value: number) =>
+  value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 interface EstimationPricingPanelProps {
   projectId: number;
   className?: string;
@@ -19,7 +22,9 @@ const EstimationPricingPanel: React.FC<EstimationPricingPanelProps> = ({ project
     fillSource,
     pricingInputs,
     quoteSettings,
+    previewResult,
     isLoadingFill,
+    isPreviewing,
     error,
     setFillSource,
     loadPriceFill,
@@ -29,9 +34,10 @@ const EstimationPricingPanel: React.FC<EstimationPricingPanelProps> = ({ project
   } = useEstimationStore();
 
   const handleFillSourceChange = async (source: PriceFillSource) => {
-    setFillSource(source);
     await loadPriceFill(projectId, source);
   };
+
+  const libraryMatchedCount = pricingInputs.filter((row) => row.source === 'user_library').length;
 
   return (
     <div className={`bg-white border border-gray-200 rounded-lg p-4 md:p-6 mb-6 ${className}`}>
@@ -69,6 +75,37 @@ const EstimationPricingPanel: React.FC<EstimationPricingPanelProps> = ({ project
           </button>
         </div>
       </div>
+
+      {fillSource === 'user_library' && pricingInputs.length > 0 && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            libraryMatchedCount === pricingInputs.length
+              ? 'border-green-200 bg-green-50 text-green-900'
+              : libraryMatchedCount > 0
+                ? 'border-amber-200 bg-amber-50 text-amber-900'
+                : 'border-amber-200 bg-amber-50 text-amber-900'
+          }`}
+        >
+          {libraryMatchedCount === pricingInputs.length ? (
+            <>
+              All {pricingInputs.length} items filled from your{' '}
+              <strong>Material Prices</strong> library (Export Settings).
+            </>
+          ) : libraryMatchedCount > 0 ? (
+            <>
+              {libraryMatchedCount} of {pricingInputs.length} items matched your Material Prices
+              library. Others use last saved or system prices — add missing materials in Export
+              Settings with the same item key.
+            </>
+          ) : (
+            <>
+              No items matched your Material Prices library. Add prices in Export Settings →
+              Material Prices (with item keys), then click Refresh. Unmatched rows keep last used
+              prices.
+            </>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
@@ -267,7 +304,18 @@ const EstimationPricingPanel: React.FC<EstimationPricingPanelProps> = ({ project
 
       {pricingInputs.length > 0 && (
         <p className="mt-4 text-xs text-gray-500">
-          {pricingInputs.length} item{pricingInputs.length !== 1 ? 's' : ''} priced · Subtotal preview available in Generate Quote
+          {pricingInputs.length} item{pricingInputs.length !== 1 ? 's' : ''} priced
+          {isPreviewing ? (
+            <> · Updating material list totals…</>
+          ) : previewResult?.quoteSource === 'material_list' ? (
+            <>
+              {' '}
+              · Subtotal ₦{formatMoney(previewResult.subtotal)} · Grand total ₦
+              {formatMoney(previewResult.grandTotal)}
+            </>
+          ) : (
+            <> · Totals update as you edit prices</>
+          )}
         </p>
       )}
     </div>
