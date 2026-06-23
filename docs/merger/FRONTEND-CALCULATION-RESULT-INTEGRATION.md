@@ -12,7 +12,7 @@ Every successful calculation returns (or should expose) this object — either a
 
 ```ts
 {
-  materialList: MaterialListItem[];   // type: Profile | Sheet | Roll | Accessory | …
+  materialList: MaterialListItem[];   // type: Profile | Accessory (with explicit unit)
   cuttingList: CuttingListItem[];     // Per-profile stock plans
   glassList: { sheet_type, total_sheets?, cuts, layouts? };
   netList?: { cuts: { w, h, qty }[], roll_type?, total_rolls?, total_area_m2?, required_length_m? };
@@ -26,19 +26,17 @@ Every successful calculation returns (or should expose) this object — either a
 
 ### UI sections to wire
 
-| API field                                 | Suggested UI section       | Notes                                                                 |
-| ----------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
-| `materialList` `type === 'Profile'`       | **Profiles**               | `units` = stock bars; `unit`: **`length`** if 1, else **`lengths`**   |
-| `materialList` `type === 'Sheet'`         | **Glass sheets**           | `unit`: **`sheet`** / **`sheets`**                                    |
-| `materialList` `type === 'Roll'`          | **Net roll**               | e.g. `Net Mesh Roll (1.5m x 25m)`; **`roll`** / **`rolls`**           |
-| `materialList` `type === 'Accessory'`     | **Materials (screws)**     | e.g. **Frame Screw** (M6/M7/M8); **`pc`** / **`pcs`**                 |
-| `accessoryTotals`                         | **Accessories**            | Handles, rollers, cleats, etc.                                        |
-| `rubberTotals`                            | **Rubber / seal / spline** | **Was missing on M8 screen**                              |
-| `screwTotals`                             | **Screws**                 | Module 1, M3 attachment screws                            |
-| `netList.cuts`                            | **Net cutting list**       | Pane sizes & qty — **not** “Net Mesh” accessory           |
-| `cuttingList`                             | **Cutting plans** tab      | Per profile                                               |
-| `glassList`                               | **Glass cutting** tab      | 2D nest when present                                      |
-| `warnings`                                | Banner or list             | Non-fatal messages                                        |
+| API field                             | Suggested UI section   | Notes                                                               |
+| ------------------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| `materialList` `type === 'Profile'`   | **Profiles**           | `units` = stock bars; `unit`: **`length`** if 1, else **`lengths`** |
+| `materialList` `type === 'Accessory'` | **Accessories**        | Filter/group by `unit`: sheets, rolls, pcs, pairs, sets, m, …       |
+| `accessoryTotals`                     | _(deprecated — empty)_ | Use `materialList` instead                                          |
+| `rubberTotals`                        | _(deprecated — empty)_ | Rubber lines are `materialList` accessories with `unit: "m"`        |
+| `screwTotals`                         | _(deprecated — empty)_ | Screw lines are `materialList` accessories with `unit: "pcs"`       |
+| `netList.cuts`                        | **Net cutting list**   | Pane sizes & qty — **not** “Net Mesh” accessory                     |
+| `cuttingList`                         | **Cutting plans** tab  | Per profile                                                         |
+| `glassList`                           | **Glass cutting** tab  | 2D nest when present                                                |
+| `warnings`                            | Banner or list         | Non-fatal messages                                                  |
 
 ---
 
@@ -63,17 +61,17 @@ Aliases accepted: `M8_EBM_Net_U_Channel`, `W`/`H`, `in_to_in_width`/`in_to_in_he
 
 ### What the backend returns (your regression cart)
 
-| Item                      | Value                                         |
-| ------------------------- | --------------------------------------------- |
-| EBM-Net U-Channel Profile | 16 lengths (`units` + `unit: "lengths"`)      |
-| EBM-Net Panel Profile     | 22 lengths                                    |
-| 25-25 Angle Profile       | 1 length (96 pieces @ 20 mm in `cuttingList`) |
-| Roller / Angle Set        | 48 sets                                       |
-| Handle                    | 48 pcs                                        |
-| Frame Screw               | 384 pcs (`accessoryTotals` + `materialList`)  |
-| **Net Spline / Rubber**   | **128.36 m** in `rubberTotals`                |
-| **Net panes**             | **48** in `netList.cuts` (grouped sizes)      |
-| **Net purchase**          | `materialList` — **`Net Mesh Roll (1.5m x 25m)`**, `type: 'Roll'` |
+| Item                      | Value                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------- |
+| EBM-Net U-Channel Profile | 16 lengths (`units` + `unit: "lengths"`)                                              |
+| EBM-Net Panel Profile     | 22 lengths                                                                            |
+| 25-25 Angle Profile       | 1 length (96 pieces @ 20 mm in `cuttingList`)                                         |
+| Roller / Angle Set        | 48 sets                                                                               |
+| Handle                    | 48 pcs                                                                                |
+| Frame Screw               | 384 pcs (`accessoryTotals` + `materialList`)                                          |
+| **Net Spline / Rubber**   | **128.36 m** in `rubberTotals`                                                        |
+| **Net panes**             | **48** in `netList.cuts` (grouped sizes)                                              |
+| **Net purchase**          | `materialList` — **`Net Mesh Roll (1.5m x 25m)`**, `type: 'Roll'`                     |
 | **Frame Screw purchase**  | `materialList` — **`Frame Screw`**, `type: 'Accessory'`, `unit`: **`pc`** / **`pcs`** |
 
 Profile material units: **`length`** when `units === 1`, else **`lengths`** (e.g. 16 U-Channel lengths on the PDF cart).
@@ -115,6 +113,31 @@ Input: `in_to_in_width`, `in_to_in_height` (aliases: `width`, `height`, `W`, `H`
 - **Frame Screw purchase:** `materialList` — **`Frame Screw`**, `type: 'Accessory'` (when totals include Frame Screw).
 - Accessories: 1132 Angle, Handle, Frame Screw (not optimized profile stock).
 - **Cutting list off-cuts:** use `CuttingPlanPiece.cut` (e.g. `540mm / 0.54m`) and `lengthMm`; do not round off-cuts to one decimal metre only.
+
+---
+
+## 4b. Unified Sliding Window (`Sliding_Window`)
+
+Preferred cart for all sliding layouts (replaces separate M2–M5 module picks):
+
+```json
+{
+  "module_id": "Sliding_Window",
+  "W": 2400,
+  "H": 1500,
+  "sash": "Two_Glass_Sash",
+  "fixedNet": false,
+  "qty": 1
+}
+```
+
+**`sash`:** `Two_Glass_Sash` | `Three_Glass_Sash` | `Two_Glass_And_One_Net_Sash`
+
+**`fixedNet`:** optional boolean (or `options.fixedNet`); adds fixed net panel materials for **any** sash type.
+
+Legacy `M2_Sliding_2Sash` … `M5_Sliding_3Sash` still work — backend resolves to `Sliding_Window` + `sash` + `fixedNet`.
+
+**Profile name change:** 2-track jamb is **`2-Track Jamb`** (was `Jamb Profile` on M2).
 
 ---
 
@@ -302,9 +325,9 @@ const splineMeters = result.rubberTotals?.find(
 
 ## 12. Legacy display names (normalized on API read)
 
-| Endpoint | Normalization |
-| -------- | ------------- |
-| `POST /calculations/calculate` | Raw engine output (current modules already use new names). |
+| Endpoint                                      | Normalization                                                                                                               |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `POST /calculations/calculate`                | Raw engine output (current modules already use new names).                                                                  |
 | `GET /projects/:id` → `lastCalculationResult` | `buildCalculationResultView` runs **`normalizeAccessoryTotalRow`** and **`normalizeRubberDisplay`** for legacy stored rows. |
 
 Fresh **re-calculate** persists new names; GET may still remap old DB strings until recalculated.

@@ -4,18 +4,18 @@ This document describes how the frontend should integrate with the **Project Est
 
 ## Overview
 
-| Quote type | `quoteSource` | Purpose |
-|------------|---------------|---------|
-| **Project Cart Quote** | `project_cart` | Sell price per finished window (build-up from per-line raw requirements) |
-| **Material List Quote** | `material_list` | Buy price for whole project (consolidated material list × unit prices) |
+| Quote type              | `quoteSource`   | Purpose                                                                  |
+| ----------------------- | --------------- | ------------------------------------------------------------------------ |
+| **Project Cart Quote**  | `project_cart`  | Sell price per finished window (build-up from per-line raw requirements) |
+| **Material List Quote** | `material_list` | Buy price for whole project (consolidated material list × unit prices)   |
 
 **Price fill sources** (at populate time only):
 
-| Source | API value | Description |
-|--------|-----------|-------------|
-| System catalog | `system` | Admin-managed global prices |
-| My Material Prices | `user_library` | User's saved `MaterialPrice` rows |
-| Last used | `last_used` | Per-user memory from last saved quote |
+| Source             | API value      | Description                           |
+| ------------------ | -------------- | ------------------------------------- |
+| System catalog     | `system`       | Admin-managed global prices           |
+| My Material Prices | `user_library` | User's saved `MaterialPrice` rows     |
+| Last used          | `last_used`    | Per-user memory from last saved quote |
 
 `LastUsedPrice` is updated **only** when a quote is saved via `POST /api/v1/estimation/quotes` — not on preview or keystrokes.
 
@@ -36,16 +36,58 @@ Every saved quote stores an immutable `estimationSnapshot` on the `Quote` record
 
 ## Endpoints
 
+### `GET /api/v1/estimation/material-catalog`
+
+**Auth:** session + access token
+
+Returns the **full enumerated** estimation material catalog (all canonical `itemKey` values). Use this to populate pricing dropdowns when adding or editing Material Prices.
+
+**Query (optional):**
+
+| Param      | Type                                                                | Description                                       |
+| ---------- | ------------------------------------------------------------------- | ------------------------------------------------- |
+| `category` | `Profile` \| `Glass` \| `Accessory` \| `Rubber` \| `Net` \| `Other` | Filter by category                                |
+| `search`   | string                                                              | Case-insensitive match on `itemKey` or `itemName` |
+
+**Response:**
+
+```json
+{
+  "responseMessage": "Material catalog retrieved successfully",
+  "response": {
+    "items": [
+      {
+        "itemKey": "profile.track",
+        "itemName": "Track Profile",
+        "category": "Profile",
+        "unit": "length"
+      }
+    ],
+    "total": 52,
+    "totalUnfiltered": 52
+  }
+}
+```
+
+**Notes:**
+
+- One row per canonical `itemKey` (engine display aliases are deduplicated).
+- Includes all profiles, accessories, and rubbers from the estimation registry, plus standard glass sheets (`3310x2140`) and net mesh roll heights (`1220`, `1500`, `1800` mm).
+- `GET /estimation/price-fill` returns only **itemKeys present in a calculated project**; use **material-catalog** for the complete list when building Material Prices UI.
+- Source of truth in code: `src/domains/estimation/itemKeyRegistry.ts` → `listMaterialCatalog()`.
+
+---
+
 ### `GET /api/v1/estimation/price-fill`
 
 **Auth:** session + access token
 
 **Query:**
 
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `projectId` | number | yes | Project with calculated results |
-| `source` | `system` \| `user_library` \| `last_used` | no (default `last_used`) | Price fill source |
+| Param       | Type                                      | Required                 | Description                     |
+| ----------- | ----------------------------------------- | ------------------------ | ------------------------------- |
+| `projectId` | number                                    | yes                      | Project with calculated results |
+| `source`    | `system` \| `user_library` \| `last_used` | no (default `last_used`) | Price fill source               |
 
 **Response:**
 
@@ -86,9 +128,7 @@ Dry-run quote without persisting or updating last-used prices.
 {
   "quoteSource": "project_cart",
   "projectId": 42,
-  "pricingInputs": [
-    { "itemKey": "profile.track", "itemName": "Track Profile", "category": "Profile", "unit": "length", "unitPrice": 18000 }
-  ],
+  "pricingInputs": [{ "itemKey": "profile.track", "itemName": "Track Profile", "category": "Profile", "unit": "length", "unitPrice": 18000 }],
   "quoteSettings": {
     "stockLength": 6000,
     "kerf": 5,
@@ -106,11 +146,22 @@ Alternatively pass inline calculation (no `projectId`):
 ```json
 {
   "quoteSource": "material_list",
-  "projectCart": [{ "module_id": "M2_Sliding_2Sash", "W": 1500, "H": 1500, "qty": 1 }],
+  "projectCart": [
+    {
+      "module_id": "Sliding_Window",
+      "W": 1500,
+      "H": 1500,
+      "sash": "Two_Glass_Sash",
+      "fixedNet": false,
+      "qty": 1
+    }
+  ],
   "calculationSettings": { "stockLength": 6, "bladeKerf": 5 },
   "pricingInputs": [ ... ]
 }
 ```
+
+Legacy `M2_Sliding_2Sash` carts still work. Sliding profiles use canonical keys e.g. `profile.track`, `profile.jamb.2track`.
 
 **`project_cart` response** includes `cartLines` with `calculatedUnitPrice`, `finalUnitPrice`, `costBreakdown`.
 
@@ -140,13 +191,13 @@ Persists quote, `estimationSnapshot`, and updates `LastUsedPrice`.
 
 **Quote item fields (cart):**
 
-| Field | Description |
-|-------|-------------|
-| `calculatedUnitPrice` | Engine build-up |
-| `finalUnitPrice` | Client-facing unit price (PDF uses this) |
-| `manualOverride` | User edited final price |
-| `costBreakdown` | Internal lines (optional collapsible in UI) |
-| `moduleId`, `width`, `height` | Line attribution |
+| Field                         | Description                                 |
+| ----------------------------- | ------------------------------------------- |
+| `calculatedUnitPrice`         | Engine build-up                             |
+| `finalUnitPrice`              | Client-facing unit price (PDF uses this)    |
+| `manualOverride`              | User edited final price                     |
+| `costBreakdown`               | Internal lines (optional collapsible in UI) |
+| `moduleId`, `width`, `height` | Line attribution                            |
 
 **`estimationSnapshot` shape:**
 
@@ -166,13 +217,13 @@ Persists quote, `estimationSnapshot`, and updates `LastUsedPrice`.
 
 Base path: `/api/v1/admin/system-material-prices` (admin users only)
 
-| Method | Path | Action |
-|--------|------|--------|
-| GET | `/` | List (optional `category`, `search`) |
-| POST | `/` | Create |
-| GET | `/:id` | Get one |
-| PATCH | `/:id` | Update |
-| DELETE | `/:id` | Delete |
+| Method | Path   | Action                               |
+| ------ | ------ | ------------------------------------ |
+| GET    | `/`    | List (optional `category`, `search`) |
+| POST   | `/`    | Create                               |
+| GET    | `/:id` | Get one                              |
+| PATCH  | `/:id` | Update                               |
+| DELETE | `/:id` | Delete                               |
 
 **Create body:**
 
@@ -228,13 +279,13 @@ When estimation is active, show `unitPrice` / `totalPrice` columns from preview 
 
 Stable keys for price matching:
 
-| Pattern | Example |
-|---------|---------|
-| `profile.*` | `profile.track`, `profile.jamb` |
-| `glass.sheet.{W}x{H}` | `glass.sheet.3310x2140` |
-| `accessory.*` | `accessory.rollers`, `accessory.lockset` |
-| `rubber.*` | `rubber.glazing`, `rubber.wool_pile` |
-| `net.mesh.{heightMm}` | `net.mesh.1500` |
+| Pattern               | Example                                  |
+| --------------------- | ---------------------------------------- |
+| `profile.*`           | `profile.track`, `profile.jamb`          |
+| `glass.sheet.{W}x{H}` | `glass.sheet.3310x2140`                  |
+| `accessory.*`         | `accessory.rollers`, `accessory.lockset` |
+| `rubber.*`            | `rubber.glazing`, `rubber.wool_pile`     |
+| `net.mesh.{heightMm}` | `net.mesh.1500`                          |
 
 User `MaterialPrice` rows can include `itemKey` and `source` (`user` | `system`) for library matching.
 
@@ -242,11 +293,11 @@ User `MaterialPrice` rows can include `itemKey` and `source` (`user` | `system`)
 
 ## Error handling
 
-| Code | When |
-|------|------|
-| 400 | Validation (e.g. profile cut too long, glass won't fit sheet, net won't fit roll) |
-| 402 | Insufficient points on quote save |
-| 403 | Admin routes without `isAdmin` |
+| Code | When                                                                              |
+| ---- | --------------------------------------------------------------------------------- |
+| 400  | Validation (e.g. profile cut too long, glass won't fit sheet, net won't fit roll) |
+| 402  | Insufficient points on quote save                                                 |
+| 403  | Admin routes without `isAdmin`                                                    |
 
 Validation errors use `EstimationValidationError` messages — show in UI toast/modal.
 
@@ -288,7 +339,7 @@ type ExtraCharges = {
 };
 
 type QuoteSettings = {
-  stockLength: number;       // mm if > 20, metres if ≤ 20 — see § Backend clarifications
+  stockLength: number; // mm if > 20, metres if ≤ 20 — see § Backend clarifications
   kerf: number;
   offcutMarkup: number;
   rounding: 'nearest_100';
@@ -366,15 +417,15 @@ type CartQuoteLine = {
   calculatedUnitPrice: number;
   finalUnitPrice: number;
   manualOverride: boolean;
-  unitPrice: number;       // mirrors finalUnitPrice
-  totalPrice: number;      // finalUnitPrice × quantity
+  unitPrice: number; // mirrors finalUnitPrice
+  totalPrice: number; // finalUnitPrice × quantity
   costBreakdown: CostBreakdownLine[];
 };
 
 type EstimationCartQuoteItem = {
   description: string;
   quantity: number;
-  unitPrice: number;       // = finalUnitPrice (PDF uses this)
+  unitPrice: number; // = finalUnitPrice (PDF uses this)
   totalPrice: number;
   calculatedUnitPrice: number;
   finalUnitPrice: number;
@@ -435,9 +486,9 @@ type EstimationPreviewMaterialListResponse = {
 
 **Totals on preview**
 
-| Field | Meaning |
-|-------|---------|
-| `subtotal` | Sum of line `totalPrice` values |
+| Field        | Meaning                                                        |
+| ------------ | -------------------------------------------------------------- |
+| `subtotal`   | Sum of line `totalPrice` values                                |
 | `grandTotal` | `subtotal` + project extras (labour, profit %, discount, etc.) |
 
 Preview does **not** return `tax` or `total`. Apply tax only on save.
@@ -448,7 +499,7 @@ Preview does **not** return `tax` or `total`. Apply tax only on save.
 
 ```ts
 type CartQuoteItemOverride = {
-  lineIndex: number;        // 0-based index into cartLines — see § Backend clarifications
+  lineIndex: number; // 0-based index into cartLines — see § Backend clarifications
   finalUnitPrice: number;
   manualOverride?: boolean; // default true
 };
@@ -458,7 +509,7 @@ type EstimationQuoteRequest = EstimationPreviewRequest & {
   customerName: string;
   customerAddress?: string;
   customerEmail?: string;
-  tax?: number;             // default 0
+  tax?: number; // default 0
   status?: 'draft' | 'sent' | 'accepted' | 'rejected';
   paymentInfo?: { accountName?: string; accountNumber?: string; bankName?: string } | null;
   itemOverrides?: CartQuoteItemOverride[]; // project_cart only
@@ -484,7 +535,7 @@ type EstimationSaveResponse = {
       items: EstimationCartQuoteItem[] | EstimationMaterialQuoteItem[];
       subtotal: number;
       tax: number;
-      total: number;        // grandTotal + tax
+      total: number; // grandTotal + tax
       status: string;
       estimationSnapshot: EstimationSnapshot;
       pdfUrl?: string | null;
@@ -519,12 +570,12 @@ Answers to common frontend integration questions.
 
 ### Price sources: `templates/material-prices` vs `user_library`
 
-| Concept | Storage | API |
-|---------|---------|-----|
-| User library | `MaterialPrice` (per user) | `GET/POST/PATCH/DELETE /api/v1/templates/material-prices` |
-| `user_library` fill | Same `MaterialPrice` rows, matched by `itemKey` | `GET /api/v1/estimation/price-fill?source=user_library` |
-| System prices | `SystemMaterialPrice` (global) | `GET /api/v1/admin/system-material-prices` |
-| Last used | `LastUsedPrice` (per user) | `GET /api/v1/estimation/price-fill?source=last_used` |
+| Concept             | Storage                                         | API                                                       |
+| ------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| User library        | `MaterialPrice` (per user)                      | `GET/POST/PATCH/DELETE /api/v1/templates/material-prices` |
+| `user_library` fill | Same `MaterialPrice` rows, matched by `itemKey` | `GET /api/v1/estimation/price-fill?source=user_library`   |
+| System prices       | `SystemMaterialPrice` (global)                  | `GET /api/v1/admin/system-material-prices`                |
+| Last used           | `LastUsedPrice` (per user)                      | `GET /api/v1/estimation/price-fill?source=last_used`      |
 
 No migration required. Matching requires `itemKey` on `MaterialPrice` rows; older rows without `itemKey` will not auto-fill.
 
@@ -539,17 +590,17 @@ No migration required. Matching requires `itemKey` on `MaterialPrice` rows; olde
 Both are valid. Values **≤ 20** are treated as **metres** (× 1000); values **> 20** are **millimetres**.
 
 ```ts
-normalizeStockLength(6)     // → 6000 mm
-normalizeStockLength(6000)  // → 6000 mm
-normalizeStockLength(5.85)  // → 5850 mm
+normalizeStockLength(6); // → 6000 mm
+normalizeStockLength(6000); // → 6000 mm
+normalizeStockLength(5.85); // → 5850 mm
 ```
 
 Two separate request fields:
 
-| Field | Purpose |
-|-------|---------|
+| Field                             | Purpose                                                |
+| --------------------------------- | ------------------------------------------------------ |
 | `calculationSettings.stockLength` | Calculation engine (cutting / stored project settings) |
-| `quoteSettings.stockLength` | Profile offcut **pricing** in estimation |
+| `quoteSettings.stockLength`       | Profile offcut **pricing** in estimation               |
 
 When only `projectId` is sent, the backend loads stored calculation results but **`quoteSettings` defaults to `stockLength: 6000`** unless the client sends `quoteSettings` in the body. It does **not** auto-copy `project.calculationSettings.stockLength`.
 
@@ -559,9 +610,9 @@ When only `projectId` is sent, the backend loads stored calculation results but 
 
 Still active for `standalone` and `from_project` manual quotes (flat `items[]`, no estimation).
 
-| Endpoint | Use for |
-|----------|---------|
-| `POST /api/v1/quotes` | Ad-hoc / manual quotes |
+| Endpoint                         | Use for                                  |
+| -------------------------------- | ---------------------------------------- |
+| `POST /api/v1/quotes`            | Ad-hoc / manual quotes                   |
 | `POST /api/v1/estimation/quotes` | Quotes from calculation + pricing engine |
 
 ### `itemOverrides.lineIndex`
