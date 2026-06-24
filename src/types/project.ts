@@ -34,6 +34,8 @@ export interface DimensionItem {
   openingPanels?: string; // O - Opening panels for M1
   verticalPanels?: string; // N_v - Vertical panels for M9
   horizontalPanels?: string; // N_h - Horizontal panels for M9
+  sash?: string; // Sliding_Window sash layout
+  fixedNet?: boolean; // Sliding_Window fixed net panel
   title?: string; // Optional label (e.g. "Living room"); max 100 chars; sent to backend for element titling
   color?: string; // Optional hex (e.g. "#3B82F6"); sent to backend for element color
 }
@@ -64,6 +66,9 @@ export interface GlazingDimension {
     in_to_in_height?: number;
     cell_heights?: number[];
     cell_width?: number[];
+    panel?: string; // Sliding_Window layout (API preferred)
+    sash?: string; // deprecated — legacy read
+    fixedNet?: boolean;
     options?: { fixedNet?: boolean };
   };
   title?: string; // Optional: frontend label (e.g. "Living room"); max 100 chars

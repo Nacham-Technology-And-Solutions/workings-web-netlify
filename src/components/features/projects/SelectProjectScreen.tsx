@@ -3,7 +3,8 @@ import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { SelectProjectData } from '@/types';
 import { isCategoryEnabled, getEnabledTypesForCategory, MODULE_CONFIG } from '@/utils/moduleConfig';
-import type { GlazingCategory } from '@/utils/moduleMapping';
+import type { GlazingCategory as ModuleGlazingCategory } from '@/utils/moduleMapping';
+import { migrateSelectProjectWindows } from '@/utils/slidingWindow';
 
 interface SelectProjectScreenProps {
   onBack: () => void;
@@ -16,7 +17,7 @@ interface GlazingOption {
   label: string;
 }
 
-interface GlazingCategory {
+interface ProjectGlazingCategory {
   id: keyof SelectProjectData;
   name: string;
   options: GlazingOption[];
@@ -28,7 +29,9 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
   const [selectedValues, setSelectedValues] = useState<SelectProjectData>(() => {
     if (previousData) {
       return {
-        windows: Array.isArray(previousData.windows) ? previousData.windows : [],
+        windows: migrateSelectProjectWindows(
+          Array.isArray(previousData.windows) ? previousData.windows : []
+        ),
         doors: Array.isArray(previousData.doors) ? previousData.doors : [],
         skylights: Array.isArray(previousData.skylights) ? previousData.skylights : [],
         glassPanels: Array.isArray(previousData.glassPanels) ? previousData.glassPanels : [],
@@ -43,7 +46,7 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
   });
 
   // Map SelectProjectData keys to moduleConfig category names
-  const categoryMap: Record<keyof SelectProjectData, GlazingCategory> = {
+  const categoryMap: Record<keyof SelectProjectData, ModuleGlazingCategory> = {
     windows: 'Window',
     doors: 'Door',
     skylights: 'Net',
@@ -53,7 +56,7 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
   // All possible categories with their options - dynamically loaded from MODULE_CONFIG
   // Filter to show only enabled categories based on module config
   const allCategories = useMemo(() => {
-    const allPossibleCategories: GlazingCategory[] = [
+    const allPossibleCategories: ProjectGlazingCategory[] = [
       {
         id: 'windows',
         name: 'Window',

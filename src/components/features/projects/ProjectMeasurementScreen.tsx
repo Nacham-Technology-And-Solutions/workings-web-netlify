@@ -7,6 +7,16 @@ import type { GlazingCategory } from '@/utils/moduleMapping';
 import { getModuleFieldRequirements } from '@/utils/moduleRequirements';
 import { mapGlazingTypeToModuleId } from '@/utils/moduleMapping';
 import {
+  getSlidingIllustrationLabel,
+  getSlidingIllustrationPanels,
+  isSlidingGlazingType,
+  isSlidingModuleId,
+  SLIDING_SASH_OPTIONS,
+  normalizeSlidingDimensionFields,
+  SLIDING_WINDOW_GLAZING_TYPE,
+  type SlidingSash,
+} from '@/utils/slidingWindow';
+import {
   CasementIllustration,
   SlidingWindowIllustration,
   NetIllustration,
@@ -109,9 +119,26 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   const [openingPanels, setOpeningPanels] = useState<string>('');
   const [verticalPanels, setVerticalPanels] = useState<string>('');
   const [horizontalPanels, setHorizontalPanels] = useState<string>('');
+  const [sashLayout, setSashLayout] = useState<SlidingSash>('Two_Glass_Sash');
+  const [fixedNet, setFixedNet] = useState<boolean>(false);
   const [elementTitle, setElementTitle] = useState<string>('');
   const [elementColor, setElementColor] = useState<string>('');
-  const [dimensions, setDimensions] = useState<DimensionItem[]>(initialMeasurementData?.dimensions ?? []);
+  const [dimensions, setDimensions] = useState<DimensionItem[]>(() => {
+    const initial = initialMeasurementData?.dimensions ?? [];
+    return initial.map((dim) => {
+      const normalized = normalizeSlidingDimensionFields({
+        type: dim.type,
+        sash: dim.sash,
+        fixedNet: dim.fixedNet,
+      });
+      return {
+        ...dim,
+        type: normalized.type,
+        ...(normalized.sash && { sash: normalized.sash }),
+        ...(normalized.fixedNet != null && { fixedNet: normalized.fixedNet }),
+      };
+    });
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
 
@@ -122,7 +149,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
 
   // Get enabled categories from selected project data
   const enabledCategories = useMemo(() => {
-    const categories: Array<{ key: keyof SelectProjectData; name: string; moduleCategory: 'Window' | 'Door' | 'Net' | 'Curtain Wall' }> = [];
+    type EnabledModuleCategory = 'Window' | 'Door' | 'Net' | 'Curtain Wall';
+    const categories: Array<{ key: keyof SelectProjectData; name: string; moduleCategory: EnabledModuleCategory }> = [];
     
     (Object.keys(selectProjectData) as Array<keyof SelectProjectData>).forEach((key) => {
       if (selectProjectData[key] && selectProjectData[key].length > 0) {
@@ -132,7 +160,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
           categories.push({
             key,
             name: categoryData.name,
-            moduleCategory,
+            moduleCategory: moduleCategory as EnabledModuleCategory,
           });
         }
       }
@@ -217,9 +245,13 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       const nh = parseFloat(horizontalPanels) || 0;
       valid = valid && nh >= 1;
     }
+
+    if (fieldRequirements.requiresSashLayout) {
+      valid = valid && sashLayout !== '';
+    }
     
     return valid;
-  }, [type, width, height, quantity, panel, openingPanels, verticalPanels, horizontalPanels, fieldRequirements]);
+  }, [type, width, height, quantity, panel, openingPanels, verticalPanels, horizontalPanels, sashLayout, fieldRequirements]);
 
   const handleEditDimension = (dimension: DimensionItem) => {
     setType(dimension.type);
@@ -230,6 +262,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     setOpeningPanels(dimension.openingPanels || '');
     setVerticalPanels(dimension.verticalPanels || '');
     setHorizontalPanels(dimension.horizontalPanels || '');
+    setSashLayout((dimension.sash as SlidingSash) || 'Two_Glass_Sash');
+    setFixedNet(Boolean(dimension.fixedNet));
     setElementTitle(dimension.title ?? '');
     setElementColor(dimension.color ?? '');
     setEditingId(dimension.id);
@@ -247,6 +281,10 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
         ...(openingPanels && { openingPanels }),
         ...(verticalPanels && { verticalPanels }),
         ...(horizontalPanels && { horizontalPanels }),
+        ...(isSlidingGlazingType(type) && {
+          sash: sashLayout,
+          fixedNet,
+        }),
         ...(elementTitle.trim() !== '' && { title: elementTitle.trim().slice(0, 100) }),
         ...(elementColor !== '' && { color: elementColor }),
       };
@@ -271,6 +309,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       setOpeningPanels('');
       setVerticalPanels('');
       setHorizontalPanels('');
+      setSashLayout('Two_Glass_Sash');
+      setFixedNet(false);
       setElementTitle('');
       setElementColor('');
     }
@@ -286,11 +326,11 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     setOpeningPanels('');
     setVerticalPanels('');
     setHorizontalPanels('');
+    setSashLayout('Two_Glass_Sash');
+    setFixedNet(false);
     setElementTitle('');
     setElementColor('');
   };
-
-  /** Prefill the glazing dimension form with this category and type when user clicks a Selected Glazing Type */
   const handleSelectGlazingTypeForForm = (item: { category: string; label: string; value: string }) => {
     setSelectedCategory(item.category);
     setType(item.value);
@@ -316,8 +356,17 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       setOpeningPanels('');
       setVerticalPanels('');
       setHorizontalPanels('');
+      setSashLayout('Two_Glass_Sash');
+      setFixedNet(false);
     }
   }, [type, editingId]);
+
+  const getDimensionTypeLabel = (dim: DimensionItem): string => {
+    if (dim.type !== SLIDING_WINDOW_GLAZING_TYPE) return dim.type;
+    const sashLabel = SLIDING_SASH_OPTIONS.find((opt) => opt.value === dim.sash)?.label;
+    if (!sashLabel) return dim.type;
+    return dim.fixedNet ? `${dim.type} · ${sashLabel} + fixed net` : `${dim.type} · ${sashLabel}`;
+  };
 
   const [showRecalculateConfirm, setShowRecalculateConfirm] = useState(false);
   const formContainerRef = useRef<HTMLDivElement>(null);
@@ -611,8 +660,11 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                     );
                   }
 
-                  if (moduleId === 'M2_Sliding_2Sash' || moduleId === 'M3_Sliding_2Sash_Net' || moduleId === 'M4_Sliding_3Track' || moduleId === 'M5_Sliding_3Sash') {
-                    const sashCount = moduleId === 'M4_Sliding_3Track' || moduleId === 'M5_Sliding_3Sash' ? 3 : 2;
+                  if (isSlidingModuleId(moduleId)) {
+                    const slidingConfig = {
+                      sash: sashLayout,
+                      fixedNet,
+                    };
                     return (
                       <SlidingWindowIllustration
                         width={Number(width)}
@@ -621,7 +673,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                         frameWidth={frameWidth}
                         frameHeight={frameHeight}
                         labelPadding={labelPadding}
-                        sashCount={sashCount as 2 | 3}
+                        panels={getSlidingIllustrationPanels(slidingConfig)}
+                        fixedNet={fixedNet}
+                        caption={getSlidingIllustrationLabel(slidingConfig)}
                       />
                     );
                   }
@@ -808,6 +862,42 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                   />
                 </div>
 
+                {/* Sliding window: sash layout + optional fixed net */}
+                {fieldRequirements?.requiresSashLayout && (
+                  <div className="mb-6 space-y-4">
+                    <div>
+                      <label htmlFor="sashLayout" className="block text-sm font-medium text-gray-700 mb-2">
+                        Sash layout
+                      </label>
+                      <select
+                        id="sashLayout"
+                        value={sashLayout}
+                        onChange={(e) => setSashLayout(e.target.value as SlidingSash)}
+                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      >
+                        {SLIDING_SASH_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {fieldRequirements.requiresFixedNetOption && (
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={fixedNet}
+                          onChange={(e) => setFixedNet(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Add fixed net panel (full window opening)
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                )}
+
                 {/* Dynamic Panel Fields based on module requirements */}
                 {fieldRequirements && (
                   <>
@@ -976,7 +1066,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                               </span>
                             </div>
                             <div className="font-medium text-gray-900 text-sm">{dim.width} × {dim.height}</div>
-                            <div className="text-gray-500 text-xs mt-0.5 truncate" title={dim.type}>{dim.type}</div>
+                            <div className="text-gray-500 text-xs mt-0.5 truncate" title={getDimensionTypeLabel(dim)}>{getDimensionTypeLabel(dim)}</div>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-600">
                               <span>Label: {dim.title || '—'}</span>
                               <span>Qty: {dim.quantity}</span>
@@ -1038,7 +1128,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                                 </span>
                               </div>
                               <div className="font-medium">{dim.width} x {dim.height}</div>
-                              <div className="text-gray-500 text-[10px] mt-0.5">({dim.type})</div>
+                              <div className="text-gray-500 text-[10px] mt-0.5">({getDimensionTypeLabel(dim)})</div>
                             </td>
                             <td className="py-3 px-3 text-gray-900 text-xs">{dim.title || '—'}</td>
                             <td className="py-3 px-3">

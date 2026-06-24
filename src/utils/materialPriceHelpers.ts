@@ -40,9 +40,13 @@ export function findDuplicateItemKey(
 
 export const ITEM_KEY_EXAMPLES = [
   'profile.track',
-  'profile.jamb',
+  'profile.jamb.2track',
+  'profile.track.3',
+  'profile.jamb.1track',
+  'profile.lock_stile',
   'glass.sheet.3310x2140',
   'accessory.rollers',
+  'accessory.lockset',
   'rubber.glazing',
   'net.mesh.1500',
 ];

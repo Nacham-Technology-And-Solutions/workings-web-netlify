@@ -63,11 +63,9 @@ import {
   transformQuoteDataToBackend,
   transformBackendQuoteToPreview,
   transformStandaloneQuoteToBackend,
-  glazingParametersToDimensionStrings,
+  reconstructProjectMeasurementFromGlazing,
 } from '../utils/dataTransformers';
 import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
-import { resolveTypeForCategory } from '../utils/moduleConfig';
-import type { GlazingCategory } from '../utils/moduleMapping';
 
 // Import types and constants
 import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
@@ -367,63 +365,13 @@ const App: React.FC = () => {
       };
       setProjectDescriptionData(projectDescription);
 
-      // 2. Reconstruct SelectProjectData from glazingDimensions
-      const selectProject: any = {
-        windows: [],
-        doors: [],
-        skylights: [],
-        glassPanels: [],
-      };
+      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
+        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
+      );
 
-      // 3. Convert GlazingDimension[] back to DimensionItem[]
-      const dimensions: any[] = [];
-      
-      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
-        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
-          // Determine category and add to selectProject
-          const category = glazingDim.glazingCategory;
-          if (category === 'Window') {
-            // Try to infer the type from glazingType or moduleId
-            const typeValue = glazingDim.glazingType || '';
-            if (!selectProject.windows.includes(typeValue)) {
-              // Map common types - this is a best-effort reconstruction
-              if (typeValue.toLowerCase().includes('casement')) {
-                selectProject.windows.push('single-pane'); // Default mapping
-              } else if (typeValue.toLowerCase().includes('sliding')) {
-                selectProject.windows.push('double-pane'); // Default mapping
-              } else {
-                selectProject.windows.push('single-pane'); // Fallback
-              }
-            }
-          } else if (category === 'Door') {
-            selectProject.doors.push('sliding-door'); // Default
-          } else if (category === 'Net') {
-            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
-            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
-          } else if (category === 'Curtain Wall') {
-            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
-            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
-          }
-
-          // Convert GlazingDimension to DimensionItem
-          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
-          const dimensionItem: any = {
-            id: `dim-${Date.now()}-${index}`,
-            type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width,
-            height,
-            quantity: String(glazingDim.parameters?.qty || 1),
-            panel: String(glazingDim.parameters?.N || glazingDim.parameters?.O || 1),
-            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
-            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
-          };
-          dimensions.push(dimensionItem);
-        });
-      }
-
-      const projectMeasurement: any = {
+      const projectMeasurement: ProjectMeasurementData = {
         dimensions,
-        unit: 'mm', // Default unit
+        unit: 'mm',
       };
 
       setSelectProjectData(selectProject);
@@ -457,32 +405,9 @@ const App: React.FC = () => {
         siteAddress: apiProject.siteAddress || '',
         description: apiProject.description || '',
       });
-      const selectProject: any = { windows: [], doors: [], skylights: [], glassPanels: [] };
-      const dimensions: any[] = [];
-      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
-        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
-          if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
-          else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
-          else if (glazingDim.glazingCategory === 'Net') {
-            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
-            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
-          } else if (glazingDim.glazingCategory === 'Curtain Wall') {
-            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
-            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
-          }
-          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
-          dimensions.push({
-            id: `dim-${Date.now()}-${index}`,
-            type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width,
-            height,
-            quantity: String(glazingDim.parameters?.qty ?? 1),
-            panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
-            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
-            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
-          });
-        });
-      }
+      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
+        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
+      );
       setSelectProjectData(selectProject);
       setProjectMeasurementData({ dimensions, unit: 'mm' });
       setDraftProjectId(apiProject.id);
@@ -509,32 +434,9 @@ const App: React.FC = () => {
         siteAddress: apiProject.siteAddress || '',
         description: apiProject.description || '',
       });
-      const selectProject: any = { windows: [], doors: [], skylights: [], glassPanels: [] };
-      const dimensions: any[] = [];
-      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
-        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
-          if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
-          else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
-          else if (glazingDim.glazingCategory === 'Net') {
-            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
-            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
-          } else if (glazingDim.glazingCategory === 'Curtain Wall') {
-            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
-            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
-          }
-          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
-          dimensions.push({
-            id: `dim-${Date.now()}-${index}`,
-            type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width,
-            height,
-            quantity: String(glazingDim.parameters?.qty ?? 1),
-            panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
-            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
-            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
-          });
-        });
-      }
+      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
+        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
+      );
       setSelectProjectData(selectProject);
       setProjectMeasurementData({ dimensions, unit: 'mm' });
       setDraftProjectId(apiProject.id);
@@ -562,32 +464,9 @@ const App: React.FC = () => {
         siteAddress: apiProject.siteAddress || '',
         description: apiProject.description || '',
       });
-      const selectProject: any = { windows: [], doors: [], skylights: [], glassPanels: [] };
-      const dimensions: any[] = [];
-      if (apiProject.glazingDimensions && Array.isArray(apiProject.glazingDimensions)) {
-        apiProject.glazingDimensions.forEach((glazingDim: any, index: number) => {
-          if (glazingDim.glazingCategory === 'Window' && !selectProject.windows.includes(glazingDim.glazingType)) selectProject.windows.push(glazingDim.glazingType || 'single-pane');
-          else if (glazingDim.glazingCategory === 'Door') selectProject.doors.push('sliding-door');
-          else if (glazingDim.glazingCategory === 'Net') {
-            const netType = resolveTypeForCategory('Net' as GlazingCategory, glazingDim.glazingType);
-            if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
-          } else if (glazingDim.glazingCategory === 'Curtain Wall') {
-            const cwType = resolveTypeForCategory('Curtain Wall' as GlazingCategory, glazingDim.glazingType);
-            if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
-          }
-          const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
-          dimensions.push({
-            id: `dim-${Date.now()}-${index}`,
-            type: glazingDim.glazingType || glazingDim.moduleId || '',
-            width,
-            height,
-            quantity: String(glazingDim.parameters?.qty ?? 1),
-            panel: String(glazingDim.parameters?.N ?? glazingDim.parameters?.O ?? 1),
-            ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
-            ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
-          });
-        });
-      }
+      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
+        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
+      );
       setSelectProjectData(selectProject);
       setProjectMeasurementData({ dimensions, unit: 'mm' });
       setDraftProjectId(apiProject.id);

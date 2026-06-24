@@ -7,6 +7,7 @@ import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse } from '@/utils/apiResponseHelper';
 import { parseCalculationResult } from '@/utils/calculationResultParser';
 import ErrorMessage from '@/components/common/ErrorMessage';
+import { formatGlazingParametersForDisplay } from '@/utils/dataTransformers';
 
 interface ProjectDetailScreenProps {
   projectId: string;
@@ -422,10 +423,10 @@ const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
                     </div>
                     {dimension.parameters && Object.keys(dimension.parameters).length > 0 && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                        {Object.entries(dimension.parameters).map(([key, value]) => (
+                        {formatGlazingParametersForDisplay(dimension).map(({ key, value }) => (
                           <div key={key}>
                             <span className="text-xs text-gray-500">{key}:</span>
-                            <span className="text-sm text-gray-900 ml-1">{String(value)}</span>
+                            <span className="text-sm text-gray-900 ml-1">{value}</span>
                           </div>
                         ))}
                       </div>

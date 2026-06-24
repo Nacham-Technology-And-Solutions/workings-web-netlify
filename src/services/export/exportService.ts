@@ -14,6 +14,7 @@ import {
 import { formatNairaForPdf } from '@/utils/formatters';
 import type { GlassPlacement } from '@/types/calculations';
 import type { DimensionItem } from '@/types/project';
+import { SLIDING_SASH_OPTIONS, isSlidingGlazingType } from '@/utils/slidingWindow';
 
 preloadPdfAppLogo();
 
@@ -39,22 +40,31 @@ export function buildProjectCartExportRows(
   dimensions: DimensionItem[],
   unit = 'mm'
 ): ProjectCartExportRow[] {
-  return dimensions.map((dim, i) => ({
-    index: i + 1,
-    name: dim.title?.trim() || `Item ${i + 1}`,
-    type: dim.type || '—',
-    dimensions: `${dim.width} × ${dim.height} ${unit}`,
-    quantity: dim.quantity || '1',
-    panels:
-      dim.panel && dim.panel !== '1'
-        ? dim.panel
-        : dim.openingPanels
-          ? `${dim.openingPanels} opening`
-          : dim.verticalPanels && dim.horizontalPanels
-            ? `${dim.verticalPanels}×${dim.horizontalPanels}`
-            : undefined,
-    color: dim.color,
-  }));
+  return dimensions.map((dim, i) => {
+    let panels: string | undefined;
+    if (isSlidingGlazingType(dim.type)) {
+      const sashLabel = SLIDING_SASH_OPTIONS.find((opt) => opt.value === dim.sash)?.label;
+      if (sashLabel) {
+        panels = dim.fixedNet ? `${sashLabel} + fixed net` : sashLabel;
+      }
+    } else if (dim.panel && dim.panel !== '1') {
+      panels = dim.panel;
+    } else if (dim.openingPanels) {
+      panels = `${dim.openingPanels} opening`;
+    } else if (dim.verticalPanels && dim.horizontalPanels) {
+      panels = `${dim.verticalPanels}×${dim.horizontalPanels}`;
+    }
+
+    return {
+      index: i + 1,
+      name: dim.title?.trim() || `Item ${i + 1}`,
+      type: dim.type || '—',
+      dimensions: `${dim.width} × ${dim.height} ${unit}`,
+      quantity: dim.quantity || '1',
+      panels,
+      color: dim.color,
+    };
+  });
 }
 
 /** Page 1 cover: document title + project cart table. */

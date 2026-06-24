@@ -20,7 +20,10 @@ export interface ProjectCartItem {
   in_to_in_height?: number; // M6 / M7 (mm)
   cell_heights?: number[]; // For curtain wall
   cell_width?: number[]; // For curtain wall
-  options?: { fixedNet?: boolean }; // M2 / M3 fixed net
+  panel?: string; // Sliding_Window layout (API preferred)
+  sash?: string; // deprecated — legacy read
+  fixedNet?: boolean; // Sliding_Window fixed net panel
+  options?: { fixedNet?: boolean }; // legacy M2 / M3 fixed net
 }
 
 export interface NetRollSettings {

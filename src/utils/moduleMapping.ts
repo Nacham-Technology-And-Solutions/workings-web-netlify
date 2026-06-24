@@ -6,6 +6,12 @@
  * see moduleConfig.ts which controls which modules appear in the UI.
  */
 
+import {
+  isSlidingGlazingType,
+  SLIDING_WINDOW_GLAZING_TYPE,
+  SLIDING_WINDOW_MODULE_ID,
+} from './slidingWindow';
+
 export type GlazingCategory = 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain Wall';
 
 /**
@@ -22,17 +28,8 @@ export function mapGlazingTypeToModuleId(type: string, category: GlazingCategory
     if (normalizedType.includes('casement') && (normalizedType.includes('d/curve') || normalizedType.includes('d-curve'))) {
       return 'M1_Casement_DCurve';
     }
-    if (normalizedType.includes('sliding') && normalizedType.includes('standard 2-sash')) {
-      return 'M2_Sliding_2Sash';
-    }
-    if (normalizedType.includes('sliding') && normalizedType.includes('2-sash') && normalizedType.includes('fixed net')) {
-      return 'M3_Sliding_2Sash_Net';
-    }
-    if (normalizedType.includes('sliding') && normalizedType.includes('3-track')) {
-      return 'M4_Sliding_3Track';
-    }
-    if (normalizedType.includes('sliding') && normalizedType.includes('3-sash') && normalizedType.includes('all-glass')) {
-      return 'M5_Sliding_3Sash';
+    if (normalizedType === SLIDING_WINDOW_GLAZING_TYPE.toLowerCase() || isSlidingGlazingType(type)) {
+      return SLIDING_WINDOW_MODULE_ID;
     }
   }
 

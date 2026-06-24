@@ -5,6 +5,7 @@
 
 import { mapGlazingTypeToModuleId } from './moduleMapping';
 import type { GlazingCategory } from './moduleMapping';
+import { isSlidingModuleId } from './slidingWindow';
 
 export interface ModuleFieldRequirements {
   requiresWidth: boolean;
@@ -14,6 +15,8 @@ export interface ModuleFieldRequirements {
   requiresVerticalPanels: boolean;
   requiresHorizontalPanels: boolean;
   requiresInsideToInside: boolean; // For net modules (M6, M7, M8)
+  requiresSashLayout: boolean;
+  requiresFixedNetOption: boolean;
   widthLabel: string;
   heightLabel: string;
   panelLabel: string;
@@ -42,6 +45,8 @@ export function getModuleFieldRequirements(
     requiresVerticalPanels: false,
     requiresHorizontalPanels: false,
     requiresInsideToInside: false,
+    requiresSashLayout: false,
+    requiresFixedNetOption: false,
     widthLabel: 'Width',
     heightLabel: 'Height',
     panelLabel: 'Panel',
@@ -64,16 +69,13 @@ export function getModuleFieldRequirements(
     };
   }
 
-  // M2-M5: Sliding Windows - only W, H, qty
-  if (
-    moduleId === 'M2_Sliding_2Sash' ||
-    moduleId === 'M3_Sliding_2Sash_Net' ||
-    moduleId === 'M4_Sliding_3Track' ||
-    moduleId === 'M5_Sliding_3Sash'
-  ) {
+  // Sliding_Window (unified M2–M5)
+  if (isSlidingModuleId(moduleId)) {
     return {
       ...defaultRequirements,
       requiresPanel: false,
+      requiresSashLayout: true,
+      requiresFixedNetOption: true,
     };
   }
 

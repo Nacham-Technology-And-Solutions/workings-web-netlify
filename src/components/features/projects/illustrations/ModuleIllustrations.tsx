@@ -19,8 +19,13 @@ interface CasementIllustrationProps extends BaseIllustrationProps {
   openingPanels: number;
 }
 
+import type { SlidingPanelKind } from '@/utils/slidingWindow';
+
 interface SlidingWindowIllustrationProps extends BaseIllustrationProps {
-  sashCount: 2 | 3;
+  panels: SlidingPanelKind[];
+  /** Full-opening fixed net layer behind sashes */
+  fixedNet?: boolean;
+  caption?: string;
 }
 
 interface NetIllustrationProps extends BaseIllustrationProps {
@@ -215,7 +220,9 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
   frameWidth,
   frameHeight,
   labelPadding,
-  sashCount,
+  panels,
+  fixedNet = false,
+  caption,
 }) => {
   // Calculate total dimensions including all labels
   const topLabelHeight = 50;
@@ -249,7 +256,17 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
     scaledFrameWidth - (frameInset * 2) - (contentInset * 2),
     1
   );
-  const scaledSashWidth = slidingInnerWidth / sashCount;
+  const panelCount = Math.max(panels.length, 1);
+  const scaledSashWidth = slidingInnerWidth / panelCount;
+
+  const panelClass = (kind: SlidingPanelKind): string => {
+    switch (kind) {
+      case 'net':
+        return 'bg-emerald-50/90 border border-emerald-400';
+      default:
+        return 'bg-blue-50/90 border border-gray-400';
+    }
+  };
 
   return (
     <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
@@ -278,11 +295,27 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
             <div className="absolute inset-3 bg-gray-600">
               {/* Track area - horizontal sliding */}
               <div className="absolute inset-2 bg-gray-100">
+                {/* Fixed net — full width & height of the window opening */}
+                {fixedNet && (
+                  <div
+                    className="absolute inset-0 z-0 bg-amber-50 border-2 border-dashed border-amber-500 overflow-hidden"
+                    aria-hidden
+                  >
+                    <div
+                      className="absolute inset-0 opacity-40"
+                      style={{
+                        backgroundImage:
+                          'repeating-linear-gradient(0deg, #d97706 0, #d97706 1px, transparent 1px, transparent 8px), repeating-linear-gradient(90deg, #d97706 0, #d97706 1px, transparent 1px, transparent 8px)',
+                      }}
+                    />
+                  </div>
+                )}
                 {/* Sliding sashes */}
-                {Array.from({ length: sashCount }).map((_, index) => (
+                <div className="absolute inset-0 z-10">
+                {panels.map((kind, index) => (
                   <div
                     key={index}
-                    className="absolute top-0 bottom-0 bg-blue-50 border border-gray-400"
+                    className={`absolute top-0 bottom-0 ${panelClass(kind)}`}
                     style={{
                       left: `${index * scaledSashWidth}px`,
                       width: `${scaledSashWidth}px`,
@@ -291,12 +324,15 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
                   >
                     {/* Track indicator - horizontal line at bottom */}
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-500"></div>
-                    {/* Handle indicator */}
-                    <div className="absolute top-1/2 right-1 transform -translate-y-1/2">
-                      <div className="w-2 h-4 bg-gray-600 rounded"></div>
-                    </div>
+                    {/* Handle indicator — glass / sliding net sashes only */}
+                    {(kind === 'glass' || kind === 'net') && (
+                      <div className="absolute top-1/2 right-1 transform -translate-y-1/2">
+                        <div className="w-2 h-4 bg-gray-600 rounded"></div>
+                      </div>
+                    )}
                   </div>
                 ))}
+                </div>
               </div>
             </div>
           </div>
@@ -360,7 +396,7 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
         >
           <div className="text-center w-full h-full flex items-start justify-center pt-2">
             <div className="text-sm font-semibold text-gray-900">
-              {sashCount} Sash Sliding Window
+              {caption ?? 'Sliding Window'}
             </div>
           </div>
         </div>

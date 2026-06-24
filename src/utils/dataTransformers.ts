@@ -13,9 +13,22 @@ import type {
 } from '@/types/project';
 import type { ProjectCartItem, CalculationSettings } from '@/types/calculations';
 import { mapGlazingTypeToModuleId, getCategoryFromKey, normalizeGlazingType } from './moduleMapping';
-import { MODULE_CONFIG } from './moduleConfig';
+import { MODULE_CONFIG, resolveTypeForCategory } from './moduleConfig';
 import type { GlazingCategory } from './moduleMapping';
 import { convertStringToMillimeters, type Unit } from './unitConverter';
+import {
+  isSlidingGlazingType,
+  isSlidingModuleId,
+  resolveSlidingConfigFromLegacy,
+  SLIDING_WINDOW_GLAZING_TYPE,
+  SLIDING_WINDOW_MODULE_ID,
+  migrateSelectProjectWindows,
+  slidingConfigToApiFields,
+  getSlidingPanelDisplayLabel,
+  SLIDING_SASH_OPTIONS,
+  toApiPanel,
+  type SlidingSash,
+} from './slidingWindow';
 
 /**
  * Converts DimensionItem to GlazingDimension format
@@ -28,7 +41,8 @@ export function convertDimensionItemToGlazingDimension(
   category: 'Window' | 'Door' | 'Net' | 'Partition' | 'Curtain Wall',
   unit: Unit = 'mm'
 ): GlazingDimension {
-  const moduleId = mapGlazingTypeToModuleId(item.type, category);
+  const mappedModuleId = mapGlazingTypeToModuleId(item.type, category);
+  const moduleId = isSlidingGlazingType(item.type) ? SLIDING_WINDOW_MODULE_ID : mappedModuleId;
   const glazingType = normalizeGlazingType(item.type, category);
 
   // Convert to millimeters
@@ -54,9 +68,12 @@ export function convertDimensionItemToGlazingDimension(
     parameters.H = height;
   }
 
-  // M3 fixed net (M2 can use options.fixedNet; M3 module id implies fixed net)
-  if (moduleId === 'M3_Sliding_2Sash_Net') {
-    parameters.options = { fixedNet: true };
+  // Sliding_Window: W, H, qty, panel, fixedNet (API field `panel`; form uses item.sash)
+  if (isSlidingModuleId(moduleId)) {
+    const sash = (item.sash as SlidingSash | undefined) ?? 'Two_Glass_Sash';
+    const fixedNet = Boolean(item.fixedNet);
+    parameters.panel = toApiPanel(sash);
+    parameters.fixedNet = fixedNet;
   }
 
   // M1: Casement Window - requires N and O
@@ -67,10 +84,9 @@ export function convertDimensionItemToGlazingDimension(
     parameters.O = openingPanels;
   }
 
-  // M2-M5: Sliding Windows - no panel parameters needed
-  // (panels are determined by the module type itself)
+  // Sliding_Window: panel + fixedNet handled above
 
-  // M9: Curtain Wall Grid - requires N_v and N_h
+  // M9: Curtain Wall Grid
   if (moduleId === 'M9_Curtain_Wall_Grid') {
     const verticalPanels = item.verticalPanels ? parseFloat(item.verticalPanels) : 1;
     const horizontalPanels = item.horizontalPanels ? parseFloat(item.horizontalPanels) : 1;
@@ -80,8 +96,8 @@ export function convertDimensionItemToGlazingDimension(
 
   const result: GlazingDimension = {
     glazingCategory: category,
-    glazingType,
-    moduleId,
+    glazingType: isSlidingModuleId(moduleId) ? SLIDING_WINDOW_GLAZING_TYPE : glazingType,
+    moduleId: isSlidingModuleId(moduleId) ? SLIDING_WINDOW_MODULE_ID : moduleId,
     parameters,
   };
   if (item.title !== undefined && item.title !== '') result.title = item.title;
@@ -145,7 +161,85 @@ export function convertToGlazingDimensions(
     glazingDimensions.push(glazingDimension);
   });
 
-  return glazingDimensions;
+  return normalizeGlazingDimensionsForApi(glazingDimensions);
+}
+
+/**
+ * Ensure Sliding_Window rows always carry API `panel` + `fixedNet` before PATCH/calculate.
+ * Resolves layout from form fields, stored parameters, or legacy moduleId.
+ */
+export function normalizeGlazingDimensionsForApi(
+  dimensions: GlazingDimension[]
+): GlazingDimension[] {
+  return dimensions.map((dim) => {
+    const isSliding =
+      isSlidingModuleId(dim.moduleId) || isSlidingGlazingType(dim.glazingType);
+    if (!isSliding) return dim;
+
+    const config =
+      resolveSlidingConfigFromLegacy(dim.glazingType, dim.moduleId, dim.parameters) ??
+      ({ sash: 'Two_Glass_Sash', fixedNet: false } as const);
+    const { panel, fixedNet } = slidingConfigToApiFields(config);
+    const p = dim.parameters ?? {};
+    const { sash: _legacySash, options: _legacyOptions, ...rest } = p;
+
+    return {
+      ...dim,
+      glazingType: SLIDING_WINDOW_GLAZING_TYPE,
+      moduleId: SLIDING_WINDOW_MODULE_ID,
+      parameters: {
+        ...rest,
+        W: p.W ?? p.width,
+        H: p.H ?? p.height,
+        qty: p.qty ?? 1,
+        panel,
+        fixedNet,
+      },
+    };
+  });
+}
+
+/** Display-friendly parameter rows for project detail / cart summaries. */
+export function formatGlazingParametersForDisplay(
+  dimension: GlazingDimension
+): Array<{ key: string; value: string }> {
+  const p = dimension.parameters ?? {};
+  const entries: Array<{ key: string; value: string }> = [];
+  const height = p.H ?? p.height ?? p.in_to_in_height;
+  const width = p.W ?? p.width ?? p.in_to_in_width;
+
+  if (height != null) entries.push({ key: 'H', value: String(height) });
+  if (width != null) entries.push({ key: 'W', value: String(width) });
+
+  const isSliding =
+    isSlidingModuleId(dimension.moduleId) || isSlidingGlazingType(dimension.glazingType);
+  if (isSliding) {
+    const config = resolveSlidingConfigFromLegacy(
+      dimension.glazingType,
+      dimension.moduleId,
+      p
+    );
+    const panelLabel =
+      getSlidingPanelDisplayLabel(p) ??
+      (config
+        ? SLIDING_SASH_OPTIONS.find((opt) => opt.value === config.sash)?.label ?? config.sash
+        : null);
+    if (panelLabel) entries.push({ key: 'panel', value: panelLabel });
+    const fixedNet = Boolean(config?.fixedNet ?? p.fixedNet ?? p.options?.fixedNet);
+    entries.push({ key: 'fixedNet', value: fixedNet ? 'Yes' : 'No' });
+  } else {
+    for (const [key, value] of Object.entries(p)) {
+      if (['W', 'H', 'width', 'height', 'in_to_in_width', 'in_to_in_height', 'qty'].includes(key)) {
+        continue;
+      }
+      if (value != null && typeof value !== 'object') {
+        entries.push({ key, value: String(value) });
+      }
+    }
+  }
+
+  if (p.qty != null) entries.push({ key: 'qty', value: String(p.qty) });
+  return entries;
 }
 
 /** PATCH project calculate: stockLength must be 6 or 5.58 (metres). */
@@ -169,11 +263,104 @@ export function validateGlazingDimensions(dimensions: GlazingDimension[]): strin
     if (height != null && Number.isFinite(height) && height <= 0) {
       return `${label}: height must be greater than 0 mm`;
     }
+    if (isSlidingModuleId(dim.moduleId) || isSlidingGlazingType(dim.glazingType)) {
+      const panel = dim.parameters?.panel ?? dim.parameters?.sash;
+      if (!panel) {
+        return `${label}: sliding window requires a panel layout`;
+      }
+    }
   }
   return null;
 }
 
-/** Maps API glazing `parameters` to DimensionItem width/height strings (M8: width/height; M6/M7: in_to_in_*; others: W/H). */
+/** Build DimensionItem fields from stored glazing dimension (API → measurement form). */
+export function glazingDimensionToDimensionItem(
+  glazingDim: GlazingDimension,
+  id: string
+): DimensionItem {
+  const { width, height } = glazingParametersToDimensionStrings(glazingDim.parameters);
+  const p = glazingDim.parameters;
+
+  const item: DimensionItem = {
+    id,
+    type: glazingDim.glazingType || glazingDim.moduleId || '',
+    width,
+    height,
+    quantity: String(p.qty ?? 1),
+    panel: String(p.N ?? p.O ?? 1),
+    ...(glazingDim.title != null && glazingDim.title !== '' && { title: glazingDim.title }),
+    ...(glazingDim.color != null && glazingDim.color !== '' && { color: glazingDim.color }),
+    ...(p.O != null && { openingPanels: String(p.O) }),
+    ...(p.N_v != null && { verticalPanels: String(p.N_v) }),
+    ...(p.N_h != null && { horizontalPanels: String(p.N_h) }),
+  };
+
+  if (isSlidingModuleId(glazingDim.moduleId)) {
+    const normalized = resolveSlidingConfigFromLegacy(
+      glazingDim.glazingType,
+      glazingDim.moduleId,
+      p
+    );
+    if (normalized) {
+      item.type = SLIDING_WINDOW_GLAZING_TYPE;
+      item.sash = normalized.sash;
+      item.fixedNet = normalized.fixedNet;
+    }
+  }
+
+  return item;
+}
+
+function addWindowTypeToSelectProject(selectProject: SelectProjectData, glazingDim: GlazingDimension): void {
+  const typeValue = glazingDim.glazingType || '';
+  if (isSlidingModuleId(glazingDim.moduleId) || typeValue.toLowerCase().includes('sliding')) {
+    if (!selectProject.windows.includes(SLIDING_WINDOW_GLAZING_TYPE)) {
+      selectProject.windows.push(SLIDING_WINDOW_GLAZING_TYPE);
+    }
+    return;
+  }
+  const resolved = resolveTypeForCategory('Window', typeValue);
+  const windowType = resolved ?? typeValue;
+  if (windowType && !selectProject.windows.includes(windowType)) {
+    selectProject.windows.push(windowType);
+  }
+}
+
+/** Rebuild select-project + measurement dimensions from stored API glazing rows. */
+export function reconstructProjectMeasurementFromGlazing(
+  glazingDimensions: GlazingDimension[]
+): { selectProject: SelectProjectData; dimensions: DimensionItem[] } {
+  const selectProject: SelectProjectData = {
+    windows: [],
+    doors: [],
+    skylights: [],
+    glassPanels: [],
+  };
+  const dimensions: DimensionItem[] = [];
+
+  glazingDimensions.forEach((glazingDim, index) => {
+    const category = glazingDim.glazingCategory;
+    if (category === 'Window') {
+      addWindowTypeToSelectProject(selectProject, glazingDim);
+    } else if (category === 'Door') {
+      const doorType = resolveTypeForCategory('Door', glazingDim.glazingType) ?? 'sliding-door';
+      if (!selectProject.doors.includes(doorType)) selectProject.doors.push(doorType);
+    } else if (category === 'Net') {
+      const netType = resolveTypeForCategory('Net', glazingDim.glazingType);
+      if (netType && !selectProject.skylights.includes(netType)) selectProject.skylights.push(netType);
+    } else if (category === 'Curtain Wall') {
+      const cwType = resolveTypeForCategory('Curtain Wall', glazingDim.glazingType);
+      if (cwType && !selectProject.glassPanels.includes(cwType)) selectProject.glassPanels.push(cwType);
+    }
+
+    dimensions.push(glazingDimensionToDimensionItem(glazingDim, `dim-${Date.now()}-${index}`));
+  });
+
+  selectProject.windows = migrateSelectProjectWindows(selectProject.windows);
+
+  return { selectProject, dimensions };
+}
+
 export function glazingParametersToDimensionStrings(
   parameters: GlazingDimension['parameters'] | undefined
 ): { width: string; height: string } {
@@ -203,6 +390,25 @@ export function convertGlazingDimensionToProjectCartItem(
       width: w,
       height: h,
       qty: p.qty,
+    };
+  }
+
+  if (isSlidingModuleId(moduleId)) {
+    const config = resolveSlidingConfigFromLegacy(
+      glazingDimension.glazingType,
+      moduleId,
+      p
+    ) ?? { sash: 'Two_Glass_Sash' as SlidingSash, fixedNet: false };
+
+    const { panel, fixedNet } = slidingConfigToApiFields(config);
+
+    return {
+      module_id: SLIDING_WINDOW_MODULE_ID,
+      W: p.W,
+      H: p.H,
+      qty: p.qty,
+      panel,
+      fixedNet,
     };
   }
 
