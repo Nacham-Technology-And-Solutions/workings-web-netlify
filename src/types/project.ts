@@ -17,11 +17,26 @@ export interface ProjectDescriptionData {
   description?: string;
 }
 
+export const GLAZING_CATEGORY_KEYS = ['windows', 'doors', 'skylights', 'glassPanels'] as const;
+export type GlazingCategoryKey = (typeof GLAZING_CATEGORY_KEYS)[number];
+
+export interface ProjectCalculationSettings {
+  stockLength: number;
+  bladeKerf: number;
+  wasteThreshold: number;
+}
+
+export function defaultProjectCalculationSettings(): ProjectCalculationSettings {
+  return { stockLength: 6, bladeKerf: 5, wasteThreshold: 200 };
+}
+
 export interface SelectProjectData {
   windows: string[];
   doors: string[];
   skylights: string[];
   glassPanels: string[];
+  unit?: string;
+  calculationSettings?: ProjectCalculationSettings;
 }
 
 export interface DimensionItem {

@@ -64,6 +64,7 @@ import {
   transformBackendQuoteToPreview,
   transformStandaloneQuoteToBackend,
   reconstructProjectMeasurementFromGlazing,
+  applyApiCalculationSettingsToSelectProject,
 } from '../utils/dataTransformers';
 import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
 
@@ -368,13 +369,17 @@ const App: React.FC = () => {
       const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
         (apiProject.glazingDimensions ?? []) as GlazingDimension[]
       );
+      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
+        selectProject,
+        apiProject.calculationSettings
+      );
 
       const projectMeasurement: ProjectMeasurementData = {
         dimensions,
-        unit: 'mm',
+        unit: hydratedSelect.unit ?? 'mm',
       };
 
-      setSelectProjectData(selectProject);
+      setSelectProjectData(hydratedSelect);
       setProjectMeasurementData(projectMeasurement);
 
       // Store draft project ID if available
@@ -408,8 +413,12 @@ const App: React.FC = () => {
       const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
         (apiProject.glazingDimensions ?? []) as GlazingDimension[]
       );
-      setSelectProjectData(selectProject);
-      setProjectMeasurementData({ dimensions, unit: 'mm' });
+      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
+        selectProject,
+        apiProject.calculationSettings
+      );
+      setSelectProjectData(hydratedSelect);
+      setProjectMeasurementData({ dimensions, unit: hydratedSelect.unit ?? 'mm' });
       setDraftProjectId(apiProject.id);
       setInitialCalculationResult(lastCalculationResult);
       setProjectFlowFromDetail(true);
@@ -437,8 +446,12 @@ const App: React.FC = () => {
       const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
         (apiProject.glazingDimensions ?? []) as GlazingDimension[]
       );
-      setSelectProjectData(selectProject);
-      setProjectMeasurementData({ dimensions, unit: 'mm' });
+      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
+        selectProject,
+        apiProject.calculationSettings
+      );
+      setSelectProjectData(hydratedSelect);
+      setProjectMeasurementData({ dimensions, unit: hydratedSelect.unit ?? 'mm' });
       setDraftProjectId(apiProject.id);
       setProjectWasCalculated(true);
       setProjectFlowFromDetail(true);
@@ -467,8 +480,12 @@ const App: React.FC = () => {
       const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
         (apiProject.glazingDimensions ?? []) as GlazingDimension[]
       );
-      setSelectProjectData(selectProject);
-      setProjectMeasurementData({ dimensions, unit: 'mm' });
+      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
+        selectProject,
+        apiProject.calculationSettings
+      );
+      setSelectProjectData(hydratedSelect);
+      setProjectMeasurementData({ dimensions, unit: hydratedSelect.unit ?? 'mm' });
       setDraftProjectId(apiProject.id);
       navigate('selectProject');
     } catch (error) {

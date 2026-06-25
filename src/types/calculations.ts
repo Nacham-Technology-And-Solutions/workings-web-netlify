@@ -33,7 +33,7 @@ export interface NetRollSettings {
 
 // Calculation Settings
 export interface CalculationSettings {
-  stockLength: number; // 6 or 5.58 (meters), or mm if > 20
+  stockLength: number; // 6 or 5.85 (meters), or mm if > 20
   bladeKerf: number; // 5 (mm)
   wasteThreshold: number; // 200 (mm)
   netMargin?: number;

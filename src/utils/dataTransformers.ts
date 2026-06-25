@@ -11,6 +11,7 @@ import type {
   GlazingDimension,
   ProjectData,
 } from '@/types/project';
+import { defaultProjectCalculationSettings } from '@/types/project';
 import type { ProjectCartItem, CalculationSettings } from '@/types/calculations';
 import { mapGlazingTypeToModuleId, getCategoryFromKey, normalizeGlazingType } from './moduleMapping';
 import { MODULE_CONFIG, resolveTypeForCategory } from './moduleConfig';
@@ -137,7 +138,7 @@ export function convertToGlazingDimensions(
   selectData: SelectProjectData
 ): GlazingDimension[] {
   const glazingDimensions: GlazingDimension[] = [];
-  const unit = (measurementData.unit as Unit) || 'mm';
+  const unit = (measurementData.unit as Unit) || (selectData.unit as Unit) || 'mm';
 
   // Map each dimension item to its category by looking up the type in MODULE_CONFIG
   measurementData.dimensions.forEach((dimension) => {
@@ -242,9 +243,38 @@ export function formatGlazingParametersForDisplay(
   return entries;
 }
 
-/** PATCH project calculate: stockLength must be 6 or 5.58 (metres). */
+/** PATCH project calculate: stockLength must be 6 or 5.85 (metres). */
 export function stockLengthForProjectPatch(stockLength?: number): number {
-  return stockLength === 5.58 ? 5.58 : 6;
+  if (stockLength === 5.85 || stockLength === 5.58) return 5.85;
+  return 6;
+}
+
+/** Merge API calculationSettings into select-project wizard state. */
+export function applyApiCalculationSettingsToSelectProject(
+  selectProject: SelectProjectData,
+  apiSettings?: Partial<CalculationSettings> | null
+): SelectProjectData {
+  const defaults = defaultProjectCalculationSettings();
+  const bladeKerf =
+    apiSettings?.bladeKerf ??
+    (apiSettings as { bladekerf?: number } | undefined)?.bladekerf ??
+    selectProject.calculationSettings?.bladeKerf ??
+    defaults.bladeKerf;
+
+  return {
+    ...selectProject,
+    unit: selectProject.unit ?? 'mm',
+    calculationSettings: {
+      stockLength: stockLengthForProjectPatch(
+        apiSettings?.stockLength ?? selectProject.calculationSettings?.stockLength ?? defaults.stockLength
+      ),
+      bladeKerf,
+      wasteThreshold:
+        apiSettings?.wasteThreshold ??
+        selectProject.calculationSettings?.wasteThreshold ??
+        defaults.wasteThreshold,
+    },
+  };
 }
 
 /**
@@ -907,6 +937,8 @@ export function createProjectData(
   calculationSettings?: CalculationSettings
 ): ProjectData {
   const glazingDimensions = convertToGlazingDimensions(measurementData, selectData);
+  const rawSettings = calculationSettings ?? selectData.calculationSettings;
+  const defaults = defaultProjectCalculationSettings();
 
   return {
     projectName: descriptionData.projectName,
@@ -918,11 +950,11 @@ export function createProjectData(
     description: descriptionData.description,
     glazingDimensions,
     calculationSettings: {
-      stockLength: stockLengthForProjectPatch(calculationSettings?.stockLength),
-      bladeKerf: calculationSettings?.bladeKerf ?? 5,
-      wasteThreshold: calculationSettings?.wasteThreshold ?? 200,
-      ...(calculationSettings?.netMargin != null ? { netMargin: calculationSettings.netMargin } : {}),
-      ...(calculationSettings?.netRoll ? { netRoll: calculationSettings.netRoll } : {}),
+      stockLength: stockLengthForProjectPatch(rawSettings?.stockLength ?? defaults.stockLength),
+      bladeKerf: rawSettings?.bladeKerf ?? defaults.bladeKerf,
+      wasteThreshold: rawSettings?.wasteThreshold ?? defaults.wasteThreshold,
+      ...(rawSettings?.netMargin != null ? { netMargin: rawSettings.netMargin } : {}),
+      ...(rawSettings?.netRoll ? { netRoll: rawSettings.netRoll } : {}),
     },
   };
 }

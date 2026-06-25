@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ProgressIndicator from '@/components/common/ProgressIndicator';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
-import type { ProjectMeasurementData, DimensionItem, SelectProjectData } from '@/types';
+import type { ProjectMeasurementData, DimensionItem, SelectProjectData, GlazingCategoryKey } from '@/types';
+import { GLAZING_CATEGORY_KEYS } from '@/types';
 import { getEnabledTypesForCategory, MODULE_CONFIG } from '@/utils/moduleConfig';
 import type { GlazingCategory } from '@/utils/moduleMapping';
 import { getModuleFieldRequirements } from '@/utils/moduleRequirements';
@@ -45,8 +46,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     glassPanels: [],
   };
 
-  // Map SelectProjectData keys to moduleConfig category names
-  const categoryMap: Record<keyof SelectProjectData, GlazingCategory> = {
+  // Map glazing category keys to moduleConfig category names
+  const categoryMap: Record<GlazingCategoryKey, GlazingCategory> = {
     windows: 'Window',
     doors: 'Door',
     skylights: 'Net',
@@ -54,8 +55,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   };
 
   // Map to get display labels for selected items
-  // Dynamically loaded from MODULE_CONFIG to match SelectProjectScreen
-  const categoryLabels: Record<keyof SelectProjectData, { name: string; options: { value: string; label: string }[] }> = useMemo(() => {
+  const categoryLabels: Record<GlazingCategoryKey, { name: string; options: { value: string; label: string }[] }> = useMemo(() => {
     return {
       windows: {
         name: MODULE_CONFIG.Window.name,
@@ -92,7 +92,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   const selectedItemsForDisplay = useMemo(() => {
     const items: Array<{ category: string; label: string; value: string }> = [];
     
-    (Object.keys(selectProjectData) as Array<keyof SelectProjectData>).forEach((categoryId) => {
+    GLAZING_CATEGORY_KEYS.forEach((categoryId) => {
       const categoryData = categoryLabels[categoryId];
       const selectedValues = selectProjectData[categoryId] || [];
       
@@ -110,7 +110,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     
     return items;
   }, [selectProjectData]);
-  const [unit, setUnit] = useState<string>(initialMeasurementData?.unit ?? 'mm');
+  const unit = previousData?.unit ?? initialMeasurementData?.unit ?? 'mm';
   const [type, setType] = useState<string>('');
   const [width, setWidth] = useState<string>('');
   const [height, setHeight] = useState<string>('');
@@ -150,9 +150,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   // Get enabled categories from selected project data
   const enabledCategories = useMemo(() => {
     type EnabledModuleCategory = 'Window' | 'Door' | 'Net' | 'Curtain Wall';
-    const categories: Array<{ key: keyof SelectProjectData; name: string; moduleCategory: EnabledModuleCategory }> = [];
+    const categories: Array<{ key: GlazingCategoryKey; name: string; moduleCategory: EnabledModuleCategory }> = [];
     
-    (Object.keys(selectProjectData) as Array<keyof SelectProjectData>).forEach((key) => {
+    GLAZING_CATEGORY_KEYS.forEach((key) => {
       if (selectProjectData[key] && selectProjectData[key].length > 0) {
         const moduleCategory = categoryMap[key];
         const categoryData = categoryLabels[key];
@@ -738,26 +738,6 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
             {/* Right Column - Form */}
             <div ref={formContainerRef} className="flex flex-col">
               <div className="bg-white border border-gray-200 rounded-lg p-6">
-                {/* Unit Dropdown */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Unit
-                  </label>
-                  <select
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  >
-                    <option value="m">m</option>
-                    <option value="mm">mm</option>
-                    <option value="cm">cm</option>
-                    <option value="ft">ft</option>
-                    <option value="in">in</option>
-                  </select>
-                </div>
-
-                <div className="h-px bg-gray-200 mb-6"></div>
-
                 {/* Category Dropdown - Only show if multiple categories */}
                 {enabledCategories.length > 1 && (
                   <div className="mb-6">

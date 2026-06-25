@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import ProgressIndicator from '@/components/common/ProgressIndicator';
-import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
-import type { SelectProjectData } from '@/types';
+import type { SelectProjectData, GlazingCategoryKey, ProjectCalculationSettings } from '@/types';
+import { defaultProjectCalculationSettings } from '@/types';
 import { isCategoryEnabled, getEnabledTypesForCategory, MODULE_CONFIG } from '@/utils/moduleConfig';
 import type { GlazingCategory as ModuleGlazingCategory } from '@/utils/moduleMapping';
 import { migrateSelectProjectWindows } from '@/utils/slidingWindow';
@@ -9,7 +8,7 @@ import { migrateSelectProjectWindows } from '@/utils/slidingWindow';
 interface SelectProjectScreenProps {
   onBack: () => void;
   onNext: (data: SelectProjectData) => void;
-  previousData?: any;
+  previousData?: SelectProjectData;
 }
 
 interface GlazingOption {
@@ -18,43 +17,39 @@ interface GlazingOption {
 }
 
 interface ProjectGlazingCategory {
-  id: keyof SelectProjectData;
+  id: GlazingCategoryKey;
   name: string;
   options: GlazingOption[];
 }
 
-const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNext, previousData }) => {
-  // Initialize with previousData if available (to preserve existing selections)
-  // Ensure all properties exist and are arrays to prevent undefined errors
-  const [selectedValues, setSelectedValues] = useState<SelectProjectData>(() => {
-    if (previousData) {
-      return {
-        windows: migrateSelectProjectWindows(
-          Array.isArray(previousData.windows) ? previousData.windows : []
-        ),
-        doors: Array.isArray(previousData.doors) ? previousData.doors : [],
-        skylights: Array.isArray(previousData.skylights) ? previousData.skylights : [],
-        glassPanels: Array.isArray(previousData.glassPanels) ? previousData.glassPanels : [],
-      };
-    }
-    return {
-      windows: [],
-      doors: [],
-      skylights: [],
-      glassPanels: [],
-    };
-  });
+const MEASUREMENT_UNITS = ['m', 'mm', 'cm', 'ft', 'in'] as const;
 
-  // Map SelectProjectData keys to moduleConfig category names
-  const categoryMap: Record<keyof SelectProjectData, ModuleGlazingCategory> = {
+function pickGlazingSelections(data?: SelectProjectData): Pick<SelectProjectData, GlazingCategoryKey> {
+  return {
+    windows: migrateSelectProjectWindows(Array.isArray(data?.windows) ? data.windows : []),
+    doors: Array.isArray(data?.doors) ? data.doors : [],
+    skylights: Array.isArray(data?.skylights) ? data.skylights : [],
+    glassPanels: Array.isArray(data?.glassPanels) ? data.glassPanels : [],
+  };
+}
+
+const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNext, previousData }) => {
+  const [selectedValues, setSelectedValues] = useState<Pick<SelectProjectData, GlazingCategoryKey>>(() =>
+    pickGlazingSelections(previousData)
+  );
+  const [unit, setUnit] = useState<string>(previousData?.unit ?? 'mm');
+  const [calculationSettings, setCalculationSettings] = useState<ProjectCalculationSettings>(
+    () => previousData?.calculationSettings ?? defaultProjectCalculationSettings()
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const categoryMap: Record<GlazingCategoryKey, ModuleGlazingCategory> = {
     windows: 'Window',
     doors: 'Door',
     skylights: 'Net',
     glassPanels: 'Curtain Wall',
   };
 
-  // All possible categories with their options - dynamically loaded from MODULE_CONFIG
-  // Filter to show only enabled categories based on module config
   const allCategories = useMemo(() => {
     const allPossibleCategories: ProjectGlazingCategory[] = [
       {
@@ -91,7 +86,6 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
       },
     ];
 
-    // Filter to only show enabled categories
     return allPossibleCategories.filter((category) => {
       const moduleCategory = categoryMap[category.id];
       return moduleCategory ? isCategoryEnabled(moduleCategory) : false;
@@ -111,16 +105,12 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
   const toggleAccordion = (categoryId: string) => {
     setOpenAccordions(prev => {
       const isCurrentlyOpen = prev[categoryId];
-      // If clicking the same accordion that's open, close it
-      // Otherwise, close all and open the clicked one
       if (isCurrentlyOpen) {
-        // Close the clicked accordion
         return {
           ...prev,
           [categoryId]: false
         };
       } else {
-        // Close all accordions first, then open the clicked one
         const closed = Object.keys(prev).reduce((acc, key) => {
           acc[key] = false;
           return acc;
@@ -133,7 +123,7 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
     });
   };
 
-  const handleSelect = (categoryId: keyof SelectProjectData, value: string) => {
+  const handleSelect = (categoryId: GlazingCategoryKey, value: string) => {
     setSelectedValues(prev => {
       const currentSelections = prev[categoryId] || [];
       const isSelected = currentSelections.includes(value);
@@ -147,9 +137,20 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
     });
   };
 
+  const updateCalculationSetting = <K extends keyof ProjectCalculationSettings>(
+    key: K,
+    value: ProjectCalculationSettings[K]
+  ) => {
+    setCalculationSettings(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleNext = () => {
     if (isFormValid) {
-      onNext(selectedValues);
+      onNext({
+        ...selectedValues,
+        unit,
+        calculationSettings,
+      });
     }
   };
 
@@ -158,7 +159,6 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
       {/* Header / Breadcrumbs */}
       <div className="px-4 md:px-8 py-4 md:py-6 border-b border-gray-100">
         <div className="max-w-6xl mx-auto">
-          {/* Mobile only: headline row = Back + "Projects" */}
           <div className="flex md:hidden items-center gap-3 mb-4">
             <button onClick={onBack} className="text-gray-600 hover:text-gray-900 p-1 -ml-1" aria-label="Go back">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -178,7 +178,6 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
           </div>
           </div>
 
-          {/* Project info bar: back + progress + title + subtitle (back hidden on mobile) */}
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
               <button onClick={onBack} className="hidden md:block text-gray-600 hover:text-gray-900 mt-1 flex-shrink-0">
@@ -186,7 +185,6 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              {/* Progress Circle */}
               <div className="relative w-12 h-12 flex-shrink-0">
                 <svg className="w-full h-full transform -rotate-90">
                   <circle
@@ -205,7 +203,7 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
                     strokeWidth="2"
                     fill="none"
                     strokeDasharray="138"
-                    strokeDashoffset="69" // 50% progress (2/4)
+                    strokeDashoffset="69"
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-gray-600">
@@ -219,7 +217,6 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
               </div>
             </div>
 
-            {/* Next Button (Top Right) - desktop only; on mobile it's in the bottom bar */}
             <button
               onClick={handleNext}
               disabled={!isFormValid}
@@ -234,10 +231,8 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
         </div>
       </div>
 
-      {/* Main Content - Vertical on mobile, horizontal accordions on desktop */}
       <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8">
         <div className="max-w-6xl mx-auto">
-          {/* Selected Items as Chips */}
           {isFormValid && (
             <div className="mb-6 flex flex-wrap gap-2">
               {allCategories.map(category => {
@@ -291,16 +286,15 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
                     </svg>
                   </button>
 
-                  {/* Options panel - in-flow so not clipped by overflow-hidden (fixes desktop + Curtain Wall on mobile) */}
                   {isOpen && (
                     <div className="flex-1 min-h-0 border-t border-gray-200 bg-gray-50/50 overflow-y-auto">
                       <div className="py-2">
                         {category.options.map((option) => {
-                          const isSelected = (selectedValues[category.id as keyof SelectProjectData] || []).includes(option.value);
+                          const isSelected = (selectedValues[category.id] || []).includes(option.value);
                           return (
                             <button
                               key={option.value}
-                              onClick={() => handleSelect(category.id as keyof SelectProjectData, option.value)}
+                              onClick={() => handleSelect(category.id, option.value)}
                               className="w-full text-left px-6 py-3 hover:bg-gray-50 flex items-center justify-between group"
                             >
                               <span className={`text-sm truncate ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
@@ -321,10 +315,103 @@ const SelectProjectScreen: React.FC<SelectProjectScreenProps> = ({ onBack, onNex
               );
             })}
           </div>
+
+          <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(prev => !prev)}
+              className="w-full flex justify-between items-center py-5 px-6 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-gray-700 font-medium text-base">Calculation Settings</span>
+              <svg
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${settingsOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+
+            {settingsOpen && (
+              <div className="border-t border-gray-200 px-6 py-5 space-y-5 bg-gray-50/50">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Stock length</label>
+                  <div className="flex flex-wrap gap-3">
+                    {([6, 5.85] as const).map((value) => (
+                      <label
+                        key={value}
+                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm cursor-pointer transition-colors ${
+                          calculationSettings.stockLength === value
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="stockLength"
+                          value={value}
+                          checked={calculationSettings.stockLength === value}
+                          onChange={() => updateCalculationSetting('stockLength', value)}
+                          className="sr-only"
+                        />
+                        {value === 6 ? '6 m' : '5.85 m'}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="bladeKerf" className="block text-sm font-medium text-gray-700 mb-2">
+                    Blade kerf (mm)
+                  </label>
+                  <input
+                    id="bladeKerf"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={calculationSettings.bladeKerf}
+                    onChange={(e) => updateCalculationSetting('bladeKerf', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full max-w-xs px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="wasteThreshold" className="block text-sm font-medium text-gray-700 mb-2">
+                    Waste threshold (mm)
+                  </label>
+                  <input
+                    id="wasteThreshold"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={calculationSettings.wasteThreshold}
+                    onChange={(e) => updateCalculationSetting('wasteThreshold', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full max-w-xs px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Measurement unit</label>
+                  <select
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    className="w-full max-w-xs px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  >
+                    {MEASUREMENT_UNITS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
-      {/* Mobile only: Next button at bottom */}
       <div className="md:hidden flex-shrink-0 p-4 bg-white border-t border-gray-200">
         <button
           onClick={handleNext}
