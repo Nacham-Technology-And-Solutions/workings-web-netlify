@@ -94,5 +94,11 @@ export interface QuoteExtrasNotesData {
   bankName: string;
   total: number;
   addedCharges?: Array<{ description: string; amount: number }>;
+  marginPercent?: number;
+  discountPercent?: number;
+  /** Resolved tax amount sent to the API */
+  tax?: number;
+  taxType?: 'percent' | 'fixed';
+  taxValue?: number;
 }
 

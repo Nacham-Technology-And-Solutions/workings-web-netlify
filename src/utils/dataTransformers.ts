@@ -17,6 +17,7 @@ import { mapGlazingTypeToModuleId, getCategoryFromKey, normalizeGlazingType } fr
 import { MODULE_CONFIG, resolveTypeForCategory } from './moduleConfig';
 import type { GlazingCategory } from './moduleMapping';
 import { convertStringToMillimeters, type Unit } from './unitConverter';
+import { quoteTaxChargeLabel } from './quoteExtrasCalculations';
 import {
   isSlidingGlazingType,
   isSlidingModuleId,
@@ -480,15 +481,7 @@ function buildEstimationExtraCharges(
   if (extras.miscellaneous && extras.miscellaneous > 0) {
     charges.push({ label: 'Miscellaneous', amount: extras.miscellaneous });
   }
-  if (extras.profitFixed && extras.profitFixed > 0) {
-    charges.push({ label: 'Profit', amount: extras.profitFixed });
-  }
-  if (extras.profitPercent && extras.profitPercent > 0) {
-    charges.push({
-      label: `Profit (${extras.profitPercent}%)`,
-      amount: Math.round((subtotal * extras.profitPercent) / 100),
-    });
-  }
+  // Profit is baked into line item unit prices — never show on client documents
   if (extras.discountFixed && extras.discountFixed > 0) {
     charges.push({ label: 'Discount', amount: -extras.discountFixed });
   }
@@ -536,6 +529,10 @@ export function transformBackendQuoteToPreview(
     accountNumber?: string;
     bankName?: string;
     addedCharges?: Array<{ description: string; amount: number }>;
+    discountPercent?: number;
+    tax?: number;
+    taxType?: 'percent' | 'fixed';
+    taxValue?: number;
   }
 ): {
   projectName: string;
@@ -595,7 +592,7 @@ export function transformBackendQuoteToPreview(
     );
   }
   
-  // Add extra charges from extrasNotesData if available (legacy quote flow)
+  // Add extra charges from quote flow (dropdown + Add Charge)
   if (extrasNotesData?.addedCharges && extrasNotesData.addedCharges.length > 0) {
     extrasNotesData.addedCharges.forEach((charge) => {
       if (charge.description && charge.amount > 0) {
@@ -603,10 +600,24 @@ export function transformBackendQuoteToPreview(
       }
     });
   }
+
+  if (extrasNotesData?.discountPercent && extrasNotesData.discountPercent > 0) {
+    const discountAmount = Math.round((backendQuote.subtotal * extrasNotesData.discountPercent) / 100);
+    if (discountAmount > 0) {
+      charges.push({ label: `Discount (${extrasNotesData.discountPercent}%)`, amount: -discountAmount });
+    }
+  }
   
   // Add tax if it exists
-  if (backendQuote.tax > 0) {
-    charges.push({ label: 'Tax', amount: backendQuote.tax });
+  const taxAmount = extrasNotesData?.tax ?? backendQuote.tax;
+  if (taxAmount > 0) {
+    charges.push({
+      label: quoteTaxChargeLabel(
+        extrasNotesData?.taxType ?? 'fixed',
+        extrasNotesData?.taxValue ?? taxAmount
+      ),
+      amount: taxAmount,
+    });
   }
 
   // Estimation quotes: show unlabeled remainder if extras don't fully explain total
@@ -812,6 +823,11 @@ export function transformStandaloneQuoteToBackend(
     bankName: string;
     total: number;
     addedCharges?: Array<{ description: string; amount: number }>;
+    marginPercent?: number;
+    discountPercent?: number;
+    tax?: number;
+    taxType?: 'percent' | 'fixed';
+    taxValue?: number;
   },
   projectId?: number
 ): {
@@ -872,11 +888,24 @@ export function transformStandaloneQuoteToBackend(
     });
   }
 
-  // Calculate subtotal (sum of all items)
+  if (extrasNotesData.discountPercent && extrasNotesData.discountPercent > 0) {
+    const itemsOnlySubtotal = itemListData.items.reduce((sum, item) => sum + item.total, 0);
+    const discountAmount = Math.round((itemsOnlySubtotal * extrasNotesData.discountPercent) / 100);
+    if (discountAmount > 0) {
+      items.push({
+        description: `Discount (${extrasNotesData.discountPercent}%)`,
+        quantity: 1,
+        unitPrice: -discountAmount,
+        totalPrice: -discountAmount,
+      });
+    }
+  }
+
+  // Calculate subtotal (sum of all items before tax)
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
-  // Calculate tax (difference between total and subtotal)
-  const tax = Math.max(0, extrasNotesData.total - subtotal);
+  const tax = extrasNotesData.tax ?? Math.max(0, extrasNotesData.total - subtotal);
+  const total = extrasNotesData.total > 0 ? extrasNotesData.total : subtotal + tax;
 
   const accountName = extrasNotesData.accountName?.trim() || '';
   const accountNumber = extrasNotesData.accountNumber?.trim() || '';
@@ -907,7 +936,7 @@ export function transformStandaloneQuoteToBackend(
     items,
     subtotal,
     tax,
-    total: extrasNotesData.total,
+    total: extrasNotesData.total > 0 ? extrasNotesData.total : total,
     status: 'draft', // Will be 'sent' when finalized
   };
 

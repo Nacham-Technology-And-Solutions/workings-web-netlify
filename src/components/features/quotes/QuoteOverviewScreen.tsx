@@ -172,11 +172,7 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                             </button>
                             <button
                                 onClick={() => {
-                                    if (editingQuoteId) {
-                                        onNavigateToExtras?.();
-                                    } else {
-                                        onNavigateToExtras?.(getOverviewData());
-                                    }
+                                    onNavigateToExtras?.(getOverviewData());
                                 }}
                                 className={`pb-4 px-0 text-sm font-medium transition-colors relative ${activeTab === 'extras'
                                         ? 'text-gray-900'

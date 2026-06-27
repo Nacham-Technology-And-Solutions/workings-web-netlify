@@ -349,7 +349,7 @@ const MaterialPricesSection: React.FC = () => {
         <p className="mt-1 text-sm text-blue-800">
           These prices populate <strong>My prices</strong> when you generate a quote from a calculated
           project. Pick materials from the engine catalog — each has a stable item key for auto-fill.
-          Profit, labour, and other project extras are set on the Project Solution screen — not here.
+          Labour, transport, and other project extras are set on the quote Extras tab after estimation pricing — not here.
         </p>
         {catalogItems.length > 0 && (
           <p className="mt-2 text-xs text-blue-700">

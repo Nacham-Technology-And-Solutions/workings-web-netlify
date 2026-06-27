@@ -6,6 +6,7 @@ interface QuoteFinalPreviewScreenProps {
     onDownloadPDF: () => void;
     previousData?: any;
     editingQuoteId?: string | null;
+    isEditLoading?: boolean;
 }
 
 const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
@@ -13,7 +14,8 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
     onEdit,
     onDownloadPDF,
     previousData,
-    editingQuoteId
+    editingQuoteId,
+    isEditLoading = false,
 }) => {
     // Use previousData (generatedQuote) instead of hardcoded sample data
     // Transform the data structure to match what the component expects
@@ -107,15 +109,20 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={onEdit}
-                                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors"
+                                disabled={isEditLoading}
+                                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                                 aria-label="Edit quote"
                             >
                                 <span className="inline-flex items-center justify-center w-9 h-9 rounded border border-gray-300 bg-white">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
+                                    {isEditLoading ? (
+                                        <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                    ) : (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    )}
                                 </span>
-                                <span className="text-sm font-medium">Edit</span>
+                                <span className="text-sm font-medium">{isEditLoading ? 'Loading...' : 'Edit'}</span>
                             </button>
                             <button
                                 onClick={onDownloadPDF}

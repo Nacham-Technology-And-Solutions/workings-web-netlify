@@ -36,15 +36,7 @@ import {
   mergeAccessoryDisplaySections,
 } from '@/utils/calculationResultParser';
 import { normalizePlanEntryToCuts, formatOffcutLabelMm } from '@/utils/cutPlanKeys';
-import EstimationPricingPanel from '@/components/features/estimation/EstimationPricingPanel';
-import MaterialBomPricedItem from '@/components/features/estimation/MaterialBomPricedItem';
-import GenerateQuoteModal from '@/components/features/estimation/GenerateQuoteModal';
-import { useEstimationStore } from '@/stores/estimationStore';
-import type { EstimationSavedQuote } from '@/types/estimation';
-import {
-  buildMaterialPreviewLookup,
-  findPreviewLineForMaterial,
-} from '@/utils/estimationMaterialMatch';
+import MaterialBomQuantityItem from '@/components/features/estimation/MaterialBomQuantityItem';
 
 type CuttingPlanEntry = { [key: string]: string[] | CuttingPlanPiece[] };
 
@@ -108,11 +100,12 @@ interface ProjectSolutionScreenProps {
   initialTab?: 'material' | 'cutting' | 'glass' | 'net';
   initialCalculationResult?: CalculationResult | null;
   draftProjectId?: number | null;
-  onCreateQuote?: (materialCost?: number, calculationResult?: CalculationResult, projectMeasurement?: ProjectMeasurementData) => void;
-  onEstimationQuoteSaved?: (quote: EstimationSavedQuote) => void;
+  onNavigateToEstimationPricing?: () => void;
   onProjectSaved?: () => void;
   /** Called when calculation completes so parent can cache the result for "Return to Calculation Results" */
   onCalculationComplete?: (result: CalculationResult) => void;
+  /** Called when calculate yields a project ID (e.g. newly created project) */
+  onCalculatedProjectId?: (projectId: number) => void;
 }
 
 interface MaterialItem {
@@ -134,14 +127,13 @@ function formatMaterialQuantityBadge(
   return item.quantityLabel ?? `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`;
 }
 
-const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onCreateQuote, onEstimationQuoteSaved, onProjectSaved, onCalculationComplete }) => {
+const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onNavigateToEstimationPricing, onProjectSaved, onCalculationComplete, onCalculatedProjectId }) => {
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass' | 'net'>(initialTab);
   const [warningsDismissed, setWarningsDismissed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
   const [calculatedProjectId, setCalculatedProjectId] = useState<number | null>(draftProjectId ?? null);
-  const [showGenerateQuoteModal, setShowGenerateQuoteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -156,28 +148,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const saveInProgressRef = useRef(false);
   const hasCalculatedRef = useRef(false);
   const hasSavedRef = useRef(false);
-  const estimationBootstrappedRef = useRef(false);
 
-  const {
-    initFromProjectSettings,
-    setProjectId: setEstimationProjectId,
-    loadPriceFill,
-    preview: runEstimationPreview,
-    pricingInputs,
-    quoteSettings,
-    previewResult,
-    isPreviewing,
-    reset: resetEstimation,
-  } = useEstimationStore();
-  
-  // State for prices and quantities (itemId -> value) - persist to localStorage
-  const [itemPrices, setItemPrices] = useState<Record<string, number>>(() => {
-    if (typeof window !== 'undefined' && draftProjectId) {
-      const saved = localStorage.getItem(`project-prices-${draftProjectId}`);
-      return saved ? JSON.parse(saved) : {};
-    }
-    return {};
-  });
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   
   // Filter states
@@ -195,13 +166,6 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   /** Cutting list: full-screen expanded card { profileIndex (in filtered list), layoutIndex } */
   const [expandedCuttingCard, setExpandedCuttingCard] = useState<{ profileIndex: number; layoutIndex: number } | null>(null);
   
-  // Save prices to localStorage when they change
-  useEffect(() => {
-    if (draftProjectId && Object.keys(itemPrices).length > 0) {
-      localStorage.setItem(`project-prices-${draftProjectId}`, JSON.stringify(itemPrices));
-    }
-  }, [itemPrices, draftProjectId]);
-
   // Close export dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -213,76 +177,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showExportDropdown]);
 
-  const estimationProjectId = calculatedProjectId ?? draftProjectId ?? null;
-  const estimationMode = Boolean(estimationProjectId);
-
-  const materialPreviewLines =
-    previewResult?.quoteSource === 'material_list' && 'lines' in previewResult
-      ? previewResult.lines
-      : [];
-
-  const materialPreviewLookup = useMemo(
-    () => buildMaterialPreviewLookup(materialPreviewLines, pricingInputs),
-    [materialPreviewLines, pricingInputs]
-  );
-
-  const pricingSnapshot = useMemo(
-    () => JSON.stringify({ pricingInputs, quoteSettings }),
-    [pricingInputs, quoteSettings]
-  );
-
-  useEffect(() => {
-    if (!estimationProjectId || pricingInputs.length === 0) return;
-    const timer = window.setTimeout(() => {
-      void runEstimationPreview('material_list');
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [estimationProjectId, pricingSnapshot, pricingInputs.length, runEstimationPreview]);
-
-  const estimationGrandTotal =
-    previewResult?.quoteSource === 'material_list' ? previewResult.grandTotal : null;
-
-  const estimationSubtotal =
-    previewResult?.quoteSource === 'material_list' ? previewResult.subtotal : null;
-
-  const bootstrapEstimation = async (projectId: number) => {
-    if (!previousData?.projectDescription || !previousData?.selectProject || !previousData?.projectMeasurement) {
-      return;
-    }
-    const projectData = createProjectData(
-      previousData.projectDescription,
-      previousData.selectProject,
-      previousData.projectMeasurement
-    );
-    initFromProjectSettings(projectData.calculationSettings);
-    setEstimationProjectId(projectId);
-    await loadPriceFill(projectId);
-  };
-
-  useEffect(() => {
-    if (!estimationProjectId || !calculationResult) return;
-    if (estimationBootstrappedRef.current) return;
-    estimationBootstrappedRef.current = true;
-    void bootstrapEstimation(estimationProjectId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estimationProjectId, calculationResult]);
-
-  useEffect(() => {
-    return () => {
-      resetEstimation();
-    };
-  }, [resetEstimation]);
-
   const handleOpenGenerateQuote = () => {
-    if (estimationProjectId && onEstimationQuoteSaved) {
-      setShowGenerateQuoteModal(true);
+    if (onNavigateToEstimationPricing) {
+      onNavigateToEstimationPricing();
       return;
     }
-    if (onCreateQuote) {
-      onCreateQuote(grandTotal, calculationResult || undefined, previousData?.projectMeasurement);
-    } else {
-      onGenerate(grandTotal);
-    }
+    onGenerate(0);
   };
 
   // Auto-dismiss calculation success (points/balance) notification after 5 seconds
@@ -494,8 +394,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
 
       setCalculationResult(validatedData);
       setCalculatedProjectId(projectId);
-      estimationBootstrappedRef.current = false;
-      void bootstrapEstimation(projectId);
+      onCalculatedProjectId?.(projectId);
       setWarningsDismissed(false);
       if (validatedData.glassList.total_sheets > 0) {
         setSelectedSheet('sheet1');
@@ -645,11 +544,38 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     }));
   };
 
-  // Calculate item total (quantity * price)
-  const getItemTotal = (itemId: string, defaultQuantity: number): number => {
-    const quantity = itemQuantities[itemId] ?? defaultQuantity;
-    const price = itemPrices[itemId] ?? 0;
-    return quantity * price;
+  const buildMaterialExportSections = (): MaterialListExportSection[] => {
+    const toRow = (item: MaterialItem) => {
+      const quantity = itemQuantities[item.id] ?? item.quantity;
+      return {
+        name: item.name,
+        quantity,
+        unit: item.unit,
+        quantityDisplay: formatMaterialQuantityBadge(item, itemQuantities),
+      };
+    };
+
+    return [
+      { title: 'Profiles', rows: profileItems.map(toRow) },
+      { title: 'Accessories', rows: accessoriesItems.map(toRow) },
+    ].filter((section) => section.rows.length > 0);
+  };
+
+  const handleExportMaterialList = (format: 'pdf' | 'excel') => {
+    if (!previousData?.projectDescription) return;
+
+    const projectName = previousData.projectDescription.projectName || 'Project';
+    const customerName = previousData.projectDescription.customerName || '';
+    const sections = buildMaterialExportSections();
+    if (!sections.length) return;
+
+    if (format === 'pdf') {
+      void exportProjectMaterialListToPDF(sections, projectName, customerName, 0, 'bom');
+    } else {
+      exportProjectMaterialListToExcel(sections, projectName, customerName, 0, 'bom');
+    }
+
+    setShowExportDropdown(null);
   };
 
   const buildExportCover = (): ProjectExportCoverInfo | undefined => {
@@ -661,57 +587,6 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       siteAddress: previousData?.projectDescription?.siteAddress,
       rows: buildProjectCartExportRows(dims, previousData?.projectMeasurement?.unit ?? 'mm'),
     };
-  };
-
-  const buildMaterialExportSections = (): MaterialListExportSection[] => {
-    const toRow = (item: MaterialItem) => {
-      if (estimationMode && materialPreviewLookup.size > 0) {
-        const line = findPreviewLineForMaterial(item.name, materialPreviewLookup);
-        if (line) {
-          return {
-            name: item.name,
-            quantity: line.quantity,
-            unit: line.unit,
-            quantityDisplay: formatMaterialQuantityBadge(item, itemQuantities),
-            unitPrice: line.unitPrice,
-            total: line.totalPrice,
-          };
-        }
-      }
-
-      const quantity = itemQuantities[item.id] ?? item.quantity;
-      const unitPrice = itemPrices[item.id] ?? 0;
-      return {
-        name: item.name,
-        quantity,
-        unit: item.unit,
-        quantityDisplay: formatMaterialQuantityBadge(item, itemQuantities),
-        unitPrice,
-        total: quantity * unitPrice,
-      };
-    };
-
-    return [
-      { title: 'Profiles', rows: profileItems.map(toRow) },
-      { title: 'Accessories', rows: accessoriesItems.map(toRow) },
-    ].filter((section) => section.rows.length > 0);
-  };
-
-  const handleExportMaterialList = (format: 'pdf' | 'excel', mode: 'bom' | 'priced') => {
-    if (!previousData?.projectDescription) return;
-
-    const projectName = previousData.projectDescription.projectName || 'Project';
-    const customerName = previousData.projectDescription.customerName || '';
-    const sections = buildMaterialExportSections();
-    if (!sections.length) return;
-
-    if (format === 'pdf') {
-      void exportProjectMaterialListToPDF(sections, projectName, customerName, displayGrandTotal, mode);
-    } else {
-      exportProjectMaterialListToExcel(sections, projectName, customerName, displayGrandTotal, mode);
-    }
-
-    setShowExportDropdown(null);
   };
 
   // Export handlers — one PDF/Excel with all profiles (Cutting List) or all layouts (Glass List)
@@ -825,26 +700,6 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     setShowExportDropdown(null);
   };
 
-  // Calculate grand total from all items (legacy manual pricing)
-  const grandTotal = useMemo(() => {
-    let total = 0;
-    
-    // Sum all profile items
-    profileItems.forEach(item => {
-      total += getItemTotal(item.id, item.quantity);
-    });
-    
-    // Sum all accessory items
-    accessoriesItems.forEach(item => {
-      total += getItemTotal(item.id, item.quantity);
-    });
-
-    return total;
-  }, [profileItems, accessoriesItems, itemPrices, itemQuantities]);
-
-  const displayGrandTotal =
-    estimationMode && estimationGrandTotal != null ? estimationGrandTotal : grandTotal;
-
   // Initialize quantities from items when calculation result changes
   useEffect(() => {
     if (!materialSections) return;
@@ -930,33 +785,15 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   </button>
                   {showExportDropdown === 'material' && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                        BOM (quantities)
-                      </div>
                       <button
-                        onClick={() => handleExportMaterialList('pdf', 'bom')}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
+                        onClick={() => handleExportMaterialList('pdf')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm rounded-t-lg"
                       >
                         Export as PDF
                       </button>
                       <button
-                        onClick={() => handleExportMaterialList('excel', 'bom')}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm border-b border-gray-100"
-                      >
-                        Export as Excel
-                      </button>
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                        With pricing
-                      </div>
-                      <button
-                        onClick={() => handleExportMaterialList('pdf', 'priced')}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
-                      >
-                        Export as PDF
-                      </button>
-                      <button
-                        onClick={() => handleExportMaterialList('excel', 'priced')}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg text-sm"
+                        onClick={() => handleExportMaterialList('excel')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm rounded-b-lg"
                       >
                         Export as Excel
                       </button>
@@ -1400,34 +1237,18 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
           {/* Material List Content */}
           {!isLoading && !error && activeTab === 'material' && (
             <>
-            {estimationProjectId && (
-              <EstimationPricingPanel projectId={estimationProjectId} />
-            )}
-            {estimationMode && (
-              <p className="mb-4 text-sm text-gray-500">
-                Quantities from calculation · Unit prices and line totals from estimation engine
-                {isPreviewing ? ' (updating…)' : ''}
-              </p>
-            )}
+            <p className="mb-4 text-sm text-gray-500">Quantities from calculation</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Profiles</h3>
                 <div className="space-y-3">
                   {profileItems.map((item) => (
-                    <MaterialBomPricedItem
+                    <MaterialBomQuantityItem
                       key={item.id}
                       item={item}
                       quantityDisplay={formatMaterialQuantityBadge(item, itemQuantities)}
                       isExpanded={Boolean(expandedItems[item.id])}
                       onToggle={() => toggleItemExpansion(item.id)}
-                      estimationMode={estimationMode}
-                      pricedLine={findPreviewLineForMaterial(item.name, materialPreviewLookup)}
-                      isPreviewing={isPreviewing}
-                      legacyUnitPrice={itemPrices[item.id] ?? 0}
-                      legacyLineTotal={getItemTotal(item.id, item.quantity)}
-                      onLegacyPriceChange={(price) =>
-                        setItemPrices((prev) => ({ ...prev, [item.id]: price }))
-                      }
                     />
                   ))}
                 </div>
@@ -1437,20 +1258,12 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Accessories</h3>
                 <div className="space-y-3">
                   {accessoriesItems.map((item) => (
-                    <MaterialBomPricedItem
+                    <MaterialBomQuantityItem
                       key={item.id}
                       item={item}
                       quantityDisplay={formatMaterialQuantityBadge(item, itemQuantities)}
                       isExpanded={Boolean(expandedItems[item.id])}
                       onToggle={() => toggleItemExpansion(item.id)}
-                      estimationMode={estimationMode}
-                      pricedLine={findPreviewLineForMaterial(item.name, materialPreviewLookup)}
-                      isPreviewing={isPreviewing}
-                      legacyUnitPrice={itemPrices[item.id] ?? 0}
-                      legacyLineTotal={getItemTotal(item.id, item.quantity)}
-                      onLegacyPriceChange={(price) =>
-                        setItemPrices((prev) => ({ ...prev, [item.id]: price }))
-                      }
                     />
                   ))}
                 </div>
@@ -2107,12 +1920,8 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                 </button>
                 {showExportDropdown === 'material' && (
                   <div className="absolute left-0 right-0 bottom-full mb-2 py-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">BOM (quantities)</div>
-                    <button onClick={() => handleExportMaterialList('pdf', 'bom')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">Export as PDF</button>
-                    <button onClick={() => handleExportMaterialList('excel', 'bom')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm border-b border-gray-100">Export as Excel</button>
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">With pricing</div>
-                    <button onClick={() => handleExportMaterialList('pdf', 'priced')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">Export as PDF</button>
-                    <button onClick={() => handleExportMaterialList('excel', 'priced')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg text-sm">Export as Excel</button>
+                    <button onClick={() => handleExportMaterialList('pdf')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm rounded-t-lg">Export as PDF</button>
+                    <button onClick={() => handleExportMaterialList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg text-sm">Export as Excel</button>
                   </div>
                 )}
               </div>
@@ -2170,41 +1979,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       {/* Footer with Grand Total - Material List tab only; extra bottom padding on mobile for fixed bar */}
       {!isLoading && !error && calculationResult && activeTab === 'material' && (
         <div className="border-t border-gray-200 bg-white px-4 md:px-8 py-6 pb-20 md:pb-6">
-          <div className="max-w-7xl mx-auto space-y-2">
-            {estimationMode && estimationSubtotal != null && (
-              <div className="flex justify-between items-center text-sm text-gray-600">
-                <span>Materials subtotal</span>
-                <span>
-                  {isPreviewing ? 'Updating…' : `₦${estimationSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </span>
-              </div>
-            )}
+          <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center">
               <div>
-                <span className="text-lg font-semibold text-gray-900">Grand Total</span>
-                {estimationMode && (
-                  <p className="text-xs text-gray-500 mt-0.5">Includes labour, profit, and other quote settings</p>
-                )}
+                <span className="text-lg font-semibold text-gray-900">Total</span>
+                <p className="text-xs text-gray-500 mt-0.5">Generate quote to set prices</p>
               </div>
-              <span className="text-2xl font-bold text-gray-900">
-                {isPreviewing && estimationMode && estimationGrandTotal == null
-                  ? '…'
-                  : `₦${displayGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </span>
+              <span className="text-2xl font-bold text-gray-400">—</span>
             </div>
           </div>
         </div>
-      )}
-
-      {showGenerateQuoteModal && estimationProjectId && onEstimationQuoteSaved && (
-        <GenerateQuoteModal
-          isOpen={showGenerateQuoteModal}
-          onClose={() => setShowGenerateQuoteModal(false)}
-          projectId={estimationProjectId}
-          customerName={previousData?.projectDescription?.customerName ?? ''}
-          customerAddress={previousData?.projectDescription?.siteAddress}
-          onQuoteSaved={onEstimationQuoteSaved}
-        />
       )}
     </div>
   );

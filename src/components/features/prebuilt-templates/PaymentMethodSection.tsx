@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PaymentMethodFormModal from '@/components/common/PaymentMethodFormModal';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { PaymentMethod } from '@/types/templates';
 
@@ -6,8 +7,6 @@ const PaymentMethodSection: React.FC = () => {
   const {
     paymentMethods,
     paymentMethodConfig,
-    addPaymentMethod,
-    updatePaymentMethod,
     deletePaymentMethod,
     setDefaultPaymentMethod,
     updatePaymentMethodConfig,
@@ -15,24 +14,13 @@ const PaymentMethodSection: React.FC = () => {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
-  const [formData, setFormData] = useState({
-    accountName: '',
-    accountNumber: '',
-    bankName: '',
-  });
 
   const handleAddNew = () => {
-    setFormData({ accountName: '', accountNumber: '', bankName: '' });
     setEditingMethod(null);
     setShowAddModal(true);
   };
 
   const handleEdit = (method: PaymentMethod) => {
-    setFormData({
-      accountName: method.accountName,
-      accountNumber: method.accountNumber,
-      bankName: method.bankName,
-    });
     setEditingMethod(method);
     setShowAddModal(true);
   };
@@ -43,26 +31,8 @@ const PaymentMethodSection: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
-    if (!formData.accountName || !formData.accountNumber || !formData.bankName) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    if (editingMethod) {
-      await updatePaymentMethod(editingMethod.id, formData);
-    } else {
-      await addPaymentMethod(formData);
-    }
-
+  const handleCloseModal = () => {
     setShowAddModal(false);
-    setFormData({ accountName: '', accountNumber: '', bankName: '' });
-    setEditingMethod(null);
-  };
-
-  const handleCancel = () => {
-    setShowAddModal(false);
-    setFormData({ accountName: '', accountNumber: '', bankName: '' });
     setEditingMethod(null);
   };
 
@@ -136,6 +106,7 @@ const PaymentMethodSection: React.FC = () => {
             </p>
           </div>
           <button
+            type="button"
             onClick={handleAddNew}
             className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors"
           >
@@ -164,6 +135,7 @@ const PaymentMethodSection: React.FC = () => {
             </p>
             <div className="mt-6">
               <button
+                type="button"
                 onClick={handleAddNew}
                 className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800"
               >
@@ -199,6 +171,7 @@ const PaymentMethodSection: React.FC = () => {
                   <div className="flex items-center gap-2 ml-4">
                     {!method.isDefault && (
                       <button
+                        type="button"
                         onClick={async () => await setDefaultPaymentMethod(method.id)}
                         className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
                       >
@@ -206,12 +179,14 @@ const PaymentMethodSection: React.FC = () => {
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => handleEdit(method)}
                       className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
                     >
                       Edit
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDelete(method.id)}
                       className="px-3 py-1.5 text-xs font-medium text-red-700 bg-white border border-red-300 rounded hover:bg-red-50 transition-colors"
                     >
@@ -225,71 +200,13 @@ const PaymentMethodSection: React.FC = () => {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingMethod ? 'Edit Payment Method' : 'Add Payment Method'}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Account Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.accountName}
-                  onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
-                  placeholder="Enter account name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Account Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.accountNumber}
-                  onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                  placeholder="Enter account number"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bank Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.bankName}
-                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                  placeholder="Enter bank name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end mt-6">
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors"
-              >
-                {editingMethod ? 'Update' : 'Add'} Payment Method
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PaymentMethodFormModal
+        isOpen={showAddModal}
+        onClose={handleCloseModal}
+        editingMethod={editingMethod}
+      />
     </div>
   );
 };
 
 export default PaymentMethodSection;
-

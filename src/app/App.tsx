@@ -18,12 +18,12 @@ import ProjectDescriptionScreen from '../components/features/projects/ProjectDes
 import SelectProjectScreen from '../components/features/projects/SelectProjectScreen';
 import ProjectMeasurementScreen from '../components/features/projects/ProjectMeasurementScreen';
 import ProjectSolutionScreen from '../components/features/projects/ProjectSolutionScreen';
+import ProjectEstimationPricingScreen from '../components/features/projects/ProjectEstimationPricingScreen';
 import ProjectDetailScreen from '../components/features/projects/ProjectDetailScreen';
 import ProjectEditScreen from '../components/features/projects/ProjectEditScreen';
 import QuotesScreen from '../components/features/quotes/QuotesScreen';
 import QuotePreviewScreen from '../components/features/quotes/QuotePreviewScreen';
 import QuoteDetailScreen from '../components/features/quotes/QuoteDetailScreen';
-import QuoteConfigurationScreen from '../components/features/quotes/QuoteConfigurationScreen';
 import QuoteOverviewScreen from '../components/features/quotes/QuoteOverviewScreen';
 import QuoteItemListScreen from '../components/features/quotes/QuoteItemListScreen';
 import QuoteExtrasNotesScreen from '../components/features/quotes/QuoteExtrasNotesScreen';
@@ -52,6 +52,7 @@ import {
   useQuoteStore,
   useMaterialListStore,
   useSyncStore,
+  useEstimationStore,
 } from '../stores';
 
 // Import services
@@ -71,6 +72,8 @@ import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
 // Import types and constants
 import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
 import type { EstimationSavedQuote } from '../types/estimation';
+import type { EstimationPreviewAcceptedPayload } from '../components/features/estimation/EstimationQuotePreviewModal';
+import { applyMarginToItems, quoteItemsSubtotal } from '../utils/estimationQuoteMappers';
 import type { SelectProjectData } from '../types/project';
 import type { GlazingDimension } from '../types/project';
 import { sampleFloorPlan, initialEstimates, sampleFullQuotes, sampleFullMaterialLists } from '../constants';
@@ -135,7 +138,9 @@ const App: React.FC = () => {
     updateStandaloneQuoteItemList,
     updateStandaloneQuoteExtrasNotes,
     clearStandaloneQuoteData,
+    clearEstimationDraft,
     setEditingQuoteId,
+    setEstimationDraft,
   } = useQuoteStore();
 
   const {
@@ -596,6 +601,68 @@ const App: React.FC = () => {
     handleCreateQuoteFromSolution(materialCost);
   };
 
+  const handleEstimationPreviewAccepted = (payload: EstimationPreviewAcceptedPayload) => {
+    const projectId = draftProjectId;
+    if (!projectId) {
+      console.error('[App] No project ID for estimation preview accept');
+      return;
+    }
+
+    setEditingQuoteId(null);
+    const defaultMargin = 10;
+    const adjustedItems = applyMarginToItems(payload.baseItems, defaultMargin);
+    const listType = payload.quoteSource === 'project_cart' ? 'dimension' : 'material';
+    const subtotal = quoteItemsSubtotal(adjustedItems);
+
+    const { quoteSettings } = useEstimationStore.getState();
+
+    setEstimationDraft({
+      projectId,
+      quoteSource: payload.quoteSource,
+      baseItems: payload.baseItems,
+      pricingInputs: payload.pricingInputs,
+      itemOverrides: payload.itemOverrides,
+      marginPercent: defaultMargin,
+      offcutMarkup: quoteSettings.offcutMarkup,
+    });
+
+    setStandaloneQuoteData({
+      overview: {
+        customerName: projectDescriptionData?.customerName || '',
+        projectName: projectDescriptionData?.projectName || '',
+        siteAddress: projectDescriptionData?.siteAddress || '',
+        quoteId: '#000045',
+        issueDate: '',
+        paymentTerms: '',
+      },
+      itemList: {
+        listType,
+        items: adjustedItems,
+        subtotal,
+      },
+      extrasNotes: {
+        extraCharges: '',
+        amount: 0,
+        additionalNotes: '',
+        accountName: '',
+        accountNumber: '',
+        bankName: '',
+        total: subtotal,
+        marginPercent: defaultMargin,
+        discountPercent: 0,
+        tax: 0,
+        taxType: 'fixed',
+        taxValue: 0,
+      },
+      projectData: {
+        calculationResult: initialCalculationResult ?? undefined,
+        projectMeasurement: projectMeasurementData ?? undefined,
+      },
+    });
+
+    navigate('quoteOverview');
+  };
+
   const handleCreateQuoteFromSolution = (
     materialCost?: number,
     calculationResult?: any,
@@ -774,6 +841,9 @@ const App: React.FC = () => {
   const handleEditQuote = async (quoteId: string) => {
     setIsEditQuoteLoading(true);
     try {
+      clearEstimationDraft();
+      setSelectedQuoteId(quoteId);
+
       // Fetch quote data
       const response = await quotesService.getById(parseInt(quoteId));
       if (isApiResponseSuccess(response)) {
@@ -809,11 +879,14 @@ const App: React.FC = () => {
         const extrasNotesData = {
           extraCharges: '',
           amount: backendQuote.tax || 0,
-          additionalNotes: '',
+          additionalNotes: backendQuote.notes || '',
           accountName: backendQuote.paymentInfo?.accountName || '',
           accountNumber: backendQuote.paymentInfo?.accountNumber || '',
           bankName: backendQuote.paymentInfo?.bankName || '',
           total: backendQuote.total,
+          taxType: 'fixed' as const,
+          taxValue: backendQuote.tax || 0,
+          addedCharges: [] as Array<{ description: string; amount: number }>,
         };
 
         // Set editing quote ID and populate standalone quote data
@@ -992,6 +1065,12 @@ const App: React.FC = () => {
         const quote = responseData?.quote || responseData;
         
         console.log('[App] Quote saved successfully:', quote);
+
+        if (quote?.id != null) {
+          const savedQuoteId = String(quote.id);
+          setEditingQuoteId(savedQuoteId);
+          setSelectedQuoteId(savedQuoteId);
+        }
         
         // Transform backend quote response to preview format
         // Pass extrasNotesData to include account details and extra charges
@@ -1265,12 +1344,9 @@ const App: React.FC = () => {
 
   if (currentView === 'quotePreview' && generatedQuote) {
     return <QuotePreviewScreen quote={generatedQuote} onBack={() => navigate('quotes')} onEdit={() => {
-      // Use unified quote flow for editing
-      // If we're already editing a quote, navigate back to quote overview
       if (editingQuoteId) {
-        navigate('quoteOverview');
+        handleEditQuote(editingQuoteId);
       } else {
-        // Start new quote in unified flow (since we don't have backend ID in preview)
         handleNewQuote();
       }
     }} />;
@@ -1832,19 +1908,22 @@ const App: React.FC = () => {
               }}
               onNavigateToStep={(step) => navigate(step as any)}
               onGenerate={handleProjectSolutionGenerate}
-              onCreateQuote={handleCreateQuoteFromSolution}
-              onEstimationQuoteSaved={handleEstimationQuoteSaved}
+              onNavigateToEstimationPricing={() => {
+                if (!draftProjectId) {
+                  console.warn('[App] Generate quote requires a calculated project');
+                  return;
+                }
+                navigate('projectEstimationPricing');
+              }}
               previousData={combinedData || undefined}
               initialCalculationResult={initialCalculationResult}
               draftProjectId={draftProjectId}
               onProjectSaved={() => {
-                // Don't clear draftProjectId here - we need it for quote creation
-                // It will be cleared after quote is successfully created
                 console.log('[App] Project saved successfully, keeping draftProjectId for quote creation');
-                // Refresh projects list to update status from 'draft' to 'calculated'
                 setRefreshProjects(prev => prev + 1);
               }}
               onCalculationComplete={(result) => setInitialCalculationResult(result)}
+              onCalculatedProjectId={(id) => setDraftProjectId(id)}
             />
           </div>
         </div>
@@ -1852,7 +1931,39 @@ const App: React.FC = () => {
     );
   }
 
-  // QuoteConfiguration screen removed - now using unified 3-screen quote flow (quoteOverview -> quoteItemList -> quoteExtrasNotes)
+  if (currentView === 'projectEstimationPricing') {
+    const combinedData = getCombinedProjectData();
+    if (!draftProjectId || !combinedData) {
+      navigate('projectSolution');
+      return null;
+    }
+    return (
+      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
+        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+          />
+          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
+            <ProjectEstimationPricingScreen
+              onBack={() => navigate('projectSolution')}
+              projectId={draftProjectId}
+              previousData={combinedData}
+              calculationResult={initialCalculationResult}
+              onPreviewAccepted={handleEstimationPreviewAccepted}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // QuoteConfiguration screen removed
   // Both standalone and project quotes now use the same flow
   // if (currentView === 'quoteConfiguration') {
   //   return (
@@ -1885,7 +1996,15 @@ const App: React.FC = () => {
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <QuoteOverviewScreen
-              onBack={() => navigate(draftProjectId ? 'projectSolution' : 'quotes')}
+              onBack={() => {
+                if (editingQuoteId) {
+                  navigate(selectedQuoteId ? 'quoteDetail' : 'quotes');
+                } else if (draftProjectId) {
+                  navigate('projectEstimationPricing');
+                } else {
+                  navigate('quotes');
+                }
+              }}
               onNext={handleQuoteOverviewNext}
               previousData={standaloneQuoteData}
               editingQuoteId={editingQuoteId}
@@ -2025,13 +2144,14 @@ const App: React.FC = () => {
                 navigate('quotes');
               }}
               onEdit={() => {
-                // Navigate back to edit flow
-                if (selectedQuoteId) {
-                  handleEditQuote(selectedQuoteId);
+                const quoteId = editingQuoteId || selectedQuoteId;
+                if (quoteId) {
+                  handleEditQuote(quoteId);
                 } else {
-                  navigate('quoteOverview');
+                  navigate('quotes');
                 }
               }}
+              isEditLoading={isEditQuoteLoading}
               onDownloadPDF={() => {
                 if (generatedQuote) {
                   import('@/services/export/exportService').then(({ exportQuoteToPDF }) => {

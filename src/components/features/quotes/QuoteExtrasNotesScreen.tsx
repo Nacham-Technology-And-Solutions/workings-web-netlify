@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { QuoteExtrasNotesData } from '@/types';
 import { userService } from '@/services/api';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
-import { useAuthStore, useTemplateStore } from '@/stores';
+import { useAuthStore, useTemplateStore, useQuoteStore } from '@/stores';
+import { applyMarginToItems } from '@/utils/estimationQuoteMappers';
+import {
+  computeQuoteTaxAmount,
+  type QuoteTaxType,
+} from '@/utils/quoteExtrasCalculations';
+import PaymentMethodFormModal from '@/components/common/PaymentMethodFormModal';
+import type { PaymentMethod } from '@/types/templates';
 
 interface QuoteExtrasNotesScreenProps {
     onBack: () => void;
@@ -30,10 +37,20 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
     onNavigateToItemList
 }) => {
     const { user } = useAuthStore();
-    const { paymentMethods: templatePaymentMethods, getDefaultPaymentMethod } = useTemplateStore();
+    const { paymentMethods: templatePaymentMethods, getDefaultPaymentMethod, setActiveTab } = useTemplateStore();
+    const { estimationDraft, updateEstimationDraftMargin } = useQuoteStore();
     const [extraCharges, setExtraCharges] = useState(previousData?.extrasNotes?.extraCharges || '');
     const [amount, setAmount] = useState(previousData?.extrasNotes?.amount || 0);
     const [additionalNotes, setAdditionalNotes] = useState(previousData?.extrasNotes?.additionalNotes || '');
+    const [marginPercent, setMarginPercent] = useState(previousData?.extrasNotes?.marginPercent ?? estimationDraft?.marginPercent ?? 10);
+    const [discountPercent, setDiscountPercent] = useState(previousData?.extrasNotes?.discountPercent ?? 0);
+    const [taxType, setTaxType] = useState<QuoteTaxType>(
+      previousData?.extrasNotes?.taxType ??
+        (previousData?.extrasNotes?.tax != null && previousData.extrasNotes.tax > 0 ? 'fixed' : 'fixed')
+    );
+    const [taxValue, setTaxValue] = useState(
+      previousData?.extrasNotes?.taxValue ?? previousData?.extrasNotes?.tax ?? 0
+    );
     const [paymentMethods, setPaymentMethods] = useState<Array<{ accountName: string; accountNumber: string; bankName: string }>>([]);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
     const [accountName, setAccountName] = useState(previousData?.extrasNotes?.accountName || '');
@@ -43,10 +60,51 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
         previousData?.extrasNotes?.addedCharges ?? []
     );
     const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(true);
+    const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
 
-    // Get subtotal from previous data (Item List)
-    const subtotal = previousData?.itemList?.subtotal || 140000;
-    const total = subtotal + amount + addedCharges.reduce((sum, charge) => sum + charge.amount, 0);
+    const itemsSubtotal = previousData?.itemList?.subtotal ?? 0;
+
+    const discountAmount = useMemo(
+        () => (discountPercent > 0 ? Math.round((itemsSubtotal * discountPercent) / 100) : 0),
+        [itemsSubtotal, discountPercent]
+    );
+
+    const addedChargesTotal = addedCharges.reduce((sum, charge) => sum + charge.amount, 0);
+
+    const taxableBase = itemsSubtotal + addedChargesTotal - discountAmount;
+
+    const taxAmount = useMemo(
+        () => computeQuoteTaxAmount(taxType, taxValue, taxableBase),
+        [taxType, taxValue, taxableBase]
+    );
+
+    const total = useMemo(() => {
+        return taxableBase + taxAmount;
+    }, [taxableBase, taxAmount]);
+
+    const handleMarginChange = (value: number) => {
+        setMarginPercent(value);
+        if (estimationDraft?.baseItems?.length) {
+            const adjusted = applyMarginToItems(estimationDraft.baseItems, value);
+            updateEstimationDraftMargin(value, adjusted);
+        }
+    };
+
+    const buildExtrasData = (): QuoteExtrasNotesData => ({
+        extraCharges: addedCharges.map(c => c.description).join(', '),
+        amount: addedChargesTotal,
+        additionalNotes,
+        accountName,
+        accountNumber,
+        bankName,
+        total,
+        addedCharges: addedCharges.length > 0 ? addedCharges : undefined,
+        marginPercent,
+        discountPercent,
+        tax: taxAmount,
+        taxType,
+        taxValue,
+    });
 
     // Load payment methods from template store and user profile
     useEffect(() => {
@@ -129,6 +187,15 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
         setBankName(method.bankName);
     };
 
+    const handlePaymentMethodSaved = (method: PaymentMethod) => {
+        handlePaymentMethodChange(method);
+    };
+
+    const handleOpenPaymentSettings = () => {
+        setActiveTab('paymentMethod');
+        onNavigate?.('exportSettings');
+    };
+
     const handleAddCharge = () => {
         if (extraCharges && amount > 0) {
             setAddedCharges([...addedCharges, { description: extraCharges, amount }]);
@@ -148,29 +215,11 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
             return;
         }
 
-        const data: QuoteExtrasNotesData = {
-            extraCharges: addedCharges.map(c => c.description).join(', '),
-            amount: addedCharges.reduce((sum, c) => sum + c.amount, 0),
-            additionalNotes,
-            accountName,
-            accountNumber,
-            bankName,
-            total,
-            addedCharges: addedCharges.length > 0 ? addedCharges : undefined
-        };
+        const data = buildExtrasData();
         onPreview(data);
     };
 
-    const getExtrasNotesData = (): QuoteExtrasNotesData => ({
-        extraCharges: addedCharges.map(c => c.description).join(', '),
-        amount: addedCharges.reduce((sum, c) => sum + c.amount, 0),
-        additionalNotes,
-        accountName,
-        accountNumber,
-        bankName,
-        total,
-        addedCharges: addedCharges.length > 0 ? addedCharges : undefined
-    });
+    const getExtrasNotesData = (): QuoteExtrasNotesData => buildExtrasData();
 
     const handleSaveDraft = () => {
         onSaveDraft(getExtrasNotesData());
@@ -263,6 +312,74 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Left Column */}
                         <div className="space-y-6">
+                            {/* Project extras */}
+                            <div className="space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <h3 className="text-sm font-semibold text-gray-900">Project extras</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <label className="block text-sm sm:col-span-2">
+                                        <span className="text-gray-600">Margin %</span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            value={marginPercent || ''}
+                                            onChange={(e) => handleMarginChange(parseFloat(e.target.value) || 0)}
+                                            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                                        />
+                                        <span className="text-xs text-gray-500 mt-1 block">
+                                            Built into item prices — not shown separately on the quote.
+                                        </span>
+                                    </label>
+                                    <label className="block text-sm">
+                                        <span className="text-gray-600">Discount %</span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            value={discountPercent || ''}
+                                            onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                                            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                                        />
+                                    </label>
+                                    <label className="block text-sm sm:col-span-2">
+                                        <span className="text-gray-600">Tax</span>
+                                        <div className="mt-1 flex flex-col sm:flex-row gap-2">
+                                            <select
+                                                value={taxType}
+                                                onChange={(e) => setTaxType(e.target.value as QuoteTaxType)}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                                            >
+                                                <option value="fixed">Fixed amount (₦)</option>
+                                                <option value="percent">Percentage (%)</option>
+                                            </select>
+                                            <div className="relative flex-1">
+                                                {taxType === 'fixed' && (
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₦</span>
+                                                )}
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={taxType === 'percent' ? 100 : undefined}
+                                                    value={taxValue || ''}
+                                                    onChange={(e) => setTaxValue(parseFloat(e.target.value) || 0)}
+                                                    placeholder={taxType === 'percent' ? 'e.g. 7.5' : '0.00'}
+                                                    className={`w-full py-2 border border-gray-300 rounded-lg bg-white ${
+                                                        taxType === 'fixed' ? 'pl-8 pr-3' : 'px-3'
+                                                    }`}
+                                                />
+                                                {taxType === 'percent' && (
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {taxAmount > 0 && (
+                                            <span className="text-xs text-gray-500 mt-1 block">
+                                                Tax on quote: ₦{taxAmount.toLocaleString()}
+                                            </span>
+                                        )}
+                                    </label>
+                                </div>
+                            </div>
+
                             {/* Extra Charges Section */}
                             <div className="space-y-4">
                                 <div>
@@ -281,6 +398,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                             <option value="Installation">Installation</option>
                                             <option value="Labor Charge">Labor Charge</option>
                                             <option value="Transport Charge">Transport Charge</option>
+                                            <option value="Miscellaneous">Miscellaneous</option>
                                             <option value="Other">Other</option>
                                         </select>
                                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -382,6 +500,14 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                             </select>
                                         </div>
 
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAddPaymentModal(true)}
+                                            className="text-sm font-semibold text-gray-700 underline hover:text-gray-900"
+                                        >
+                                            + Add another payment method
+                                        </button>
+
                                         {/* Editable account details for this quote (pre-filled from selection above) */}
                                         <div className="space-y-3 pt-2">
                                             <div>
@@ -425,19 +551,28 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                 ) : (
                                     <div className="space-y-3">
                                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                            <p className="text-sm text-yellow-800 mb-2">
-                                                No payment method configured. Please configure your payment details in Settings.
+                                            <p className="text-sm text-yellow-800 mb-3">
+                                                No payment method saved yet. Add one to include bank details on this quote.
                                             </p>
                                             <button
-                                                onClick={() => {
-                                                    if (onNavigate) {
-                                                        onNavigate('templates');
-                                                    }
-                                                }}
-                                                className="text-sm text-yellow-900 font-semibold underline hover:text-yellow-700"
+                                                type="button"
+                                                onClick={() => setShowAddPaymentModal(true)}
+                                                className="text-sm font-semibold text-white bg-gray-900 px-4 py-2 rounded hover:bg-gray-800 transition-colors"
                                             >
-                                                Go to Settings
+                                                Add payment method
                                             </button>
+                                            {onNavigate && (
+                                                <p className="text-xs text-yellow-700 mt-3">
+                                                    Or{' '}
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleOpenPaymentSettings}
+                                                        className="underline font-medium hover:text-yellow-900"
+                                                    >
+                                                        manage payment methods in Settings
+                                                    </button>
+                                                </p>
+                                            )}
                                         </div>
                                         {/* Allow manual entry if no payment method */}
                                         <div className="space-y-3 pt-2">
@@ -550,6 +685,12 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                     </div>
                 </div>
             </main>
+
+            <PaymentMethodFormModal
+                isOpen={showAddPaymentModal}
+                onClose={() => setShowAddPaymentModal(false)}
+                onSaved={handlePaymentMethodSaved}
+            />
         </div>
     );
 };

@@ -130,9 +130,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                 isExpanded={isExpanded}
               />
               <NavLink 
-                icon={<ProjectsIcon isActive={['projects', 'projectDetail', 'projectEdit', 'projectDescription', 'selectProject', 'projectMeasurement', 'projectSolution'].includes(currentView)} />} 
+                icon={<ProjectsIcon isActive={['projects', 'projectDetail', 'projectEdit', 'projectDescription', 'selectProject', 'projectMeasurement', 'projectSolution', 'projectEstimationPricing'].includes(currentView)} />} 
                 label="Projects" 
-                isActive={['projects', 'projectDetail', 'projectEdit', 'projectDescription', 'selectProject', 'projectMeasurement', 'projectSolution'].includes(currentView)} 
+                isActive={['projects', 'projectDetail', 'projectEdit', 'projectDescription', 'selectProject', 'projectMeasurement', 'projectSolution', 'projectEstimationPricing'].includes(currentView)} 
                 onClick={() => onNavigate('projects')}
                 isExpanded={isExpanded}
               />
