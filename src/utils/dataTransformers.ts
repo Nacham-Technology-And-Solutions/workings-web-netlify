@@ -19,6 +19,11 @@ import type { GlazingCategory } from './moduleMapping';
 import { convertStringToMillimeters, type Unit } from './unitConverter';
 import { quoteTaxChargeLabel } from './quoteExtrasCalculations';
 import {
+  splitQuoteBackendItems,
+  chargeAlreadyListed,
+  isQuoteDiscountDescription,
+} from './quoteChargeHelpers';
+import {
   isSlidingGlazingType,
   isSlidingModuleId,
   resolveSlidingConfigFromLegacy,
@@ -523,6 +528,9 @@ export function transformBackendQuoteToPreview(
     quoteName?: string;
     siteAddress?: string;
     customerContact?: string;
+    paymentTerms?: string;
+    customPaymentTerms?: string;
+    additionalNotes?: string;
   },
   extrasNotesData?: {
     accountName?: string;
@@ -559,9 +567,15 @@ export function transformBackendQuoteToPreview(
     accountNumber: string;
     bankName: string;
   };
+  paymentTerms?: string;
+  customPaymentTerms?: string;
+  additionalNotes?: string;
 } {
-  // Transform items from backend format to preview format
-  const items = backendQuote.items.map((item, index) => {
+  const { productItems: rawProductItems, extraChargeItems } = splitQuoteBackendItems(
+    backendQuote.items
+  );
+
+  const items = rawProductItems.map((item, index) => {
     const withDims = item as {
       description: string;
       quantity: number;
@@ -583,50 +597,65 @@ export function transformBackendQuoteToPreview(
     };
   });
 
-  // Build charges array from estimation extras, manual extras, and tax
+  const productSubtotal = rawProductItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const charges: Array<{ label: string; amount: number }> = [];
 
-  if (backendQuote.estimationSnapshot) {
-    charges.push(
-      ...buildEstimationExtraCharges(backendQuote.subtotal, backendQuote.estimationSnapshot)
-    );
-  }
-  
-  // Add extra charges from quote flow (dropdown + Add Charge)
+  // Extras persisted as line items on the backend → summary only
+  extraChargeItems.forEach((item) => {
+    if (isQuoteDiscountDescription(item.description)) {
+      charges.push({ label: item.description, amount: item.totalPrice });
+    } else if (item.totalPrice !== 0) {
+      charges.push({ label: item.description, amount: item.totalPrice });
+    }
+  });
+
+  // Fresh-save path: extras from the quote wizard (dedupe against split items)
   if (extrasNotesData?.addedCharges && extrasNotesData.addedCharges.length > 0) {
     extrasNotesData.addedCharges.forEach((charge) => {
-      if (charge.description && charge.amount > 0) {
-        charges.push({ label: charge.description, amount: charge.amount });
+      if (charge.description && charge.amount !== 0) {
+        if (!chargeAlreadyListed(charges, charge.description, charge.amount)) {
+          charges.push({ label: charge.description, amount: charge.amount });
+        }
       }
     });
   }
 
-  if (extrasNotesData?.discountPercent && extrasNotesData.discountPercent > 0) {
-    const discountAmount = Math.round((backendQuote.subtotal * extrasNotesData.discountPercent) / 100);
-    if (discountAmount > 0) {
-      charges.push({ label: `Discount (${extrasNotesData.discountPercent}%)`, amount: -discountAmount });
-    }
-  }
-  
-  // Add tax if it exists
-  const taxAmount = extrasNotesData?.tax ?? backendQuote.tax;
-  if (taxAmount > 0) {
-    charges.push({
-      label: quoteTaxChargeLabel(
-        extrasNotesData?.taxType ?? 'fixed',
-        extrasNotesData?.taxValue ?? taxAmount
-      ),
-      amount: taxAmount,
-    });
+  // Estimation snapshot extras — only when not already represented
+  if (backendQuote.estimationSnapshot) {
+    buildEstimationExtraCharges(productSubtotal, backendQuote.estimationSnapshot).forEach(
+      (charge) => {
+        if (!chargeAlreadyListed(charges, charge.label, charge.amount)) {
+          charges.push(charge);
+        }
+      }
+    );
   }
 
-  // Estimation quotes: show unlabeled remainder if extras don't fully explain total
-  if (backendQuote.estimationSnapshot && charges.length === 0) {
-    const remainder = backendQuote.total - backendQuote.subtotal - backendQuote.tax;
-    if (remainder !== 0) {
-      charges.push({ label: 'Project extras', amount: remainder });
+  if (extrasNotesData?.discountPercent && extrasNotesData.discountPercent > 0) {
+    const discountAmount = Math.round(
+      (productSubtotal * extrasNotesData.discountPercent) / 100
+    );
+    if (discountAmount > 0) {
+      const label = `Discount (${extrasNotesData.discountPercent}%)`;
+      if (!chargeAlreadyListed(charges, label, -discountAmount)) {
+        charges.push({ label, amount: -discountAmount });
+      }
     }
   }
+
+  const taxAmount = extrasNotesData?.tax ?? backendQuote.tax;
+  if (taxAmount > 0) {
+    const taxLabel = quoteTaxChargeLabel(
+      extrasNotesData?.taxType ?? 'fixed',
+      extrasNotesData?.taxValue ?? taxAmount
+    );
+    if (!chargeAlreadyListed(charges, taxLabel, taxAmount)) {
+      charges.push({ label: taxLabel, amount: taxAmount });
+    }
+  }
+
+  const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
+  const computedGrandTotal = productSubtotal + chargesTotal;
 
   // Get project name and site address
   const projectName = backendQuote.project?.projectName || quoteConfig?.quoteName || 'Project';
@@ -653,11 +682,14 @@ export function transformBackendQuoteToPreview(
     }),
     items,
     summary: {
-      subtotal: backendQuote.subtotal,
+      subtotal: productSubtotal,
       charges,
-      grandTotal: backendQuote.total,
+      grandTotal: computedGrandTotal > 0 ? computedGrandTotal : backendQuote.total,
     },
     paymentInfo,
+    paymentTerms: quoteConfig?.paymentTerms,
+    customPaymentTerms: quoteConfig?.customPaymentTerms,
+    additionalNotes: quoteConfig?.additionalNotes,
   };
 }
 
@@ -850,7 +882,10 @@ export function transformStandaloneQuoteToBackend(
 } {
   // Determine quote type based on projectId
   const quoteType: 'from_project' | 'standalone' = projectId ? 'from_project' : 'standalone';
-  // Transform item list items to backend format
+
+  const productSubtotal = itemListData.items.reduce((sum, item) => sum + item.total, 0);
+
+  // Product line items only — extras persisted separately in items[] for API storage
   const items = itemListData.items.map((item) => ({
     description: item.description,
     quantity: item.quantity,
@@ -858,8 +893,7 @@ export function transformStandaloneQuoteToBackend(
     totalPrice: item.total,
   }));
 
-  // Add extra charges as separate items
-  // Prefer addedCharges array if available (more accurate)
+  // Persist extra charges as line items (backend has no extras field) — excluded from subtotal
   if (extrasNotesData.addedCharges && extrasNotesData.addedCharges.length > 0) {
     extrasNotesData.addedCharges.forEach((charge) => {
       if (charge.description && charge.amount > 0) {
@@ -872,15 +906,18 @@ export function transformStandaloneQuoteToBackend(
       }
     });
   } else if (extrasNotesData.extraCharges && extrasNotesData.amount > 0) {
-    // Fallback: Handle multiple charges (comma-separated) or single charge
-    const chargeDescriptions = extrasNotesData.extraCharges.split(',').map(c => c.trim()).filter(c => c);
-    const chargeAmounts = chargeDescriptions.length > 0 
-      ? extrasNotesData.amount / chargeDescriptions.length 
-      : extrasNotesData.amount;
-    
+    const chargeDescriptions = extrasNotesData.extraCharges
+      .split(',')
+      .map((c) => c.trim())
+      .filter((c) => c);
+    const chargeAmounts =
+      chargeDescriptions.length > 0
+        ? extrasNotesData.amount / chargeDescriptions.length
+        : extrasNotesData.amount;
+
     chargeDescriptions.forEach((description) => {
       items.push({
-        description: description,
+        description,
         quantity: 1,
         unitPrice: chargeAmounts,
         totalPrice: chargeAmounts,
@@ -889,8 +926,7 @@ export function transformStandaloneQuoteToBackend(
   }
 
   if (extrasNotesData.discountPercent && extrasNotesData.discountPercent > 0) {
-    const itemsOnlySubtotal = itemListData.items.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = Math.round((itemsOnlySubtotal * extrasNotesData.discountPercent) / 100);
+    const discountAmount = Math.round((productSubtotal * extrasNotesData.discountPercent) / 100);
     if (discountAmount > 0) {
       items.push({
         description: `Discount (${extrasNotesData.discountPercent}%)`,
@@ -901,11 +937,17 @@ export function transformStandaloneQuoteToBackend(
     }
   }
 
-  // Calculate subtotal (sum of all items before tax)
-  const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
-
-  const tax = extrasNotesData.tax ?? Math.max(0, extrasNotesData.total - subtotal);
-  const total = extrasNotesData.total > 0 ? extrasNotesData.total : subtotal + tax;
+  const subtotal = productSubtotal;
+  const tax = extrasNotesData.tax ?? 0;
+  const total =
+    extrasNotesData.total > 0
+      ? extrasNotesData.total
+      : subtotal +
+        (extrasNotesData.addedCharges?.reduce((s, c) => s + c.amount, 0) ?? extrasNotesData.amount) -
+        (extrasNotesData.discountPercent
+          ? Math.round((productSubtotal * extrasNotesData.discountPercent) / 100)
+          : 0) +
+        tax;
 
   const accountName = extrasNotesData.accountName?.trim() || '';
   const accountNumber = extrasNotesData.accountNumber?.trim() || '';

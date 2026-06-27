@@ -76,7 +76,14 @@ import type { EstimationPreviewAcceptedPayload } from '../components/features/es
 import { applyMarginToItems, quoteItemsSubtotal } from '../utils/estimationQuoteMappers';
 import type { SelectProjectData } from '../types/project';
 import type { GlazingDimension } from '../types/project';
-import { sampleFloorPlan, initialEstimates, sampleFullQuotes, sampleFullMaterialLists } from '../constants';
+import type { FullMaterialList } from '../types/material';
+import { initialEstimates } from '../constants';
+import {
+  splitQuoteBackendItems,
+  extraChargeItemsToAddedCharges,
+  isQuoteDiscountDescription,
+  parseDiscountPercentFromDescription,
+} from '../utils/quoteChargeHelpers';
 
 const PIXELS_PER_FOOT = 10; // 10 pixels = 1 foot
 const WALL_HEIGHT_FEET = 8;
@@ -171,6 +178,8 @@ const App: React.FC = () => {
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isEditQuoteLoading, setIsEditQuoteLoading] = useState(false);
+  const [materialListDetailData, setMaterialListDetailData] = useState<FullMaterialList | null>(null);
+  const [materialListDetailLoading, setMaterialListDetailLoading] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string>('Your session has expired. Please sign in again to continue.');
 
@@ -189,6 +198,62 @@ const App: React.FC = () => {
       });
     });
   }, [initializeAuth, initializeOnlineStatus]);
+
+  useEffect(() => {
+    if (!selectedMaterialListId) {
+      setMaterialListDetailData(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setMaterialListDetailLoading(true);
+      try {
+        const listId = parseInt(selectedMaterialListId, 10);
+        if (isNaN(listId)) {
+          setMaterialListDetailData(null);
+          return;
+        }
+        const response = await materialListsService.getById(listId);
+        if (!isApiResponseSuccess(response)) {
+          setMaterialListDetailData(null);
+          return;
+        }
+        const responseData = getApiResponseData(response) as { materialList?: Record<string, unknown> };
+        const ml = (responseData?.materialList ?? responseData) as {
+          id: number;
+          items?: Array<{ description: string; quantity: number; unitPrice: number; totalPrice?: number }>;
+          total?: number;
+          createdAt?: string;
+          preparedBy?: string;
+          project?: { projectName?: string };
+        };
+        const full: FullMaterialList = {
+          id: String(ml.id),
+          projectName: ml.project?.projectName || 'Material List',
+          date: ml.createdAt || new Date().toISOString(),
+          preparedBy: ml.preparedBy || '',
+          status: 'Completed',
+          items: (ml.items || []).map((item, i) => ({
+            id: `item-${i}`,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.totalPrice ?? item.quantity * item.unitPrice,
+          })),
+          total: ml.total ?? 0,
+        };
+        if (!cancelled) setMaterialListDetailData(full);
+      } catch (error) {
+        console.error('[App] Error loading material list detail:', error);
+        if (!cancelled) setMaterialListDetailData(null);
+      } finally {
+        if (!cancelled) setMaterialListDetailLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMaterialListId]);
 
   // Deep link from password-reset email: /reset-password?token=...&email=...
   useEffect(() => {
@@ -609,7 +674,7 @@ const App: React.FC = () => {
     }
 
     setEditingQuoteId(null);
-    const defaultMargin = 10;
+    const defaultMargin = 0;
     const adjustedItems = applyMarginToItems(payload.baseItems, defaultMargin);
     const listType = payload.quoteSource === 'project_cart' ? 'dimension' : 'material';
     const subtotal = quoteItemsSubtotal(adjustedItems);
@@ -849,6 +914,18 @@ const App: React.FC = () => {
       if (isApiResponseSuccess(response)) {
         const responseData = getApiResponseData(response) as any;
         const backendQuote = responseData?.quote || responseData;
+
+        const { productItems, extraChargeItems } = splitQuoteBackendItems(backendQuote.items || []);
+        const addedCharges = extraChargeItemsToAddedCharges(extraChargeItems);
+        const discountItem = extraChargeItems.find((item) =>
+          isQuoteDiscountDescription(item.description)
+        );
+        const discountPercent =
+          parseDiscountPercentFromDescription(discountItem?.description ?? '') ?? 0;
+        const productSubtotal = productItems.reduce(
+          (sum: number, item: { totalPrice: number }) => sum + item.totalPrice,
+          0
+        );
         
         // Transform to standalone quote data format
         const overviewData = {
@@ -861,24 +938,25 @@ const App: React.FC = () => {
             month: 'long',
             year: 'numeric'
           }),
-          paymentTerms: 'due-on-receipt', // Default, can be enhanced later
+          paymentTerms: backendQuote.paymentTerms || 'due-on-receipt',
+          customPaymentTerms: backendQuote.customPaymentTerms || '',
         };
 
         const itemListData = {
           listType: 'material' as const,
-          items: backendQuote.items.map((item: any, index: number) => ({
+          items: productItems.map((item: { description: string; quantity: number; unitPrice: number; totalPrice: number }, index: number) => ({
             id: String(index + 1),
             description: item.description,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             total: item.totalPrice,
           })),
-          subtotal: backendQuote.subtotal,
+          subtotal: productSubtotal,
         };
 
         const extrasNotesData = {
-          extraCharges: '',
-          amount: backendQuote.tax || 0,
+          extraCharges: addedCharges.map((c) => c.description).join(', '),
+          amount: addedCharges.reduce((s, c) => s + c.amount, 0),
           additionalNotes: backendQuote.notes || '',
           accountName: backendQuote.paymentInfo?.accountName || '',
           accountNumber: backendQuote.paymentInfo?.accountNumber || '',
@@ -886,7 +964,10 @@ const App: React.FC = () => {
           total: backendQuote.total,
           taxType: 'fixed' as const,
           taxValue: backendQuote.tax || 0,
-          addedCharges: [] as Array<{ description: string; amount: number }>,
+          tax: backendQuote.tax || 0,
+          addedCharges,
+          discountPercent,
+          marginPercent: 0,
         };
 
         // Set editing quote ID and populate standalone quote data
@@ -1081,6 +1162,9 @@ const App: React.FC = () => {
               quoteName: overviewData.projectName,
               siteAddress: overviewData.siteAddress,
               customerContact: '',
+              paymentTerms: overviewData.paymentTerms,
+              customPaymentTerms: overviewData.customPaymentTerms,
+              additionalNotes: data.additionalNotes,
             },
             data // Pass extrasNotesData to include account details and charges
           );
@@ -1560,9 +1644,29 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'materialListDetail' && selectedMaterialListId) {
-    const listData = sampleFullMaterialLists.find(l => l.id === selectedMaterialListId);
-    // Find a fallback or default if listData is not found
-    const displayData = listData || sampleFullMaterialLists[0];
+    if (materialListDetailLoading) {
+      return (
+        <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA] items-center justify-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4" />
+          <p className="text-gray-600">Loading material list...</p>
+        </div>
+      );
+    }
+    if (!materialListDetailData) {
+      return (
+        <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA] items-center justify-center px-6 text-center">
+          <p className="text-gray-700 font-medium mb-4">Could not load this material list.</p>
+          <button
+            type="button"
+            onClick={() => navigate('material-list')}
+            className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+          >
+            Back to Material Lists
+          </button>
+        </div>
+      );
+    }
+    const displayData = materialListDetailData;
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>

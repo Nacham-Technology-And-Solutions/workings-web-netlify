@@ -6,6 +6,7 @@ import { useAuthStore, useTemplateStore, useQuoteStore } from '@/stores';
 import { applyMarginToItems } from '@/utils/estimationQuoteMappers';
 import {
   computeQuoteTaxAmount,
+  quoteTaxChargeLabel,
   type QuoteTaxType,
 } from '@/utils/quoteExtrasCalculations';
 import PaymentMethodFormModal from '@/components/common/PaymentMethodFormModal';
@@ -42,7 +43,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
     const [extraCharges, setExtraCharges] = useState(previousData?.extrasNotes?.extraCharges || '');
     const [amount, setAmount] = useState(previousData?.extrasNotes?.amount || 0);
     const [additionalNotes, setAdditionalNotes] = useState(previousData?.extrasNotes?.additionalNotes || '');
-    const [marginPercent, setMarginPercent] = useState(previousData?.extrasNotes?.marginPercent ?? estimationDraft?.marginPercent ?? 10);
+    const [marginPercent, setMarginPercent] = useState(previousData?.extrasNotes?.marginPercent ?? estimationDraft?.marginPercent ?? 0);
     const [discountPercent, setDiscountPercent] = useState(previousData?.extrasNotes?.discountPercent ?? 0);
     const [taxType, setTaxType] = useState<QuoteTaxType>(
       previousData?.extrasNotes?.taxType ??
@@ -283,7 +284,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto min-h-0 px-8 py-8">
+            <main className="flex-1 overflow-y-auto min-h-0 px-4 md:px-8 py-8 pb-44 lg:pb-8">
                 <div className="max-w-7xl mx-auto">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
@@ -394,7 +395,6 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                         >
                                             <option value="">Select extra charges for project</option>
                                             <option value="Freight Charges">Freight Charges</option>
-                                            <option value="Transportation Fee">Transportation Fee</option>
                                             <option value="Installation">Installation</option>
                                             <option value="Labor Charge">Labor Charge</option>
                                             <option value="Transport Charge">Transport Charge</option>
@@ -617,17 +617,23 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                 )}
                             </div>
 
-                            {/* Total */}
-                            <div className="pt-6 border-t border-gray-200">
-                                <div className="flex justify-between items-center">
+                            {/* Total — desktop inline */}
+                            <div className="hidden lg:block pt-6 border-t border-gray-200 space-y-3">
+                                {taxAmount > 0 && (
+                                    <div className="flex justify-between text-sm text-gray-600">
+                                        <span>{quoteTaxChargeLabel(taxType, taxValue)}</span>
+                                        <span>₦{taxAmount.toLocaleString()}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                                     <span className="text-lg font-semibold text-gray-900">Total</span>
                                     <span className="text-2xl font-bold text-gray-900">₦{total.toLocaleString()}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Right Column */}
-                        <div className="space-y-6">
+                        {/* Right Column — desktop only (mobile uses fixed footer) */}
+                        <div className="hidden lg:block space-y-6">
                             {/* Additional Notes */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 uppercase mb-2">
@@ -685,6 +691,61 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                     </div>
                 </div>
             </main>
+
+            {/* Mobile: fixed total + actions */}
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+                <div className="px-4 py-3 space-y-1.5 border-b border-gray-100 max-h-32 overflow-y-auto">
+                    {addedCharges.map((charge, index) => (
+                        <div key={index} className="flex justify-between text-xs text-gray-600">
+                            <span>{charge.description}</span>
+                            <span>₦{charge.amount.toLocaleString()}</span>
+                        </div>
+                    ))}
+                    {taxAmount > 0 && (
+                        <div className="flex justify-between text-xs text-gray-600">
+                            <span>{quoteTaxChargeLabel(taxType, taxValue)}</span>
+                            <span>₦{taxAmount.toLocaleString()}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between items-center pt-1">
+                        <span className="text-sm font-semibold text-gray-900">Total</span>
+                        <span className="text-lg font-bold text-gray-900">₦{total.toLocaleString()}</span>
+                    </div>
+                </div>
+                <div className="px-4 py-3 space-y-2">
+                    <button
+                        type="button"
+                        onClick={handlePreview}
+                        disabled={(!accountName || !accountNumber || !bankName) || isPreviewLoading || isSaveDraftLoading}
+                        className={`w-full py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                            accountName && accountNumber && bankName && !isPreviewLoading && !isSaveDraftLoading
+                                ? 'bg-gray-900 text-white hover:bg-gray-800'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                    >
+                        {isPreviewLoading ? (
+                            <>
+                                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+                                Loading...
+                            </>
+                        ) : (
+                            'Proceed to preview'
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={isSaveDraftLoading || isPreviewLoading}
+                        className={`w-full py-2.5 font-semibold rounded-lg transition-colors border-2 flex items-center justify-center gap-2 ${
+                            isSaveDraftLoading || isPreviewLoading
+                                ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
+                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                        {isSaveDraftLoading ? 'Saving...' : 'Save as Draft'}
+                    </button>
+                </div>
+            </div>
 
             <PaymentMethodFormModal
                 isOpen={showAddPaymentModal}

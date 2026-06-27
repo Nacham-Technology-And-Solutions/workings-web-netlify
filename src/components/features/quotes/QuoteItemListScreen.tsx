@@ -300,7 +300,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
             )}
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto min-h-0 px-8 py-8">
+            <main className="flex-1 overflow-y-auto min-h-0 px-4 md:px-8 py-8 pb-36 md:pb-8">
                 <div className="max-w-7xl mx-auto relative">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
@@ -334,36 +334,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                         </div>
                     </div>
 
-                    {/* List Type Selection - Only show for from_project quotes */}
-                    {quoteType === 'from_project' && (
-                        <div className="mb-6">
-                            <p className="text-sm text-gray-700 mb-3">Select a list to pull items into your quote:</p>
-                            <div className="flex items-center gap-6">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="listType"
-                                        value="dimension"
-                                        checked={listType === 'dimension'}
-                                        onChange={() => setListType('dimension')}
-                                        className="w-4 h-4 text-gray-900 focus:ring-gray-900"
-                                    />
-                                    <span className="text-sm text-gray-900">Dimension List</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="listType"
-                                        value="material"
-                                        checked={listType === 'material'}
-                                        onChange={() => setListType('material')}
-                                        className="w-4 h-4 text-gray-900 focus:ring-gray-900"
-                                    />
-                                    <span className="text-sm text-gray-900">Material List</span>
-                                </label>
-                            </div>
-                        </div>
-                    )}
+                    {/* List type selection hidden — items come from estimation draft or saved list */}
 
                     {/* Items: card list on mobile (no clipping), table on desktop */}
                     <div className="lg:hidden space-y-4 mb-6">
@@ -582,17 +553,36 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                         <span className="font-medium">Add a Dimension</span>
                     </button>
 
-                    {/* Subtotal */}
-                    <div className="flex justify-between items-center py-4 border-t border-gray-200">
+                    {/* Subtotal — desktop inline */}
+                    <div className="hidden md:flex justify-between items-center py-4 border-t border-gray-200">
                         <span className="text-lg font-semibold text-gray-900">Subtotal</span>
                         <span className="text-2xl font-bold text-gray-900">₦{calculateSubtotal().toLocaleString()}</span>
                     </div>
                 </div>
             </main>
 
-            {/* Footer with Next Button (hidden when editing - use tabs to navigate) */}
+            {/* Mobile: fixed subtotal + Next */}
             {!editingQuoteId && (
-                <div className="border-t border-gray-200 bg-white px-8 py-6 flex-shrink-0">
+                <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+                    <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
+                        <span className="text-sm font-semibold text-gray-900">Subtotal</span>
+                        <span className="text-lg font-bold text-gray-900">₦{calculateSubtotal().toLocaleString()}</span>
+                    </div>
+                    <div className="px-4 py-3">
+                        <button
+                            type="button"
+                            onClick={handleNext}
+                            className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Footer with Next Button — desktop (hidden when editing) */}
+            {!editingQuoteId && (
+                <div className="hidden md:block border-t border-gray-200 bg-white px-8 py-6 flex-shrink-0">
                     <div className="max-w-7xl mx-auto">
                         <button
                             onClick={handleNext}

@@ -43,7 +43,10 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
             accountName: '',
             accountNumber: '',
             bankName: ''
-        }
+        },
+        paymentTerms: previousData.paymentTerms,
+        customPaymentTerms: previousData.customPaymentTerms,
+        additionalNotes: previousData.additionalNotes,
     } : {
         quoteId: '#000045',
         issueDate: new Date().toLocaleDateString('en-GB', { 
@@ -266,6 +269,15 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                                     )}
                                 </div>
                             </div>
+
+                            {quoteData.additionalNotes?.trim() && (
+                                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                                    <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">Additional Notes</h3>
+                                    <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">
+                                        {quoteData.additionalNotes.trim()}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

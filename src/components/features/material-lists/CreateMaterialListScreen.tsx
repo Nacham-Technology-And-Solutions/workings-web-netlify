@@ -1,14 +1,24 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import type { MaterialListItem, FullMaterialList } from '@/types';
+import type { MaterialCatalogItem } from '@/types/estimation';
 import {
   ChevronLeftIcon,
   TrashIcon,
   FilterIcon,
 } from '@/assets/icons/IconComponents';
 import CalendarModal from '@/components/common/CalendarModal';
-import { useMaterialListStore } from '@/stores';
+import MaterialItemDescriptionEditor, {
+  type MaterialItemSourceMode,
+} from './MaterialItemDescriptionEditor';
+import { useMaterialListStore, useTemplateStore } from '@/stores';
+import { estimationService } from '@/services/api/estimation.service';
+import {
+  buildCatalogLookup,
+  buildLibraryPriceLookup,
+  normalizeItemKey,
+} from '@/utils/materialPriceHelpers';
 
 interface CreateMaterialListScreenProps {
   onBack: () => void;
@@ -17,6 +27,15 @@ interface CreateMaterialListScreenProps {
 }
 
 type EditableMaterialItem = Omit<MaterialListItem, 'total' | 'quantity' | 'unitPrice'> & {
+  quantity: string;
+  unitPrice: string;
+  itemKey?: string;
+};
+
+type ItemEditForm = {
+  sourceMode: MaterialItemSourceMode;
+  itemKey: string;
+  description: string;
   quantity: string;
   unitPrice: string;
 };
@@ -41,15 +60,55 @@ const formatDisplayDate = (date: Date | null): string => {
 
 const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onBack, onPreview, onSaveDraft }) => {
   const { duplicateMaterialListData, setDuplicateMaterialListData } = useMaterialListStore();
+  const { materialPrices, loadMaterialPrices } = useTemplateStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'itemList'>('overview');
   const [projectName, setProjectName] = useState('');
   const [date, setDate] = useState<Date | null>(null);
   const [preparedBy, setPreparedBy] = useState('');
   const [items, setItems] = useState<EditableMaterialItem[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editFormData, setEditFormData] = useState<{ description: string; quantity: string; unitPrice: string } | null>(null);
+  const [editFormData, setEditFormData] = useState<ItemEditForm | null>(null);
+  const [catalogItems, setCatalogItems] = useState<MaterialCatalogItem[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
 
   const [showCalendar, setShowCalendar] = useState(false);
+
+  const catalogByKey = useMemo(() => buildCatalogLookup(catalogItems), [catalogItems]);
+  const priceByKey = useMemo(() => buildLibraryPriceLookup(materialPrices), [materialPrices]);
+
+  const resolveItemSourceMode = useCallback(
+    (item: EditableMaterialItem): MaterialItemSourceMode => {
+      if (item.itemKey && catalogByKey.has(normalizeItemKey(item.itemKey))) {
+        return 'catalog';
+      }
+      const byName = catalogItems.find(
+        (c) => c.itemName.trim().toLowerCase() === item.description.trim().toLowerCase()
+      );
+      return byName ? 'catalog' : 'custom';
+    },
+    [catalogByKey, catalogItems]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoadingCatalog(true);
+      try {
+        await loadMaterialPrices();
+        const response = await estimationService.getMaterialCatalog();
+        if (!cancelled) {
+          setCatalogItems(response.response.items);
+        }
+      } catch (error) {
+        console.error('[CreateMaterialListScreen] Failed to load material catalog:', error);
+      } finally {
+        if (!cancelled) setIsLoadingCatalog(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadMaterialPrices]);
 
   // Initialize from duplicate data when present
   useEffect(() => {
@@ -106,7 +165,13 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
     const newId = `item-${Date.now()}`;
     setItems([...items, { id: newId, description: '', quantity: '1', unitPrice: '' }]);
     setEditingItemId(newId);
-    setEditFormData({ description: '', quantity: '1', unitPrice: '' });
+    setEditFormData({
+      sourceMode: 'catalog',
+      itemKey: '',
+      description: '',
+      quantity: '1',
+      unitPrice: '',
+    });
   };
 
   const handleDeleteItem = (id: string) => {
@@ -118,21 +183,80 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
   };
 
   const handleEditItem = (item: EditableMaterialItem) => {
+    const sourceMode = resolveItemSourceMode(item);
+    const itemKey =
+      item.itemKey ??
+      (sourceMode === 'catalog'
+        ? catalogItems.find(
+            (c) => c.itemName.trim().toLowerCase() === item.description.trim().toLowerCase()
+          )?.itemKey ?? ''
+        : '');
+
     setEditingItemId(item.id);
     setEditFormData({
+      sourceMode,
+      itemKey,
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
     });
   };
 
+  const handleCatalogSelect = (itemKey: string) => {
+    if (!editFormData) return;
+    const catalogItem = catalogByKey.get(normalizeItemKey(itemKey));
+    const libraryPrice = priceByKey.get(normalizeItemKey(itemKey));
+    setEditFormData({
+      ...editFormData,
+      sourceMode: 'catalog',
+      itemKey,
+      description: catalogItem?.itemName ?? editFormData.description,
+      unitPrice: libraryPrice?.unitPrice
+        ? String(libraryPrice.unitPrice)
+        : editFormData.unitPrice,
+    });
+  };
+
+  const handleSourceModeChange = (mode: MaterialItemSourceMode) => {
+    if (!editFormData) return;
+    if (mode === 'custom') {
+      setEditFormData({
+        ...editFormData,
+        sourceMode: 'custom',
+        itemKey: '',
+      });
+    } else {
+      setEditFormData({
+        ...editFormData,
+        sourceMode: 'catalog',
+        description: editFormData.itemKey
+          ? catalogByKey.get(normalizeItemKey(editFormData.itemKey))?.itemName ?? ''
+          : '',
+      });
+    }
+  };
+
   const handleSaveEdit = () => {
     if (editingItemId && editFormData) {
-      setItems(items.map((item) =>
-        item.id === editingItemId
-          ? { ...item, description: editFormData!.description, quantity: editFormData!.quantity, unitPrice: editFormData!.unitPrice }
-          : item
-      ));
+      const description =
+        editFormData.sourceMode === 'catalog'
+          ? catalogByKey.get(normalizeItemKey(editFormData.itemKey))?.itemName ??
+            editFormData.description
+          : editFormData.description;
+
+      setItems(
+        items.map((item) =>
+          item.id === editingItemId
+            ? {
+                ...item,
+                description: description.trim(),
+                quantity: editFormData.quantity,
+                unitPrice: editFormData.unitPrice,
+                itemKey: editFormData.sourceMode === 'catalog' ? editFormData.itemKey : undefined,
+              }
+            : item
+        )
+      );
       setEditingItemId(null);
       setEditFormData(null);
     }
@@ -143,7 +267,7 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
     setEditFormData(null);
   };
 
-  const handleEditFormChange = (field: 'description' | 'quantity' | 'unitPrice', value: string | number) => {
+  const handleEditFormChange = (field: 'quantity' | 'unitPrice', value: string | number) => {
     if (editFormData) {
       setEditFormData({ ...editFormData, [field]: String(value) });
     }
@@ -354,14 +478,19 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
                       return (
                         <tr key={item.id} className="hover:bg-gray-50">
                           <td className="px-4 py-4 text-sm text-gray-900">#{index + 1}</td>
-                          <td className="px-4 py-4 text-sm">
+                          <td className="px-4 py-4 text-sm align-top">
                             {isEditing && editFormData ? (
-                              <input
-                                type="text"
-                                value={editFormData.description}
-                                onChange={(e) => handleEditFormChange('description', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
-                                autoFocus
+                              <MaterialItemDescriptionEditor
+                                mode={editFormData.sourceMode}
+                                onModeChange={handleSourceModeChange}
+                                catalogItems={catalogItems}
+                                selectedItemKey={editFormData.itemKey}
+                                onCatalogSelect={handleCatalogSelect}
+                                customDescription={editFormData.description}
+                                onCustomDescriptionChange={(value) =>
+                                  setEditFormData({ ...editFormData, description: value })
+                                }
+                                isLoadingCatalog={isLoadingCatalog}
                               />
                             ) : (
                               <span className="text-gray-900">{item.description || '—'}</span>
@@ -448,13 +577,21 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
 
               <button
                 onClick={handleAddItem}
-                className="w-full py-3 mb-8 border-2 border-dashed border-teal-400 text-teal-600 rounded hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
+                disabled={isLoadingCatalog}
+                className="w-full py-3 mb-8 border-2 border-dashed border-teal-400 text-teal-600 rounded hover:bg-teal-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="font-medium">Add an Item</span>
               </button>
+
+              {catalogItems.length > 0 && (
+                <p className="text-xs text-gray-500 mb-6 -mt-4">
+                  Pick from system materials (profile, glass, accessories, etc.) or switch to a custom name per row.
+                  Unit prices auto-fill from your Material Prices library when available.
+                </p>
+              )}
 
               <div className="flex justify-between items-center py-4 border-t border-gray-200">
                 <span className="text-lg font-semibold text-gray-900">Subtotal</span>

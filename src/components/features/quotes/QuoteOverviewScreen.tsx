@@ -35,6 +35,9 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
     })();
     const [issueDate, setIssueDate] = useState(defaultIssueDate);
     const [paymentTerms, setPaymentTerms] = useState(previousData?.overview?.paymentTerms || '');
+    const [customPaymentTerms, setCustomPaymentTerms] = useState(
+        previousData?.overview?.customPaymentTerms || ''
+    );
     const [showCalendar, setShowCalendar] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(
         previousData?.overview?.issueDate ? new Date(previousData.overview.issueDate) : new Date()
@@ -63,7 +66,8 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
         siteAddress,
         quoteId,
         issueDate,
-        paymentTerms
+        paymentTerms,
+        customPaymentTerms: paymentTerms === 'customize' ? customPaymentTerms : undefined,
     });
 
     const handleNext = () => {
@@ -304,6 +308,21 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                                         </div>
                                     </div>
                                 </div>
+
+                                {paymentTerms === 'customize' && (
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Custom payment terms
+                                        </label>
+                                        <textarea
+                                            value={customPaymentTerms}
+                                            onChange={(e) => setCustomPaymentTerms(e.target.value)}
+                                            placeholder="Enter your payment terms..."
+                                            rows={3}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 resize-none"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -330,8 +349,8 @@ const QuoteOverviewScreen: React.FC<QuoteOverviewScreenProps> = ({ onBack, onNex
                     <div className="max-w-7xl mx-auto">
                         <button
                             onClick={handleNext}
-                            disabled={!paymentTerms}
-                            className={`w-full py-4 font-semibold rounded transition-colors ${paymentTerms
+                            disabled={!paymentTerms || (paymentTerms === 'customize' && !customPaymentTerms.trim())}
+                            className={`w-full py-4 font-semibold rounded transition-colors ${paymentTerms && (paymentTerms !== 'customize' || customPaymentTerms.trim())
                                     ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
                                     : 'bg-gray-400 text-white cursor-not-allowed'
                                 }`}

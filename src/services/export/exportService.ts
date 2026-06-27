@@ -1604,6 +1604,25 @@ interface QuoteData {
     accountNumber: string;
     bankName: string;
   };
+  paymentTerms?: string;
+  customPaymentTerms?: string;
+  additionalNotes?: string;
+}
+
+const PAYMENT_TERMS_LABELS: Record<string, string> = {
+  'due-on-receipt': 'Due on Receipt',
+  'net-7': 'Net 7 (Due 7 days after quote date)',
+  'net-30': 'Net 30 (Due 30 days after invoice date)',
+  '50-50': '50% Deposit, 50% on Completion',
+  '30-70': '30% Upfront, 70% on Delivery',
+};
+
+function formatPaymentTermsForPdf(paymentTerms?: string, customPaymentTerms?: string): string | null {
+  if (!paymentTerms) return null;
+  if (paymentTerms === 'customize' && customPaymentTerms?.trim()) {
+    return customPaymentTerms.trim();
+  }
+  return PAYMENT_TERMS_LABELS[paymentTerms] ?? paymentTerms;
 }
 
 /**
@@ -1694,6 +1713,11 @@ export const exportQuoteToPDF = async (quote: QuoteData) => {
   currentY += 6;
   if (quote.customerEmail) {
     doc.text(`Email: ${quote.customerEmail}`, 14, currentY);
+    currentY += 6;
+  }
+  const paymentTermsText = formatPaymentTermsForPdf(quote.paymentTerms, quote.customPaymentTerms);
+  if (paymentTermsText) {
+    doc.text(`Payment Terms: ${paymentTermsText}`, 14, currentY);
     currentY += 6;
   }
   currentY += 4;

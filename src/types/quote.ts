@@ -42,6 +42,9 @@ export interface QuotePreviewData {
     accountNumber: string;
     bankName: string;
   };
+  paymentTerms?: string;
+  customPaymentTerms?: string;
+  additionalNotes?: string;
 }
 
 export interface FullQuoteData {
@@ -69,6 +72,7 @@ export interface QuoteOverviewData {
   quoteId: string;
   issueDate: string;
   paymentTerms: string;
+  customPaymentTerms?: string;
 }
 
 export interface QuoteItemRow {
