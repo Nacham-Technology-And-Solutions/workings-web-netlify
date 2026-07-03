@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
 import { useAuthStore } from '@/stores';
 import { authService, userService } from '@/services/api';
-import { getUserInitials } from '@/utils/userHelpers';
+import UserAvatar from '@/components/common/UserAvatar';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
 import ErrorMessage from '@/components/common/ErrorMessage';
@@ -40,6 +40,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   const { user, updateUser, logout } = useAuthStore();
   const [hasPassword, setHasPassword] = useState(user?.hasPassword ?? true);
   const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(user?.companyLogoUrl || null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(user?.profilePhotoUrl || null);
   const [bankDetails, setBankDetails] = useState({
     accountName: user?.bankDetails?.accountName || '',
     accountNumber: user?.bankDetails?.accountNumber || '',
@@ -63,14 +64,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
-  const userInitials = getUserInitials(user?.name);
-
   const applyProfileToState = (userProfile: {
     name?: string;
     email?: string;
     companyName?: string;
     companyAddress?: string | null;
     companyLogoUrl?: string | null;
+    profilePhotoUrl?: string | null;
     subscriptionStatus?: string;
     pointsBalance?: number;
     hasPassword?: boolean;
@@ -82,6 +82,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       companyName: userProfile.companyName,
       companyAddress: userProfile.companyAddress,
       companyLogoUrl: userProfile.companyLogoUrl,
+      profilePhotoUrl: userProfile.profilePhotoUrl,
       subscriptionStatus: userProfile.subscriptionStatus as any,
       pointsBalance: userProfile.pointsBalance,
       hasPassword: userProfile.hasPassword,
@@ -97,6 +98,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
     setInitialData(newInitialData);
     setFormData(newInitialData);
     setCompanyLogoPreview(userProfile.companyLogoUrl || null);
+    setProfilePhotoPreview(userProfile.profilePhotoUrl || null);
     setHasPassword(userProfile.hasPassword ?? true);
     if (userProfile.bankDetails) {
       setBankDetails(userProfile.bankDetails);
@@ -139,6 +141,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       setInitialData(newInitialData);
       setFormData(newInitialData);
       setCompanyLogoPreview(user.companyLogoUrl || null);
+      setProfilePhotoPreview(user.profilePhotoUrl || null);
       setHasPassword(user.hasPassword ?? true);
       if (user.bankDetails) {
         setBankDetails(user.bankDetails);
@@ -239,6 +242,62 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
         setCompanyLogoPreview(null);
       } else {
         setError(getApiResponseMessage(apiResponse) || 'Failed to remove company logo');
+      }
+    } catch (err) {
+      setError(extractErrorMessage(err).message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleProfilePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Profile photo must be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const result = reader.result as string;
+      setIsSaving(true);
+      setError(null);
+      try {
+        const apiResponse = await userService.updateProfile(user.id, { profilePhotoUrl: result });
+        if (isApiResponseSuccess(apiResponse)) {
+          const responseData = getApiResponseData(apiResponse);
+          const userProfile = (responseData as { user?: unknown }).user || responseData;
+          applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
+          setProfilePhotoPreview(result);
+        } else {
+          setError(getApiResponseMessage(apiResponse) || 'Failed to upload profile photo');
+        }
+      } catch (err) {
+        setError(extractErrorMessage(err).message);
+      } finally {
+        setIsSaving(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveProfilePhoto = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const apiResponse = await userService.updateProfile(user.id, { profilePhotoUrl: null });
+      if (isApiResponseSuccess(apiResponse)) {
+        const responseData = getApiResponseData(apiResponse);
+        const userProfile = (responseData as { user?: unknown }).user || responseData;
+        applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
+        setProfilePhotoPreview(null);
+      } else {
+        setError(getApiResponseMessage(apiResponse) || 'Failed to remove profile photo');
       }
     } catch (err) {
       setError(extractErrorMessage(err).message);
@@ -382,14 +441,40 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             </div>
           )}
           
-          {/* User Avatar - initials from name; update name below to change */}
-          <div className="flex justify-center lg:justify-start mb-6 sm:mb-8">
-            <div
-              className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
-              aria-label={`Profile initials: ${userInitials}`}
-            >
-              <span className="text-gray-900 font-bold text-2xl sm:text-3xl">{userInitials}</span>
+          {/* Profile photo */}
+          <div className="flex flex-col items-center lg:items-start mb-6 sm:mb-8">
+            <div className="relative">
+              <UserAvatar
+                name={user?.name}
+                email={user?.email}
+                photoUrl={profilePhotoPreview}
+                size="md"
+              />
+              <label
+                className="absolute bottom-0 right-0 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-blue-200 transition-colors cursor-pointer"
+                aria-label="Upload profile photo"
+              >
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleProfilePhotoUpload}
+                />
+              </label>
             </div>
+            {profilePhotoPreview && (
+              <button
+                type="button"
+                onClick={handleRemoveProfilePhoto}
+                className="mt-2 text-sm font-medium text-red-600 hover:text-red-800 underline"
+              >
+                Remove photo
+              </button>
+            )}
+            <p className="mt-2 text-xs text-gray-500 text-center lg:text-left">PNG or JPG, max 5MB</p>
           </div>
 
           {/* Personal Details Section */}

@@ -11,6 +11,7 @@ interface UserProfile {
   companyName?: string;
   companyAddress?: string | null;
   companyLogoUrl?: string | null;
+  profilePhotoUrl?: string | null;
   subscriptionStatus?: 'free' | 'pro' | 'starter' | 'enterprise';
   pointsBalance?: number;
   hasPassword?: boolean;
@@ -189,6 +190,7 @@ export const useAuthStore = create<AuthState>()(
               companyName?: string;
               companyAddress?: string | null;
               companyLogoUrl?: string | null;
+              profilePhotoUrl?: string | null;
               subscriptionStatus?: string;
               pointsBalance?: number;
               hasPassword?: boolean;
@@ -201,6 +203,7 @@ export const useAuthStore = create<AuthState>()(
               companyName: profile.companyName,
               companyAddress: profile.companyAddress,
               companyLogoUrl: profile.companyLogoUrl,
+              profilePhotoUrl: profile.profilePhotoUrl,
               subscriptionStatus: profile.subscriptionStatus as UserProfile['subscriptionStatus'],
               pointsBalance: profile.pointsBalance,
               hasPassword: profile.hasPassword,

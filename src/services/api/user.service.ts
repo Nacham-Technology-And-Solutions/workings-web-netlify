@@ -7,6 +7,7 @@ export interface UserProfile {
   companyName: string;
   companyAddress?: string | null;
   companyLogoUrl?: string | null;
+  profilePhotoUrl?: string | null;
   subscriptionStatus: 'free' | 'pro' | 'starter' | 'enterprise';
   subscriptionExpiresAt: string | null;
   pointsBalance: number;
@@ -28,6 +29,7 @@ export interface UpdateProfileRequest {
   companyName?: string;
   companyAddress?: string;
   companyLogoUrl?: string | null;
+  profilePhotoUrl?: string | null;
 }
 
 export interface ChangePasswordRequest {

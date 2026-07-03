@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { HeaderLogo, HamburgerIcon } from '@/assets/icons/IconComponents';
 import { useAuthStore, useUIStore } from '@/stores';
-import { getUserInitials } from '@/utils/userHelpers';
+import UserAvatar from '@/components/common/UserAvatar';
 import { authService } from '@/services/api';
 
 interface HeaderProps {
@@ -11,7 +11,6 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { user, logout: logoutStore } = useAuthStore();
   const { navigate } = useUIStore();
-  const userInitials = getUserInitials(user?.name);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -87,17 +86,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               aria-label="User menu"
             >
               <span className="text-sm text-gray-600 max-w-[180px] truncate">{user?.email || 'User'}</span>
-              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {user?.name ? (
-                  <span className="text-gray-700 font-semibold text-sm" title={user.name}>
-                    {userInitials}
-                  </span>
-                ) : (
-                  <span className="text-gray-700 font-semibold text-sm" title={user?.email || 'User'}>
-                    {userInitials}
-                  </span>
-                )}
-              </div>
+              <UserAvatar
+                name={user?.name}
+                email={user?.email}
+                photoUrl={user?.profilePhotoUrl}
+                size="sm"
+              />
               <svg
                 className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
                 fill="none"
