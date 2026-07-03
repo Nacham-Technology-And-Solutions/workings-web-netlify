@@ -89,7 +89,7 @@ interface TemplateState {
   
   // General Actions
   loadTemplates: (force?: boolean) => Promise<void>;
-  saveTemplates: () => Promise<void>;
+  saveTemplates: () => Promise<boolean>;
   resetToDefaults: () => void;
 
   // Saved Templates (user-created presets) - synced with backend /api/v1/saved-templates
@@ -835,8 +835,7 @@ export const useTemplateStore = create<TemplateState>()(
         set({ isSaving: true });
         try {
           const state = get();
-          
-          // Prepare template config for API
+
           const templateConfig = {
             quoteFormat: state.quoteFormat,
             paymentMethods: state.paymentMethods,
@@ -845,19 +844,20 @@ export const useTemplateStore = create<TemplateState>()(
             materialPrices: state.materialPrices,
             materialPricesConfig: state.materialPricesConfig,
           };
-          
-          // Try to save to API
+
           const saved = await templatesService.saveTemplates(templateConfig);
-          
+
           if (saved) {
             set({ isSaving: false, hasUnsavedChanges: false });
-          } else {
-            set({ isSaving: false });
+            return true;
           }
+
+          set({ isSaving: false });
+          return false;
         } catch (error) {
           console.error('[TemplateStore] Error saving templates:', error);
-          // Data will be saved to localStorage by persist middleware
           set({ isSaving: false });
+          return false;
         }
       },
       resetToDefaults: () => {
@@ -925,7 +925,10 @@ export const useTemplateStore = create<TemplateState>()(
         const state = get();
         const template = state.savedTemplates.find((t) => t.id === id);
         if (!template) return;
-        const updates: Partial<typeof state> = { hasUnsavedChanges: true };
+        const updates: Partial<typeof state> = {
+          hasUnsavedChanges: true,
+          activeTab: template.pdfExport && !template.quoteFormat ? 'pdfExport' : 'quoteFormat',
+        };
         if (template.quoteFormat) updates.quoteFormat = template.quoteFormat;
         if (template.pdfExport) updates.pdfExport = template.pdfExport;
         set(updates);
@@ -938,6 +941,7 @@ export const useTemplateStore = create<TemplateState>()(
         set((state) => ({
           quoteFormat: template.quoteFormat ?? state.quoteFormat,
           pdfExport: template.pdfExport ?? state.pdfExport,
+          activeTab: 'quoteFormat',
           hasUnsavedChanges: true,
         }));
       },

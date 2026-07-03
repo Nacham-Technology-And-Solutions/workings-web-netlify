@@ -40,23 +40,14 @@ const CreditsHistoryScreen: React.FC<CreditsHistoryScreenProps> = ({ onBack }) =
       }
 
       const response = await userService.getPointsHistory(user.id);
-      
-      // Debug: Log the raw response
-      console.log('Raw credits history response:', response);
-      
+
       const normalizedResponse = normalizeApiResponse(response);
 
-      console.log('Normalized credits history response:', normalizedResponse);
-
       if (normalizedResponse.success && normalizedResponse.response) {
-        // Handle nested response structure
-        // API might return: { response: { transactions: [...], total: ..., limit: ..., offset: ... } }
-        // Or: { response: { transactions: [...] } }
-        const responseData = normalizedResponse.response as any;
-        const transactionsData = responseData.transactions || responseData || [];
+        const responseData = normalizedResponse.response as { transactions?: CreditTransaction[] };
+        const transactionsData = responseData.transactions || normalizedResponse.response || [];
         const transactionsArray = Array.isArray(transactionsData) ? transactionsData : [];
-        
-        console.log('Extracted transactions:', transactionsArray);
+
         setTransactions(transactionsArray);
       } else {
         setError(normalizedResponse.message || 'Failed to load credits history');

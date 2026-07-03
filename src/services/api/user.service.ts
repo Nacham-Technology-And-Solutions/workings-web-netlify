@@ -13,6 +13,8 @@ export interface UserProfile {
   pointsBalance: number;
   isAdmin: boolean;
   isActive: boolean;
+  emailVerified?: boolean;
+  pendingEmail?: string | null;
   hasPassword?: boolean;
   bankDetails: {
     accountName: string;

@@ -10,10 +10,14 @@ import ProfileScreen from '@/components/features/ProfileScreen';
 import BillingScreen from '@/components/features/BillingScreen';
 import SubscriptionPlansContent from '@/components/features/SubscriptionPlansContent';
 import ExportSettingsSection from '@/components/features/settings/ExportSettingsSection';
+import {
+  getStoredSettingsSection,
+  setStoredSettingsSection,
+  type SettingsSection,
+} from '@/utils/settingsNavigation';
 
 interface SettingsScreenProps {
   onNavigate: (view: string) => void;
-  initialSection?: 'profile' | 'billings' | 'subscriptionPlans' | 'exportSettings';
 }
 
 interface SettingsNavItemProps {
@@ -56,19 +60,21 @@ const SettingsTabPill: React.FC<SettingsNavItemProps> = ({ icon, label, isActive
   </button>
 );
 
-type SettingsSection = 'profile' | 'billings' | 'subscriptionPlans' | 'exportSettings';
-
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSection = 'profile' }) => {
-  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    () => getStoredSettingsSection() ?? 'profile'
+  );
 
   useEffect(() => {
-    if (initialSection) {
-      setActiveSection(initialSection);
+    const stored = getStoredSettingsSection();
+    if (stored) {
+      setActiveSection(stored);
     }
-  }, [initialSection]);
+  }, []);
 
   const handleSectionChange = (section: SettingsSection) => {
     setActiveSection(section);
+    setStoredSettingsSection(section);
   };
 
   return (
@@ -151,7 +157,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
           )}
           {activeSection === 'subscriptionPlans' && (
             <div className="p-4 sm:p-6">
-              <SubscriptionPlansContent />
+              <SubscriptionPlansContent isActive={activeSection === 'subscriptionPlans'} />
             </div>
           )}
           {activeSection === 'exportSettings' && (

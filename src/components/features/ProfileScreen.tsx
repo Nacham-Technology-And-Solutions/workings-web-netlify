@@ -41,6 +41,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   const [hasPassword, setHasPassword] = useState(user?.hasPassword ?? true);
   const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(user?.companyLogoUrl || null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(user?.profilePhotoUrl || null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(user?.pendingEmail ?? null);
   const [bankDetails, setBankDetails] = useState({
     accountName: user?.bankDetails?.accountName || '',
     accountNumber: user?.bankDetails?.accountNumber || '',
@@ -74,6 +75,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
     subscriptionStatus?: string;
     pointsBalance?: number;
     hasPassword?: boolean;
+    pendingEmail?: string | null;
     bankDetails?: { accountName: string; accountNumber: string; bankName: string } | null;
   }) => {
     updateUser({
@@ -86,6 +88,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       subscriptionStatus: userProfile.subscriptionStatus as any,
       pointsBalance: userProfile.pointsBalance,
       hasPassword: userProfile.hasPassword,
+      pendingEmail: userProfile.pendingEmail,
       bankDetails: userProfile.bankDetails,
     });
 
@@ -99,6 +102,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
     setFormData(newInitialData);
     setCompanyLogoPreview(userProfile.companyLogoUrl || null);
     setProfilePhotoPreview(userProfile.profilePhotoUrl || null);
+    setPendingEmail(userProfile.pendingEmail ?? null);
     setHasPassword(userProfile.hasPassword ?? true);
     if (userProfile.bankDetails) {
       setBankDetails(userProfile.bankDetails);
@@ -142,6 +146,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       setFormData(newInitialData);
       setCompanyLogoPreview(user.companyLogoUrl || null);
       setProfilePhotoPreview(user.profilePhotoUrl || null);
+      setPendingEmail(user.pendingEmail ?? null);
       setHasPassword(user.hasPassword ?? true);
       if (user.bankDetails) {
         setBankDetails(user.bankDetails);
@@ -515,6 +520,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
 
               {/* Email Address Field */}
               <div>
+                {pendingEmail && (
+                  <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-sm font-medium text-amber-900">Email change pending</p>
+                    <p className="text-xs text-amber-800 mt-1">
+                      Confirmation was sent to <span className="font-medium">{pendingEmail}</span>. Your login email stays{' '}
+                      <span className="font-medium">{formData.email}</span> until you confirm.
+                    </p>
+                  </div>
+                )}
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-sm font-medium text-gray-700">Email Address</label>
                   {editingField === 'email' ? (

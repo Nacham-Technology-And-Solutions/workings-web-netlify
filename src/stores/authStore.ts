@@ -15,6 +15,8 @@ interface UserProfile {
   subscriptionStatus?: 'free' | 'pro' | 'starter' | 'enterprise';
   pointsBalance?: number;
   hasPassword?: boolean;
+  pendingEmail?: string | null;
+  emailVerified?: boolean;
   bankDetails?: {
     accountName: string;
     accountNumber: string;
@@ -194,6 +196,8 @@ export const useAuthStore = create<AuthState>()(
               subscriptionStatus?: string;
               pointsBalance?: number;
               hasPassword?: boolean;
+              pendingEmail?: string | null;
+              emailVerified?: boolean;
               bankDetails?: UserProfile['bankDetails'];
             };
 
@@ -207,6 +211,8 @@ export const useAuthStore = create<AuthState>()(
               subscriptionStatus: profile.subscriptionStatus as UserProfile['subscriptionStatus'],
               pointsBalance: profile.pointsBalance,
               hasPassword: profile.hasPassword,
+              pendingEmail: profile.pendingEmail,
+              emailVerified: profile.emailVerified,
               bankDetails: profile.bankDetails,
             });
           }

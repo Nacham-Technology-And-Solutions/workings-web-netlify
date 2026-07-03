@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { SavedTemplateType } from '@/types/templates';
+import { setExportSettingsNotice } from '@/utils/settingsNavigation';
 import SavedTemplatesScreen from './SavedTemplatesScreen';
 
 type TemplatesTab = 'prebuilt' | 'saved';
@@ -19,12 +20,26 @@ const typeLabels: Record<SavedTemplateType, string> = {
 
 /** Pre-built tab: list of app default templates (apply only, no delete). */
 const PreBuiltTemplatesTab: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigate }) => {
-  const { getPrebuiltTemplates, applyPrebuiltTemplate } = useTemplateStore();
+  const { getPrebuiltTemplates, applyPrebuiltTemplate, saveTemplates } = useTemplateStore();
   const prebuilt = getPrebuiltTemplates();
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
-  const handleApply = (id: string) => {
-    applyPrebuiltTemplate(id);
-    onNavigate('exportSettings');
+  const handleApply = async (id: string) => {
+    const template = prebuilt.find((item) => item.id === id);
+    setApplyingId(id);
+    try {
+      applyPrebuiltTemplate(id);
+      const saved = await saveTemplates();
+      setExportSettingsNotice({
+        type: saved ? 'success' : 'error',
+        text: saved
+          ? `"${template?.name ?? 'Template'}" applied and saved.`
+          : `"${template?.name ?? 'Template'}" applied locally — save failed. Review in Export settings.`,
+      });
+      onNavigate('exportSettings');
+    } finally {
+      setApplyingId(null);
+    }
   };
 
   return (
@@ -55,10 +70,11 @@ const PreBuiltTemplatesTab: React.FC<{ onNavigate: (view: string) => void }> = (
                 </p>
                 <button
                   type="button"
-                  onClick={() => handleApply(template.id)}
-                  className="w-full py-2 px-4 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                  onClick={() => void handleApply(template.id)}
+                  disabled={applyingId === template.id}
+                  className="w-full py-2 px-4 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Apply template
+                  {applyingId === template.id ? 'Applying...' : 'Apply template'}
                 </button>
               </li>
             ))}

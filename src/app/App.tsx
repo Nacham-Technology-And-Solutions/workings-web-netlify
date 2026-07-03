@@ -30,7 +30,6 @@ import QuoteExtrasNotesScreen from '../components/features/quotes/QuoteExtrasNot
 import QuoteFinalPreviewScreen from '../components/features/quotes/QuoteFinalPreviewScreen';
 import SettingsScreen from '../components/features/SettingsScreen';
 import ProfileScreen from '../components/features/ProfileScreen';
-import SubscriptionPlanScreen from '../components/features/SubscriptionPlanScreen';
 import CreditsHistoryScreen from '../components/features/CreditsHistoryScreen';
 import HelpAndTipsScreen from '../components/features/HelpAndTipsScreen';
 import FeedbackContactScreen from '../components/features/FeedbackContactScreen';
@@ -1466,44 +1465,11 @@ const App: React.FC = () => {
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
-            currentView="settings"
+            currentView={currentView}
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <CreditsHistoryScreen onBack={() => navigate('billings')} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Profile, Subscription Plans, and Export settings are now handled within SettingsScreen
-  if (currentView === 'profile' || currentView === 'billings' || currentView === 'subscriptionPlans' || currentView === 'exportSettings') {
-    const targetSection =
-      currentView === 'subscriptionPlans'
-        ? 'subscriptionPlans'
-        : currentView === 'exportSettings'
-        ? 'exportSettings'
-        : currentView === 'billings'
-        ? 'billings'
-        : 'profile';
-    return (
-      <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
-        <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
-          <Header onMenuClick={() => setSidebarOpen(true)} />
-        </div>
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <Sidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            currentView="settings"
-            onNavigate={handleNavigate}
-          />
-          <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <SettingsScreen 
-              onNavigate={handleNavigate}
-              initialSection={targetSection}
-            />
           </div>
         </div>
       </div>
@@ -1519,16 +1485,16 @@ const App: React.FC = () => {
       <PaymentCallbackScreen
         onSuccess={() => {
           clearPaymentCallback();
-          navigate('settings');
+          navigate('billings');
         }}
         onFailure={(error) => {
           console.error('Payment callback error:', error);
           clearPaymentCallback();
-          navigate('settings');
+          navigate('subscriptionPlans');
         }}
         onDismiss={() => {
           clearPaymentCallback();
-          navigate('settings');
+          navigate('billings');
         }}
       />
     );

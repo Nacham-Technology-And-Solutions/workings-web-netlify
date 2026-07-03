@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { SavedTemplateType } from '@/types/templates';
 import { DocumentIcon, TrashIcon } from '@/assets/icons/IconComponents';
+import { setExportSettingsNotice } from '@/utils/settingsNavigation';
 
 const SAVED_TEMPLATES_LIMIT = 3;
 
@@ -19,7 +20,7 @@ const typeLabels: Record<SavedTemplateType, string> = {
 };
 
 const SavedTemplatesScreen: React.FC<SavedTemplatesScreenProps> = ({ onBack, onNavigate, embedded }) => {
-  const { savedTemplates, fetchSavedTemplates, addSavedTemplate, removeSavedTemplate, applySavedTemplate } = useTemplateStore();
+  const { savedTemplates, fetchSavedTemplates, addSavedTemplate, removeSavedTemplate, applySavedTemplate, saveTemplates } = useTemplateStore();
   const userTemplates = savedTemplates.filter((t) => t.source !== 'system');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName] = useState('');
@@ -28,6 +29,7 @@ const SavedTemplatesScreen: React.FC<SavedTemplatesScreenProps> = ({ onBack, onN
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,9 +40,22 @@ const SavedTemplatesScreen: React.FC<SavedTemplatesScreenProps> = ({ onBack, onN
     return () => { cancelled = true; };
   }, [fetchSavedTemplates]);
 
-  const handleApply = (id: string) => {
-    applySavedTemplate(id);
-    onNavigate('exportSettings');
+  const handleApply = async (id: string) => {
+    const template = savedTemplates.find((item) => item.id === id);
+    setApplyingId(id);
+    try {
+      applySavedTemplate(id);
+      const saved = await saveTemplates();
+      setExportSettingsNotice({
+        type: saved ? 'success' : 'error',
+        text: saved
+          ? `"${template?.name ?? 'Template'}" applied and saved.`
+          : `"${template?.name ?? 'Template'}" applied locally — save failed. Review in Export settings.`,
+      });
+      onNavigate('exportSettings');
+    } finally {
+      setApplyingId(null);
+    }
   };
 
   const handleSaveCurrent = async () => {
@@ -176,10 +191,11 @@ const SavedTemplatesScreen: React.FC<SavedTemplatesScreenProps> = ({ onBack, onN
                   </p>
                   <button
                     type="button"
-                    onClick={() => handleApply(template.id)}
-                    className="w-full py-2 px-4 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                    onClick={() => void handleApply(template.id)}
+                    disabled={applyingId === template.id}
+                    className="w-full py-2 px-4 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Apply template
+                    {applyingId === template.id ? 'Applying...' : 'Apply template'}
                   </button>
                 </li>
               ))}

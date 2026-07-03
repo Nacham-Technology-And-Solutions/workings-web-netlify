@@ -1,19 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PaymentMethodFormModal from '@/components/common/PaymentMethodFormModal';
 import { useTemplateStore } from '@/stores/templateStore';
+import { useAuthStore } from '@/stores';
 import type { PaymentMethod } from '@/types/templates';
 
 const PaymentMethodSection: React.FC = () => {
+  const { user } = useAuthStore();
   const {
     paymentMethods,
     paymentMethodConfig,
     deletePaymentMethod,
     setDefaultPaymentMethod,
     updatePaymentMethodConfig,
+    addPaymentMethod,
+    saveTemplates,
   } = useTemplateStore();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
+  const [importMessage, setImportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const skipDisplayOptionsAutosave = useRef(true);
+
+  const displayOptions = paymentMethodConfig.displayOptions;
+
+  useEffect(() => {
+    if (skipDisplayOptionsAutosave.current) {
+      skipDisplayOptionsAutosave.current = false;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void saveTemplates();
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [displayOptions.showInPreview, displayOptions.showInPDF, displayOptions.customInstructions, saveTemplates]);
 
   const handleAddNew = () => {
     setEditingMethod(null);
@@ -36,8 +57,57 @@ const PaymentMethodSection: React.FC = () => {
     setEditingMethod(null);
   };
 
+  const handleImportFromProfile = async () => {
+    const bankDetails = user?.bankDetails;
+    if (!bankDetails?.accountName || !bankDetails?.accountNumber || !bankDetails?.bankName) {
+      setImportMessage({
+        type: 'error',
+        text: 'Add bank details in Profile first, then import them here.',
+      });
+      return;
+    }
+
+    const alreadyExists = paymentMethods.some(
+      (method) =>
+        method.accountNumber === bankDetails.accountNumber && method.bankName === bankDetails.bankName
+    );
+    if (alreadyExists) {
+      setImportMessage({ type: 'error', text: 'This profile bank account is already in your quote payment methods.' });
+      return;
+    }
+
+    await addPaymentMethod({
+      accountName: bankDetails.accountName,
+      accountNumber: bankDetails.accountNumber,
+      bankName: bankDetails.bankName,
+    });
+    setImportMessage({ type: 'success', text: 'Bank details imported from Profile.' });
+  };
+
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <p className="font-medium">Quote payment methods vs Profile bank details</p>
+        <p className="mt-1 text-blue-800">
+          Templates here control which accounts appear on exported quotes. Your Profile bank details are used when creating
+          quotes and can be imported below as a template payment method.
+        </p>
+      </div>
+
+      {importMessage && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm flex items-start justify-between gap-3 ${
+            importMessage.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          <p>{importMessage.text}</p>
+          <button type="button" onClick={() => setImportMessage(null)} className="font-medium flex-shrink-0">
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Display Options */}
       <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Display Options</h3>
@@ -102,16 +172,25 @@ const PaymentMethodSection: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Payment Methods</h3>
             <p className="text-sm text-gray-600 mt-1">
-              Manage your default payment methods for quotes
+              Bank accounts shown on quotes. Import from Profile or add additional accounts.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleAddNew}
-            className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors"
-          >
-            + Add Payment Method
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleImportFromProfile()}
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            >
+              Import from Profile
+            </button>
+            <button
+              type="button"
+              onClick={handleAddNew}
+              className="px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors"
+            >
+              + Add Payment Method
+            </button>
+          </div>
         </div>
 
         {paymentMethods.length === 0 ? (

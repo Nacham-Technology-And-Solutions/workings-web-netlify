@@ -20,6 +20,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate, onSectionChan
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelSuccessMessage, setCancelSuccessMessage] = useState<string | null>(null);
 
   const goToSubscriptionPlans = () => {
     if (onSectionChange) {
@@ -113,7 +114,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate, onSectionChan
           }
         }
         setShowCancelConfirm(false);
-        alert('Subscription cancelled successfully. You have been moved to the free tier.');
+        setCancelSuccessMessage('Subscription cancelled. You have been moved to the free tier.');
       } else {
         throw new Error(normalizedResponse.message || 'Failed to cancel subscription');
       }
@@ -133,6 +134,19 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate, onSectionChan
   return (
     <div className="flex flex-col h-full bg-white font-sans text-gray-800 p-4 sm:p-6">
       <div className="flex-1 overflow-y-auto">
+        {cancelSuccessMessage && (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 flex items-start justify-between gap-3">
+            <p className="text-sm text-green-800">{cancelSuccessMessage}</p>
+            <button
+              type="button"
+              onClick={() => setCancelSuccessMessage(null)}
+              className="text-green-700 hover:text-green-900 text-sm font-medium flex-shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Subscription & Credits Section */}
         <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Subscription & Credits</h2>
@@ -260,7 +274,12 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate, onSectionChan
         <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Billing History</h2>
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            {billingHistory.length === 0 ? (
+            {isLoading ? (
+              <div className="p-6 sm:p-8 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-3" />
+                <p className="text-sm text-gray-500">Loading billing history...</p>
+              </div>
+            ) : billingHistory.length === 0 ? (
               <div className="p-6 sm:p-8 text-center">
                 <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -365,7 +384,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate, onSectionChan
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Subscription</h3>
             <p className="text-sm text-gray-600 mb-4">
               Are you sure you want to cancel your subscription? You will be moved to the free tier immediately.
-              Your points balance will be reset to 50 points.
+              Your credits will be reset to the free plan allocation (30 credits).
             </p>
             {cancelError && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">

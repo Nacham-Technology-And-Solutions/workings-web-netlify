@@ -45,8 +45,11 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, isActive = false, onClic
   </a>
 );
 
+const SETTINGS_VIEWS = new Set(['settings', 'creditsHistory']);
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate }) => {
   const { logout: logoutStore } = useAuthStore();
+  const isSettingsActive = SETTINGS_VIEWS.has(currentView);
   const [isDesktop, setIsDesktop] = useState(() => {
     // Initialize desktop state immediately during SSR-safe check
     if (typeof window !== 'undefined') {
@@ -187,9 +190,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
             <hr className="border-gray-200 my-2" />
             <div>
               <NavLink 
-                icon={<SettingsIcon isActive={currentView === 'settings'} />} 
+                icon={<SettingsIcon isActive={isSettingsActive} />} 
                 label="Settings" 
-                isActive={currentView === 'settings'} 
+                isActive={isSettingsActive} 
                 onClick={() => onNavigate('settings')}
                 isExpanded={isExpanded}
               />

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isSettingsSectionView, setStoredSettingsSection } from '@/utils/settingsNavigation';
 
 interface UIState {
   // Navigation
@@ -39,9 +40,15 @@ export const useUIStore = create<UIState>((set, get) => ({
   
   navigate: (view) => {
     const current = get().currentView;
+    const nextView = isSettingsSectionView(view) ? 'settings' : view;
+
+    if (isSettingsSectionView(view)) {
+      setStoredSettingsSection(view);
+    }
+
     set({
       previousView: current,
-      currentView: view,
+      currentView: nextView,
       isSidebarOpen: false,
     });
   },

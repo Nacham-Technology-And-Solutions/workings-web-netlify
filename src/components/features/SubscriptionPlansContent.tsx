@@ -5,6 +5,7 @@ import { savePaymentCallback } from '@/utils/paymentCallbackStorage';
 
 interface SubscriptionPlansContentProps {
   onBack?: () => void;
+  isActive?: boolean;
 }
 
 interface PlanCardProps {
@@ -78,7 +79,7 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, billingCycle, currentPlanId, 
         {isCurrentPlan
           ? 'Current Plan'
           : isFreePlan
-          ? 'Continue with plan >>'
+          ? 'Free tier'
           : isLoading
           ? 'Processing...'
           : 'Subscribe Now >>'}
@@ -87,7 +88,7 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, billingCycle, currentPlanId, 
   );
 };
 
-const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onBack }) => {
+const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ isActive = true }) => {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [paymentProviders, setPaymentProviders] = useState<PaymentProvider[]>([]);
@@ -100,8 +101,10 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
 
   // Load plans, payment providers, and current subscription
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isActive) {
+      loadData();
+    }
+  }, [isActive]);
 
   const loadData = async () => {
     try {

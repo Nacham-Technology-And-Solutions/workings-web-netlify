@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useTemplateStore } from '@/stores/templateStore';
-import type { TemplateTab } from '@/types/templates';
 import PaymentMethodSection from '../prebuilt-templates/PaymentMethodSection';
 import QuoteFormatSection from '../prebuilt-templates/QuoteFormatSection';
 import PDFExportSection from '../prebuilt-templates/PDFExportSection';
 import MaterialPricesSection from '../prebuilt-templates/MaterialPricesSection';
 import TemplatePreviewCanvas from '../prebuilt-templates/TemplatePreviewCanvas';
+import ActionToast from '@/components/common/ActionToast';
+import { useTemplateStore } from '@/stores/templateStore';
+import type { TemplateTab } from '@/types/templates';
+import { consumeExportSettingsNotice } from '@/utils/settingsNavigation';
 
 interface ExportSettingsSectionProps {
   onNavigate?: (view: string) => void;
@@ -17,10 +19,29 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
   const [pendingTab, setPendingTab] = useState<TemplateTab | null>(null);
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [isFullPage, setIsFullPage] = useState(false);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     useTemplateStore.getState().loadTemplates();
+    const notice = consumeExportSettingsNotice();
+    if (notice) {
+      setToast(notice);
+    }
   }, []);
+
+  const handleSave = async () => {
+    const saved = await saveTemplates();
+    if (saved) {
+      setSaveMessage({ type: 'success', text: 'Export settings saved successfully.' });
+    } else {
+      setSaveMessage({
+        type: 'error',
+        text: 'Could not save to the server. Changes are kept locally — try again.',
+      });
+    }
+  };
 
   const handleTabChange = (tab: TemplateTab) => {
     if (hasUnsavedChanges) {
@@ -32,7 +53,7 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
   };
 
   const handleSaveAndSwitchTab = async () => {
-    await saveTemplates();
+    await handleSave();
     if (pendingTab) {
       setActiveTab(pendingTab);
       setPendingTab(null);
@@ -60,10 +81,6 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
     setShowUnsavedWarning(false);
   };
 
-  const handleSave = async () => {
-    await saveTemplates();
-  };
-
   const tabs: Array<{ id: TemplateTab; label: string; comingSoon?: boolean }> = [
     { id: 'quoteFormat', label: 'Quote Format' },
     { id: 'paymentMethod', label: 'Payment Method' },
@@ -71,8 +88,31 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
     { id: 'materialPrices', label: 'Material Prices' },
   ];
 
+  const showPreviewPanel = activeTab === 'quoteFormat' || activeTab === 'pdfExport';
+
+  const previewBlock = showPreviewPanel ? (
+    <div className="w-full min-h-[280px]">
+      <TemplatePreviewCanvas />
+    </div>
+  ) : null;
+
   const content = (
     <>
+      {saveMessage && (
+        <div
+          className={`mx-4 sm:mx-6 mt-4 rounded-lg border px-4 py-3 text-sm flex items-start justify-between gap-3 ${
+            saveMessage.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          <p>{saveMessage.text}</p>
+          <button type="button" onClick={() => setSaveMessage(null)} className="font-medium flex-shrink-0">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <div className="border-b border-gray-200 bg-white flex-shrink-0">
@@ -102,6 +142,27 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
             </div>
           </div>
 
+          {showPreviewPanel && (
+            <div className="lg:hidden border-b border-gray-200 bg-gray-50 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowMobilePreview((prev) => !prev)}
+                className="w-full px-4 py-3 text-sm font-medium text-gray-700 flex items-center justify-between"
+              >
+                <span>{showMobilePreview ? 'Hide preview' : 'Show live preview'}</span>
+                <svg
+                  className={`w-4 h-4 transition-transform ${showMobilePreview ? 'rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showMobilePreview && <div className="px-4 pb-4">{previewBlock}</div>}
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
               {activeTab === 'quoteFormat' && (
@@ -117,7 +178,7 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Method Configuration</h2>
                   <p className="text-gray-600 mb-6">
-                    Manage default payment methods for quotes. Add, edit, or delete payment methods and set display options.
+                    Quote templates can list multiple bank accounts. Your Profile bank details are also offered when creating quotes.
                   </p>
                   <PaymentMethodSection />
                 </div>
@@ -161,11 +222,9 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
           )}
         </div>
 
-        {(activeTab === 'quoteFormat' || activeTab === 'pdfExport') && (
+        {showPreviewPanel && (
           <div className="hidden lg:flex lg:w-[340px] xl:w-[380px] flex-shrink-0 border-l border-gray-200 bg-gray-50 p-4 overflow-hidden">
-            <div className="w-full h-full min-h-[320px]">
-              <TemplatePreviewCanvas />
-            </div>
+            <div className="w-full h-full min-h-[320px]">{previewBlock}</div>
           </div>
         )}
       </div>
@@ -174,7 +233,14 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-white font-sans text-gray-800">
-      {/* Unsaved Changes Warning Modal */}
+      {toast && (
+        <ActionToast
+          type={toast.type}
+          message={toast.text}
+          onDismiss={() => setToast(null)}
+        />
+      )}
+
       {showUnsavedWarning && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110] p-4">
           <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full shadow-xl">
@@ -201,7 +267,6 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
         </div>
       )}
 
-      {/* Full-page overlay: full viewport for focused editing */}
       {isFullPage ? (
         <div
           className="fixed inset-0 z-[100] bg-white flex flex-col font-sans text-gray-800"
@@ -209,7 +274,6 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
           aria-modal="true"
           aria-label="Export settings (full page)"
         >
-          {/* Sticky header with Back button */}
           <header className="flex-shrink-0 flex items-center gap-4 px-4 sm:px-6 py-3 border-b border-gray-200 bg-white">
             <button
               type="button"
@@ -224,31 +288,36 @@ const ExportSettingsSection: React.FC<ExportSettingsSectionProps> = ({ onNavigat
             </button>
             <h1 className="text-lg font-semibold text-gray-900 truncate">Export settings</h1>
           </header>
-          {/* Full-page content: uses remaining height */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {content}
-          </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">{content}</div>
         </div>
       ) : (
         <>
-          {/* Inline toolbar: Full page button */}
           <div className="flex-shrink-0 flex items-center justify-between gap-2 px-4 sm:px-6 py-2 border-b border-gray-100 bg-gray-50">
             <span className="text-sm text-gray-500">Expand for a larger editing view</span>
-            <button
-              type="button"
-              onClick={() => setIsFullPage(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
-              aria-label="Open full page view"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-              Full page
-            </button>
+            <div className="flex items-center gap-2">
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('templates')}
+                  className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  Templates
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsFullPage(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                aria-label="Open full page view"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+                Full page
+              </button>
+            </div>
           </div>
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {content}
-          </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">{content}</div>
         </>
       )}
     </div>
