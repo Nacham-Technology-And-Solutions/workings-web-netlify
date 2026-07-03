@@ -25,6 +25,7 @@ export interface CreateQuoteRequest {
   total: number;
   status: 'draft' | 'sent' | 'paid' | 'unpaid';
   paymentInfo?: QuotePaymentInfo | null;
+  clientReference?: string;
 }
 
 export interface Quote {
@@ -52,6 +53,7 @@ export interface CreateQuoteResponse {
   quote: Quote;
   pointsDeducted: number;
   balanceAfter: number;
+  idempotent?: boolean;
 }
 
 export interface QuotesListResponse {
@@ -100,6 +102,9 @@ export const quotesService = {
     }
     if (data.paymentInfo !== undefined) {
       requestData.paymentInfo = data.paymentInfo;
+    }
+    if (data.clientReference) {
+      requestData.clientReference = data.clientReference;
     }
 
     const response = await apiClient.post<ApiResponse<CreateQuoteResponse>>('/api/v1/quotes', requestData);

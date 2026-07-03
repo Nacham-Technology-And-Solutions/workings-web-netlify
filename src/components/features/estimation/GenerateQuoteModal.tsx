@@ -33,6 +33,7 @@ const GenerateQuoteModal: React.FC<GenerateQuoteModalProps> = ({
     setItemOverride,
     clearItemOverride,
     saveQuote,
+    setProjectId,
   } = useEstimationStore();
 
   const [quoteSource, setQuoteSource] = useState<'project_cart' | 'material_list'>('project_cart');
@@ -41,10 +42,13 @@ const GenerateQuoteModal: React.FC<GenerateQuoteModalProps> = ({
   const [expandedBreakdown, setExpandedBreakdown] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !projectId) return;
     setLocalError(null);
+    if (useEstimationStore.getState().projectId !== projectId) {
+      setProjectId(projectId);
+    }
     void preview(quoteSource);
-  }, [isOpen, quoteSource]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, projectId, quoteSource, preview, setProjectId]);
 
   const handleQuoteSourceChange = (source: 'project_cart' | 'material_list') => {
     setQuoteSource(source);
@@ -286,7 +290,7 @@ const GenerateQuoteModal: React.FC<GenerateQuoteModalProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => void preview(quoteSource)}
+            onClick={() => void preview(quoteSource, { force: true })}
             disabled={isPreviewing || isSaving}
             className="px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >

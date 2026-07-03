@@ -4,31 +4,31 @@ overview: A read-only audit of the entire workings-web frontend found no React Q
 todos:
   - id: fix-preview-storm
     content: Remove or gate auto-debounced preview (500ms) in ProjectEstimationPricingScreen; avoid triple preview with EstimationQuotePreviewModal
-    status: pending
+    status: completed
   - id: fix-double-price-fill
-    content: "(Resolved) loadPriceFill moved off ProjectSolutionScreen — verify single bootstrap in ProjectEstimationPricingScreen only"
-    status: pending
+    content: (Resolved) loadPriceFill moved off ProjectSolutionScreen — verify single bootstrap in ProjectEstimationPricingScreen only
+    status: completed
   - id: cache-material-catalog
     content: Cache material catalog in templateStore; remove duplicate fetches from MaterialPricesSection and loadMaterialPrices
-    status: pending
+    status: completed
   - id: material-list-n-plus-1
     content: Address MaterialListScreen N+1 (batch API or frontend cache with TTL)
-    status: pending
+    status: completed
   - id: consolidate-project-hydrate
     content: Extract hydrateProjectFlow in App.tsx to eliminate 4× getById transform blocks
-    status: pending
+    status: completed
   - id: projects-refresh-trigger
     content: Replace ProjectsScreen key={refreshProjects} with refreshTrigger pattern
-    status: pending
+    status: completed
   - id: store-inflight-guards
     content: Add in-flight/stale guards to templateStore and estimationStore fetch actions
-    status: pending
+    status: completed
   - id: preview-stale-check
     content: Skip estimation preview API call when previewResult is still valid
-    status: pending
+    status: completed
   - id: tanstack-query
     content: "Optional: adopt TanStack Query for list/detail endpoints and cache invalidation"
-    status: pending
+    status: completed
 isProject: false
 ---
 

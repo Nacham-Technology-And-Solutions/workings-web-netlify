@@ -9,16 +9,12 @@ interface PaymentCallbackScreenProps {
 const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess, onFailure }) => {
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed' | 'pending'>('verifying');
   const [message, setMessage] = useState<string>('Verifying payment...');
-  const [attempts, setAttempts] = useState(0);
-  const maxAttempts = 10;
 
   useEffect(() => {
-    verifyPayment();
+    void verifyPayment(0);
   }, []);
 
-  const isDev = import.meta.env.DEV;
-
-  const verifyPayment = async () => {
+  const verifyPayment = async (networkRetryCount: number) => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const refFromUrl =
@@ -39,70 +35,60 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
       if (!reference) {
         setStatus('failed');
         setMessage('No payment reference found. Please contact support if you completed the payment.');
-        if (onFailure) {
-          onFailure('No payment reference found');
-        }
+        onFailure?.('No payment reference found');
         return;
       }
 
-      // Dev: manual verify via POST /api/v1/subscriptions/verify-payment (webhooks not available locally)
-      if (isDev) {
-        const provider = (localStorage.getItem('paymentProvider') || 'paystack') as 'paystack' | 'flutterwave' | 'monnify';
-        const verifyResponse = await subscriptionsService.verifyPayment({ reference, provider });
-        if (verifyResponse?.response) {
-          setStatus('success');
-          setMessage('Payment successful! Your subscription has been activated.');
-          localStorage.removeItem('paymentReference');
-          localStorage.removeItem('paymentProvider');
-          if (onSuccess) {
-            setTimeout(() => onSuccess(), 2000);
-          }
-        } else {
-          const errMsg = verifyResponse?.responseMessage || (verifyResponse as any)?.message || 'Verification failed.';
-          setStatus('failed');
-          setMessage(errMsg);
-          if (onFailure) onFailure(errMsg);
-        }
-        return;
-      }
+      const provider = (localStorage.getItem('paymentProvider') || 'paystack') as
+        | 'paystack'
+        | 'flutterwave'
+        | 'monnify';
 
-      // Production: webhook flow — only check current subscription (webhook activates it)
-      const response = await subscriptionsService.getCurrent();
-      const subscription = response.response?.subscription;
+      const verifyResponse = await subscriptionsService.verifyPayment({ reference, provider });
 
-      if (subscription && subscription.status === 'active') {
+      if (verifyResponse?.response) {
         setStatus('success');
         setMessage('Payment successful! Your subscription has been activated.');
         localStorage.removeItem('paymentReference');
         localStorage.removeItem('paymentProvider');
-        if (onSuccess) {
-          setTimeout(() => onSuccess(), 2000);
-        }
-      } else {
-        if (attempts < maxAttempts) {
-          setStatus('pending');
-          setMessage(`Payment is being processed... (${attempts + 1}/${maxAttempts})`);
-          setAttempts(prev => prev + 1);
-          setTimeout(() => {
-            verifyPayment();
-          }, 2000);
-        } else {
-          setStatus('pending');
-          setMessage('Payment is still being processed. Please wait a few minutes and check your subscription status. If the issue persists, contact support.');
-        }
+        setTimeout(() => onSuccess?.(), 2000);
+        return;
       }
-    } catch (error: any) {
+
+      const errMsg =
+        verifyResponse?.responseMessage ||
+        (verifyResponse as { message?: string })?.message ||
+        'Verification failed.';
+      setStatus('failed');
+      setMessage(errMsg);
+      onFailure?.(errMsg);
+    } catch (error: unknown) {
+      const isNetworkError =
+        error instanceof TypeError ||
+        (error as { code?: string })?.code === 'ERR_NETWORK';
+
+      if (isNetworkError && networkRetryCount < 2) {
+        setStatus('pending');
+        setMessage(`Network error — retrying verification (${networkRetryCount + 1}/2)...`);
+        setTimeout(() => {
+          void verifyPayment(networkRetryCount + 1);
+        }, 2000);
+        return;
+      }
+
       console.error('Payment verification error:', error);
+      const err = error as {
+        response?: { data?: { responseMessage?: string; message?: string } };
+        message?: string;
+      };
       const errorMessage =
-        error?.response?.data?.responseMessage ||
-        error?.response?.data?.message ||
-        error?.message ||
+        err?.response?.data?.responseMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
         'Failed to verify payment. Please check your subscription status or contact support.';
       setStatus('failed');
       setMessage(errorMessage);
-      if (onFailure) {
-        onFailure(errorMessage);
-      }
+      onFailure?.(errorMessage);
     }
   };
 
@@ -140,7 +126,7 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
             <h2 className="text-xl font-bold text-gray-900 mb-2">Payment Verification Failed</h2>
             <p className="text-gray-600 mb-4">{message}</p>
             <button
-              onClick={() => window.location.href = '/settings'}
+              onClick={() => (window.location.href = '/settings')}
               className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               Go to Settings
@@ -154,10 +140,10 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
             <h2 className="text-xl font-bold text-gray-900 mb-2">Processing Payment</h2>
             <p className="text-gray-600 mb-4">{message}</p>
             <p className="text-sm text-gray-500">
-              This may take a few minutes. You can close this window and check your subscription status later.
+              This may take a moment. You can close this window and check your subscription status later.
             </p>
             <button
-              onClick={() => window.location.href = '/settings'}
+              onClick={() => (window.location.href = '/settings')}
               className="mt-4 px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               Go to Settings

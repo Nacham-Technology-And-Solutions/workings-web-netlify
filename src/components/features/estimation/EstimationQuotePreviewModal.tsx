@@ -23,12 +23,14 @@ export interface EstimationPreviewAcceptedPayload {
 
 interface EstimationQuotePreviewModalProps {
   isOpen: boolean;
+  projectId: number;
   onClose: () => void;
   onAccepted: (payload: EstimationPreviewAcceptedPayload) => void;
 }
 
 const EstimationQuotePreviewModal: React.FC<EstimationQuotePreviewModalProps> = ({
   isOpen,
+  projectId,
   onClose,
   onAccepted,
 }) => {
@@ -41,15 +43,19 @@ const EstimationQuotePreviewModal: React.FC<EstimationQuotePreviewModalProps> = 
     pricingInputs,
     setItemOverride,
     clearItemOverride,
+    setProjectId,
   } = useEstimationStore();
 
   const [quoteSource, setQuoteSource] = useState<'project_cart' | 'material_list'>('project_cart');
   const [expandedBreakdown, setExpandedBreakdown] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !projectId) return;
+    if (useEstimationStore.getState().projectId !== projectId) {
+      setProjectId(projectId);
+    }
     void preview(quoteSource);
-  }, [isOpen, quoteSource]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, projectId, quoteSource, preview, setProjectId]);
 
   const handleQuoteSourceChange = (source: 'project_cart' | 'material_list') => {
     setQuoteSource(source);
@@ -238,7 +244,7 @@ const EstimationQuotePreviewModal: React.FC<EstimationQuotePreviewModalProps> = 
           </button>
           <button
             type="button"
-            onClick={() => void preview(quoteSource)}
+            onClick={() => void preview(quoteSource, { force: true })}
             disabled={isPreviewing}
             className="px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >

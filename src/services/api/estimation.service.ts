@@ -30,6 +30,42 @@ export const estimationService = {
     return response.data;
   },
 
+  /** Supports If-None-Match; returns 304 when catalog unchanged. */
+  getMaterialCatalogConditional: async (
+    etag?: string | null,
+    params?: MaterialCatalogQueryParams
+  ): Promise<
+    | { notModified: true }
+    | { notModified: false; data: MaterialCatalogResponse; etag: string | null }
+  > => {
+    const searchParams = new URLSearchParams();
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.search) searchParams.set('search', params.search);
+    const query = searchParams.toString();
+    const response = await apiClient.get<MaterialCatalogResponse>(
+      `/api/v1/estimation/material-catalog${query ? `?${query}` : ''}`,
+      {
+        headers: etag ? { 'If-None-Match': etag } : {},
+        validateStatus: (status) => status === 200 || status === 304,
+      }
+    );
+
+    if (response.status === 304) {
+      return { notModified: true };
+    }
+
+    const responseEtag =
+      (response.headers.etag as string | undefined) ??
+      response.data.response?.catalogVersion ??
+      null;
+
+    return {
+      notModified: false,
+      data: response.data,
+      etag: responseEtag,
+    };
+  },
+
   getPriceFill: async (
     projectId: number,
     source: PriceFillSource = 'last_used'

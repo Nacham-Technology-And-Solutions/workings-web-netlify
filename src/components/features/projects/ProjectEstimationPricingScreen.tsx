@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ProjectDescriptionData, SelectProjectData, ProjectMeasurementData } from '@/types';
 import type { CalculationResult } from '@/types/calculations';
 import type { PriceFillSource } from '@/types/estimation';
@@ -16,9 +16,6 @@ const FILL_OPTIONS: { value: PriceFillSource; label: string }[] = [
   { value: 'user_library', label: 'My prices' },
   { value: 'last_used', label: 'Last used' },
 ];
-
-const formatMoney = (value: number) =>
-  value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function readStoredFillSource(): PriceFillSource {
   if (typeof window === 'undefined') return 'last_used';
@@ -61,24 +58,25 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
     updateQuoteSettings,
     initFromProjectSettings,
     setProjectId: setEstimationProjectId,
-    preview: runEstimationPreview,
     updateExtraCharges,
+    reset,
   } = useEstimationStore();
 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const bootstrappedRef = useRef(false);
-
-  const pricingSnapshot = useMemo(
-    () => JSON.stringify({ pricingInputs, quoteSettings }),
-    [pricingInputs, quoteSettings]
-  );
+  const bootstrappedProjectIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (bootstrappedRef.current) return;
+    const storeProjectId = useEstimationStore.getState().projectId;
+    const storePricingInputs = useEstimationStore.getState().pricingInputs;
+    const alreadyBootstrapped =
+      storeProjectId === projectId && storePricingInputs.length > 0;
+
+    if (bootstrappedProjectIdRef.current === projectId && alreadyBootstrapped) return;
     if (!previousData.projectDescription || !previousData.selectProject || !previousData.projectMeasurement) {
       return;
     }
-    bootstrappedRef.current = true;
+    bootstrappedProjectIdRef.current = projectId;
+
     const projectData = createProjectData(
       previousData.projectDescription,
       previousData.selectProject,
@@ -89,16 +87,28 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
     setEstimationProjectId(projectId);
     const source = readStoredFillSource();
     setFillSource(source);
-    void loadPriceFill(projectId, source);
-  }, [previousData, projectId, initFromProjectSettings, setEstimationProjectId, loadPriceFill, setFillSource]);
+
+    if (!alreadyBootstrapped) {
+      void loadPriceFill(projectId, source);
+    }
+  }, [
+    projectId,
+    previousData.projectDescription,
+    previousData.selectProject,
+    previousData.projectMeasurement,
+    initFromProjectSettings,
+    setEstimationProjectId,
+    loadPriceFill,
+    setFillSource,
+    updateExtraCharges,
+  ]);
 
   useEffect(() => {
-    if (!projectId || pricingInputs.length === 0) return;
-    const timer = window.setTimeout(() => {
-      void runEstimationPreview('material_list');
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [projectId, pricingSnapshot, pricingInputs.length, runEstimationPreview]);
+    return () => {
+      bootstrappedProjectIdRef.current = null;
+      reset();
+    };
+  }, [reset]);
 
   const handleFillSourceChange = async (source: PriceFillSource) => {
     localStorage.setItem(ESTIMATION_PRICE_FILL_STORAGE_KEY, source);
@@ -277,11 +287,11 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
             {pricingInputs.length > 0 && (
               <p className="mt-4 text-xs text-gray-500">
                 {pricingInputs.length} item{pricingInputs.length !== 1 ? 's' : ''} priced
-                {isPreviewing ? (
-                  ' · Updating subtotal…'
-                ) : previewSubtotal != null ? (
-                  <> · Materials subtotal ₦{formatMoney(previewSubtotal)}</>
-                ) : null}
+                {previewSubtotal != null ? (
+                  <> · Last preview subtotal ₦{previewSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+                ) : (
+                  <> · Open quote preview for totals</>
+                )}
               </p>
             )}
           </div>
@@ -310,6 +320,7 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
 
       <EstimationQuotePreviewModal
         isOpen={showPreviewModal}
+        projectId={projectId}
         onClose={() => setShowPreviewModal(false)}
         onAccepted={onPreviewAccepted}
       />

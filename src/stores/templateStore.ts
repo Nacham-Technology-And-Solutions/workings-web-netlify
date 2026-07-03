@@ -18,7 +18,14 @@ import type {
 import { templatesService } from '@/services/api/templates.service';
 import { estimationService } from '@/services/api/estimation.service';
 import { extractErrorMessage } from '@/utils/errorHandler';
-import { enrichMaterialPricesFromCatalog } from '@/utils/materialPriceHelpers';
+import type { MaterialCatalogItem } from '@/types/estimation';
+
+const TEMPLATES_CACHE_TTL_MS = 5 * 60_000;
+const CATALOG_CACHE_TTL_MS = 30 * 60_000;
+
+let inflightLoadTemplates: Promise<void> | null = null;
+let inflightLoadMaterialPrices: Promise<void> | null = null;
+let inflightLoadMaterialCatalog: Promise<MaterialCatalogItem[]> | null = null;
 
 interface TemplateState {
   // Quote Format
@@ -35,6 +42,12 @@ interface TemplateState {
   materialPrices: MaterialPrice[];
   materialPricesConfig: MaterialPricesConfig;
   isLoadingMaterialPrices: boolean;
+  materialCatalogItems: MaterialCatalogItem[];
+  isLoadingCatalog: boolean;
+  catalogLoadedAt: number | null;
+  catalogVersion: string | null;
+  catalogEtag: string | null;
+  templatesLoadedAt: number | null;
   
   // UI State
   isLoading: boolean;
@@ -66,6 +79,7 @@ interface TemplateState {
   addMaterialPrice: (price: Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateMaterialPrice: (id: string, price: Partial<MaterialPrice>) => Promise<void>;
   deleteMaterialPrice: (id: string) => Promise<void>;
+  loadMaterialCatalog: (force?: boolean) => Promise<MaterialCatalogItem[]>;
   loadMaterialPrices: (params?: { category?: string; search?: string }) => Promise<void>;
   bulkImportMaterialPrices: (
     prices: Array<Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt' | 'priceHistory'>>
@@ -74,7 +88,7 @@ interface TemplateState {
   updateMaterialPricesConfig: (config: Partial<MaterialPricesConfig>) => void;
   
   // General Actions
-  loadTemplates: () => Promise<void>;
+  loadTemplates: (force?: boolean) => Promise<void>;
   saveTemplates: () => Promise<void>;
   resetToDefaults: () => void;
 
@@ -203,6 +217,12 @@ export const useTemplateStore = create<TemplateState>()(
         categoryMarkups: {},
       },
       isLoadingMaterialPrices: false,
+      materialCatalogItems: [],
+      isLoadingCatalog: false,
+      catalogLoadedAt: null,
+      catalogVersion: null,
+      catalogEtag: null,
+      templatesLoadedAt: null,
       isLoading: false,
       isSaving: false,
       hasUnsavedChanges: false,
@@ -626,46 +646,91 @@ export const useTemplateStore = create<TemplateState>()(
           });
         }
       },
-      loadMaterialPrices: async (params) => {
-        set({ isLoadingMaterialPrices: true });
-        try {
-          const [prices, catalogResponse] = await Promise.all([
-            templatesService.getMaterialPrices(params),
-            estimationService.getMaterialCatalog().catch(() => null),
-          ]);
+      loadMaterialCatalog: async (force = false) => {
+        const { catalogLoadedAt, materialCatalogItems, catalogEtag } = get();
+        if (
+          !force &&
+          materialCatalogItems.length > 0 &&
+          catalogLoadedAt != null &&
+          Date.now() - catalogLoadedAt < CATALOG_CACHE_TTL_MS
+        ) {
+          return materialCatalogItems;
+        }
 
-          const catalogItems = catalogResponse?.response?.items ?? [];
-          const enriched = enrichMaterialPricesFromCatalog(prices, catalogItems);
+        if (inflightLoadMaterialCatalog) {
+          return inflightLoadMaterialCatalog;
+        }
 
-          const syncTargets = enriched.filter((price) => {
-            const original = prices.find((row) => row.id === price.id);
-            return Boolean(price.itemKey && !original?.itemKey);
-          });
+        const run = async (): Promise<MaterialCatalogItem[]> => {
+          set({ isLoadingCatalog: true });
+          try {
+            const result = await estimationService.getMaterialCatalogConditional(catalogEtag);
 
-          if (syncTargets.length > 0) {
-            await Promise.allSettled(
-              syncTargets.map((price) =>
-                templatesService.updateMaterialPrice(price.id, {
-                  itemKey: price.itemKey,
-                  name: price.name,
-                  category: price.category,
-                  unit: price.unit,
-                })
-              )
-            );
+            if (result.notModified) {
+              set({
+                catalogLoadedAt: Date.now(),
+                isLoadingCatalog: false,
+              });
+              return get().materialCatalogItems;
+            }
+
+            const items = result.data.response?.items ?? [];
+            set({
+              materialCatalogItems: items,
+              catalogVersion: result.data.response?.catalogVersion ?? null,
+              catalogEtag: result.etag,
+              catalogLoadedAt: Date.now(),
+              isLoadingCatalog: false,
+            });
+            return items;
+          } catch (error) {
+            console.error('[TemplateStore] Error loading material catalog:', error);
+            set({ isLoadingCatalog: false });
+            return get().materialCatalogItems;
           }
+        };
 
-          set((state) => ({
-            materialPrices: enriched,
-            materialPricesConfig: {
-              ...state.materialPricesConfig,
-              prices: enriched,
-            },
-            isLoadingMaterialPrices: false,
-          }));
-        } catch (error) {
-          console.error('[TemplateStore] Error loading material prices:', error);
-          set({ isLoadingMaterialPrices: false });
+        inflightLoadMaterialCatalog = run();
+        try {
+          return await inflightLoadMaterialCatalog;
+        } finally {
+          inflightLoadMaterialCatalog = null;
+        }
+      },
+
+      loadMaterialPrices: async (params) => {
+        if (inflightLoadMaterialPrices) {
+          return inflightLoadMaterialPrices;
+        }
+
+        const run = async () => {
+          set({ isLoadingMaterialPrices: true });
+          try {
+            const prices = await templatesService.getMaterialPrices({
+              ...params,
+              enrich: true,
+              autoMigrate: true,
+            });
+
+            set((state) => ({
+              materialPrices: prices,
+              materialPricesConfig: {
+                ...state.materialPricesConfig,
+                prices,
+              },
+              isLoadingMaterialPrices: false,
+            }));
+          } catch (error) {
+            console.error('[TemplateStore] Error loading material prices:', error);
+            set({ isLoadingMaterialPrices: false });
+          }
+        };
+
+        inflightLoadMaterialPrices = run();
+        try {
+          await inflightLoadMaterialPrices;
+        } finally {
+          inflightLoadMaterialPrices = null;
         }
       },
       bulkImportMaterialPrices: async (prices) => {
@@ -700,24 +765,36 @@ export const useTemplateStore = create<TemplateState>()(
       },
       
       // General Actions
-      loadTemplates: async () => {
-        set({ isLoading: true });
-        try {
-          // Try to load from API first
-          const apiData = await templatesService.getTemplates();
-          
-          if (apiData) {
-            // API success - use data from backend
-            set({
-              quoteFormat: apiData.quoteFormat || defaultQuoteFormat,
-              paymentMethods: apiData.paymentMethods || [],
-              paymentMethodConfig: apiData.paymentMethodConfig || {
-                methods: apiData.paymentMethods || [],
-                displayOptions: {
-                  showInPreview: true,
-                  showInPDF: true,
+      loadTemplates: async (force = false) => {
+        const { templatesLoadedAt } = get();
+        if (
+          !force &&
+          templatesLoadedAt != null &&
+          Date.now() - templatesLoadedAt < TEMPLATES_CACHE_TTL_MS
+        ) {
+          return;
+        }
+
+        if (inflightLoadTemplates) {
+          return inflightLoadTemplates;
+        }
+
+        const run = async () => {
+          set({ isLoading: true });
+          try {
+            const apiData = await templatesService.getTemplates();
+
+            if (apiData) {
+              set({
+                quoteFormat: apiData.quoteFormat || defaultQuoteFormat,
+                paymentMethods: apiData.paymentMethods || [],
+                paymentMethodConfig: apiData.paymentMethodConfig || {
+                  methods: apiData.paymentMethods || [],
+                  displayOptions: {
+                    showInPreview: true,
+                    showInPDF: true,
+                  },
                 },
-              },
               pdfExport: apiData.pdfExport || defaultPDFExport,
               materialPrices: apiData.materialPrices || [],
               materialPricesConfig: apiData.materialPricesConfig || {
@@ -727,15 +804,22 @@ export const useTemplateStore = create<TemplateState>()(
               },
               hasUnsavedChanges: false,
               isLoading: false,
+              templatesLoadedAt: Date.now(),
             });
           } else {
-            // API failed - data will be loaded from localStorage by persist middleware
             set({ isLoading: false });
           }
         } catch (error) {
           console.error('[TemplateStore] Error loading templates:', error);
-          // Data will be loaded from localStorage by persist middleware
           set({ isLoading: false });
+        }
+        };
+
+        inflightLoadTemplates = run();
+        try {
+          await inflightLoadTemplates;
+        } finally {
+          inflightLoadTemplates = null;
         }
       },
       saveTemplates: async () => {

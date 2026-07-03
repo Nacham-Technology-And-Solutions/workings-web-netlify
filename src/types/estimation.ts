@@ -22,6 +22,7 @@ export type MaterialCatalogItem = {
 export type MaterialCatalogResponse = {
   responseMessage: string;
   response: {
+    catalogVersion: string;
     items: MaterialCatalogItem[];
     total: number;
     totalUnfiltered: number;
@@ -233,4 +234,12 @@ export type EstimationSaveResponse = {
     balanceAfter: number;
     pdfUrl?: string | null;
   };
+};
+
+/** Bundled in POST /projects/:id/calculate when includePriceFill=true */
+export type EstimationBootstrap = {
+  fillSource: PriceFillSource;
+  itemKeys: MaterialCatalogItem[];
+  pricingInputs: PricingInput[];
+  projectId: number;
 };

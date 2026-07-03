@@ -21,6 +21,31 @@ export interface MaterialList {
   };
 }
 
+export interface MaterialListSummary {
+  id: number;
+  projectId: number;
+  projectName: string;
+  siteAddress: string | null;
+  projectStatus: 'draft' | 'calculated' | 'archived';
+  calculated: boolean;
+  lastCalculatedAt: string | null;
+  itemCount: number;
+  itemsTotal: number;
+  pointsCost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaterialListListResponse {
+  materialLists: MaterialListSummary[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export interface CreateMaterialListRequest {
   projectId?: number;
   projectName?: string;
@@ -41,11 +66,28 @@ export interface ApiResponse<T> {
   response: T;
 }
 
-// Material Lists Service
 export const materialListsService = {
   /**
-   * Create a new material list
+   * List material list summaries (replaces projects + N+1 fan-out)
    */
+  list: async (
+    page = 1,
+    limit = 20,
+    options?: { status?: 'draft' | 'calculated' | 'archived'; search?: string }
+  ): Promise<ApiResponse<MaterialListListResponse>> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (options?.status) params.set('status', options.status);
+    if (options?.search?.trim()) params.set('search', options.search.trim());
+
+    const response = await apiClient.get<ApiResponse<MaterialListListResponse>>(
+      `/api/v1/material-lists?${params.toString()}`
+    );
+    return response.data;
+  },
+
   create: async (data: CreateMaterialListRequest): Promise<ApiResponse<{ materialList: MaterialList }>> => {
     const response = await apiClient.post<ApiResponse<{ materialList: MaterialList }>>(
       '/api/v1/material-lists',
@@ -54,10 +96,6 @@ export const materialListsService = {
     return response.data;
   },
 
-  /**
-   * Get material list by project ID
-   * Gets the latest material list for a project
-   */
   getByProject: async (projectId: number): Promise<ApiResponse<{ materialList: MaterialList }>> => {
     const response = await apiClient.get<ApiResponse<{ materialList: MaterialList }>>(
       `/api/v1/material-lists/project/${projectId}`
@@ -65,9 +103,6 @@ export const materialListsService = {
     return response.data;
   },
 
-  /**
-   * Get material list by ID
-   */
   getById: async (materialListId: number): Promise<ApiResponse<{ materialList: MaterialList }>> => {
     const response = await apiClient.get<ApiResponse<{ materialList: MaterialList }>>(
       `/api/v1/material-lists/${materialListId}`
@@ -75,9 +110,6 @@ export const materialListsService = {
     return response.data;
   },
 
-  /**
-   * Delete a material list
-   */
   delete: async (materialListId: number): Promise<ApiResponse<{ message?: string }>> => {
     const response = await apiClient.delete<ApiResponse<{ message?: string }>>(
       `/api/v1/material-lists/${materialListId}`
@@ -85,4 +117,3 @@ export const materialListsService = {
     return response.data;
   },
 };
-

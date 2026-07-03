@@ -1,8 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeftIcon, ShoppingBagIcon, PlusIcon, SearchIcon, CloseIcon, UserCircleIcon } from '@/assets/icons/IconComponents';
-import { projectsService, materialListsService } from '@/services/api';
-import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
+import { useMaterialListsQuery } from '@/hooks/useListQueries';
 import type { MaterialList, MaterialListStatus } from '@/types';
 
 interface MaterialListScreenProps {
@@ -56,9 +55,6 @@ const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ l
 
 const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewList, onCreateNewList, refreshTrigger = 0 }) => {
   const [activeTab, setActiveTab] = useState<'All' | 'Draft'>('All');
-  const [materialLists, setMaterialLists] = useState<MaterialList[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -74,69 +70,9 @@ const MaterialListScreen: React.FC<MaterialListScreenProps> = ({ onBack, onViewL
     }
   }, []);
 
-  // Fetch material lists from API
-  useEffect(() => {
-    const fetchMaterialLists = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // First, fetch all projects
-        const projectsResponse = await projectsService.list(1, 100);
-
-        if (isApiResponseSuccess(projectsResponse)) {
-          const projectsData = getApiResponseData(projectsResponse) as any;
-          const projects = projectsData?.projects || [];
-
-          // Filter projects that have been calculated (have material lists)
-          const calculatedProjects = projects.filter((p: any) => p.calculated && p.status === 'calculated');
-
-          // Fetch material list for each calculated project
-          const materialListPromises = calculatedProjects.map(async (project: any) => {
-            try {
-              const materialListResponse = await materialListsService.getByProject(project.id);
-
-              if (isApiResponseSuccess(materialListResponse)) {
-                const materialListData = getApiResponseData(materialListResponse) as any;
-                const materialList = materialListData?.materialList || materialListData;
-
-                if (materialList) {
-                  // Transform API response to MaterialList type
-                  const transformed: MaterialList = {
-                    id: String(materialList.id),
-                    projectName: project.projectName || 'Untitled Project',
-                    listNumber: `#${String(materialList.id).padStart(6, '0')}`,
-                    status: project.status === 'calculated' ? 'Completed' : 'Draft',
-                    issueDate: materialList.createdAt || materialList.updatedAt || new Date().toISOString(),
-                  };
-                  return transformed;
-                }
-              }
-            } catch (err: any) {
-              // Project might not have a material list yet (404), skip it
-              console.log(`[MaterialListScreen] No material list for project ${project.id}:`, err.message);
-              return null;
-            }
-            return null;
-          });
-
-          const results = await Promise.all(materialListPromises);
-          const validLists = results.filter((list): list is MaterialList => list !== null);
-
-          setMaterialLists(validLists);
-        } else {
-          setError('Failed to load projects');
-        }
-      } catch (err: any) {
-        console.error('[MaterialListScreen] Error fetching material lists:', err);
-        setError('Failed to load material lists. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchMaterialLists();
-  }, [refreshTrigger]);
+  // Fetch material lists (cached, bounded concurrency)
+  const { data: materialLists = [], isLoading, error: queryError } = useMaterialListsQuery(refreshTrigger);
+  const error = queryError instanceof Error ? queryError.message : queryError ? 'Failed to load material lists. Please try again.' : null;
 
   const filteredLists = useMemo(() => {
     let result = materialLists;

@@ -64,9 +64,16 @@ import {
   transformQuoteDataToBackend,
   transformBackendQuoteToPreview,
   transformStandaloneQuoteToBackend,
-  reconstructProjectMeasurementFromGlazing,
-  applyApiCalculationSettingsToSelectProject,
 } from '../utils/dataTransformers';
+import {
+  hydrateProjectFlowFromApiProject,
+  getCachedProjectFlow,
+  setCachedProjectFlow,
+  invalidateProjectFlowCache,
+  type HydratedProjectFlow,
+} from '../utils/projectFlowHydration';
+import { invalidateMaterialListsCache } from '../utils/materialListFetch';
+import type { Project as ApiProject } from '../services/api/projects.service';
 import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
 
 // Import types and constants
@@ -75,7 +82,6 @@ import type { EstimationSavedQuote } from '../types/estimation';
 import type { EstimationPreviewAcceptedPayload } from '../components/features/estimation/EstimationQuotePreviewModal';
 import { applyMarginToItems, quoteItemsSubtotal } from '../utils/estimationQuoteMappers';
 import type { SelectProjectData } from '../types/project';
-import type { GlazingDimension } from '../types/project';
 import type { FullMaterialList } from '../types/material';
 import { initialEstimates } from '../constants';
 import {
@@ -87,6 +93,28 @@ import {
 
 const PIXELS_PER_FOOT = 10; // 10 pixels = 1 foot
 const WALL_HEIGHT_FEET = 8;
+
+async function fetchAndHydrateProjectFlow(projectId: string): Promise<HydratedProjectFlow | null> {
+  const projectIdNum = parseInt(projectId, 10);
+  if (isNaN(projectIdNum)) return null;
+
+  const cached = getCachedProjectFlow(projectIdNum);
+  if (cached) return cached;
+
+  const response = await projectsService.getById(projectIdNum);
+  const normalizedResponse = normalizeApiResponse(response);
+  if (!normalizedResponse.success || !normalizedResponse.response) {
+    return null;
+  }
+
+  const responseData = normalizedResponse.response as { project?: ApiProject } | ApiProject;
+  const apiProject = ('project' in responseData && responseData.project
+    ? responseData.project
+    : responseData) as ApiProject;
+  const flow = hydrateProjectFlowFromApiProject(apiProject);
+  setCachedProjectFlow(flow);
+  return flow;
+}
 
 const App: React.FC = () => {
   // Zustand stores
@@ -148,6 +176,7 @@ const App: React.FC = () => {
     clearEstimationDraft,
     setEditingQuoteId,
     setEstimationDraft,
+    ensureQuoteClientReference,
   } = useQuoteStore();
 
   const {
@@ -399,65 +428,23 @@ const App: React.FC = () => {
 
   const handleProjectDeleted = () => {
     setSelectedProjectId(null);
+    invalidateProjectFlowCache();
     setRefreshProjects(prev => prev + 1);
     navigate('projects');
   };
 
   const handleProjectCalculate = async (projectId: string) => {
     try {
-      const projectIdNum = parseInt(projectId, 10);
-      if (isNaN(projectIdNum)) {
-        console.error('Invalid project ID:', projectId);
-        return;
-      }
-
       setProjectWasCalculated(false);
-
-      // Load project data from API
-      const response = await projectsService.getById(projectIdNum);
-      const normalizedResponse = normalizeApiResponse(response);
-      
-      if (!normalizedResponse.success || !normalizedResponse.response) {
-        console.error('Failed to load project:', normalizedResponse.message);
+      const flow = await fetchAndHydrateProjectFlow(projectId);
+      if (!flow) {
+        console.error('Failed to load project:', projectId);
         return;
       }
-
-      // Extract project data from response
-      const responseData = normalizedResponse.response as any;
-      const apiProject = responseData.project || responseData;
-
-      // Transform API project data back to frontend format
-      // 1. ProjectDescriptionData
-      const projectDescription: any = {
-        projectName: apiProject.projectName || '',
-        customerName: apiProject.customer?.name || '',
-        siteAddress: apiProject.siteAddress || '',
-        description: apiProject.description || '',
-      };
-      setProjectDescriptionData(projectDescription);
-
-      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
-        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
-      );
-      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
-        selectProject,
-        apiProject.calculationSettings
-      );
-
-      const projectMeasurement: ProjectMeasurementData = {
-        dimensions,
-        unit: hydratedSelect.unit ?? 'mm',
-      };
-
-      setSelectProjectData(hydratedSelect);
-      setProjectMeasurementData(projectMeasurement);
-
-      // Store draft project ID if available
-      if (apiProject.id) {
-        setDraftProjectId(apiProject.id);
-      }
-
-      // Navigate to solution screen (will run calculation on mount)
+      setProjectDescriptionData(flow.projectDescription);
+      setSelectProjectData(flow.selectProject);
+      setProjectMeasurementData(flow.projectMeasurement);
+      setDraftProjectId(flow.projectId);
       navigate('projectSolution');
     } catch (error) {
       console.error('Error loading project for calculation:', error);
@@ -466,30 +453,12 @@ const App: React.FC = () => {
 
   const handleViewResults = async (projectId: string, lastCalculationResult: import('@/types/calculations').CalculationResult) => {
     try {
-      const projectIdNum = parseInt(projectId, 10);
-      if (isNaN(projectIdNum)) return;
-      const response = await projectsService.getById(projectIdNum);
-      const normalizedResponse = normalizeApiResponse(response);
-      if (!normalizedResponse.success || !normalizedResponse.response) return;
-      const responseData = normalizedResponse.response as any;
-      const apiProject = responseData.project || responseData;
-      if (!apiProject) return;
-      setProjectDescriptionData({
-        projectName: apiProject.projectName || '',
-        customerName: apiProject.customer?.name || '',
-        siteAddress: apiProject.siteAddress || '',
-        description: apiProject.description || '',
-      });
-      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
-        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
-      );
-      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
-        selectProject,
-        apiProject.calculationSettings
-      );
-      setSelectProjectData(hydratedSelect);
-      setProjectMeasurementData({ dimensions, unit: hydratedSelect.unit ?? 'mm' });
-      setDraftProjectId(apiProject.id);
+      const flow = await fetchAndHydrateProjectFlow(projectId);
+      if (!flow) return;
+      setProjectDescriptionData(flow.projectDescription);
+      setSelectProjectData(flow.selectProject);
+      setProjectMeasurementData(flow.projectMeasurement);
+      setDraftProjectId(flow.projectId);
       setInitialCalculationResult(lastCalculationResult);
       setProjectFlowFromDetail(true);
       navigate('projectSolution');
@@ -500,29 +469,12 @@ const App: React.FC = () => {
 
   const handleModifyDimensionsRecalculate = async (projectId: string) => {
     try {
-      const projectIdNum = parseInt(projectId, 10);
-      if (isNaN(projectIdNum)) return;
-      const response = await projectsService.getById(projectIdNum);
-      const normalizedResponse = normalizeApiResponse(response);
-      if (!normalizedResponse.success || !normalizedResponse.response) return;
-      const responseData = normalizedResponse.response as any;
-      const apiProject = responseData.project || responseData;
-      setProjectDescriptionData({
-        projectName: apiProject.projectName || '',
-        customerName: apiProject.customer?.name || '',
-        siteAddress: apiProject.siteAddress || '',
-        description: apiProject.description || '',
-      });
-      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
-        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
-      );
-      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
-        selectProject,
-        apiProject.calculationSettings
-      );
-      setSelectProjectData(hydratedSelect);
-      setProjectMeasurementData({ dimensions, unit: hydratedSelect.unit ?? 'mm' });
-      setDraftProjectId(apiProject.id);
+      const flow = await fetchAndHydrateProjectFlow(projectId);
+      if (!flow) return;
+      setProjectDescriptionData(flow.projectDescription);
+      setSelectProjectData(flow.selectProject);
+      setProjectMeasurementData(flow.projectMeasurement);
+      setDraftProjectId(flow.projectId);
       setProjectWasCalculated(true);
       setProjectFlowFromDetail(true);
       navigate('projectMeasurement');
@@ -534,29 +486,12 @@ const App: React.FC = () => {
   /** Navigate to project measurement (dimensions) screen to add dimensions. Used when project has no dimensions yet. */
   const handleAddDimensions = async (projectId: string) => {
     try {
-      const projectIdNum = parseInt(projectId, 10);
-      if (isNaN(projectIdNum)) return;
-      const response = await projectsService.getById(projectIdNum);
-      const normalizedResponse = normalizeApiResponse(response);
-      if (!normalizedResponse.success || !normalizedResponse.response) return;
-      const responseData = normalizedResponse.response as any;
-      const apiProject = responseData.project || responseData;
-      setProjectDescriptionData({
-        projectName: apiProject.projectName || '',
-        customerName: apiProject.customer?.name || '',
-        siteAddress: apiProject.siteAddress || '',
-        description: apiProject.description || '',
-      });
-      const { selectProject, dimensions } = reconstructProjectMeasurementFromGlazing(
-        (apiProject.glazingDimensions ?? []) as GlazingDimension[]
-      );
-      const hydratedSelect = applyApiCalculationSettingsToSelectProject(
-        selectProject,
-        apiProject.calculationSettings
-      );
-      setSelectProjectData(hydratedSelect);
-      setProjectMeasurementData({ dimensions, unit: hydratedSelect.unit ?? 'mm' });
-      setDraftProjectId(apiProject.id);
+      const flow = await fetchAndHydrateProjectFlow(projectId);
+      if (!flow) return;
+      setProjectDescriptionData(flow.projectDescription);
+      setSelectProjectData(flow.selectProject);
+      setProjectMeasurementData(flow.projectMeasurement);
+      setDraftProjectId(flow.projectId);
       navigate('selectProject');
     } catch (error) {
       console.error('Error loading project for add dimensions:', error);
@@ -584,9 +519,9 @@ const App: React.FC = () => {
   };
 
   const handleNewQuote = () => {
-    // Navigate to standalone quote flow
     clearStandaloneQuoteData();
     setEditingQuoteId(null);
+    ensureQuoteClientReference();
     navigate('quoteOverview');
   };
 
@@ -853,7 +788,10 @@ const App: React.FC = () => {
       console.log('[App] Creating quote with data:', backendQuoteData);
       
       // Create quote via API
-      const response = await quotesService.create(backendQuoteData);
+      const response = await quotesService.create({
+        ...backendQuoteData,
+        clientReference: ensureQuoteClientReference(),
+      });
       
       // Normalize and check response
       const normalizedResponse = normalizeApiResponse(response);
@@ -1040,7 +978,10 @@ const App: React.FC = () => {
               console.warn('[App] Quote not found (404), creating new quote instead');
               // Clear editingQuoteId and create new quote
               setEditingQuoteId(null);
-              response = await quotesService.create(backendQuoteData);
+              response = await quotesService.create({
+                ...backendQuoteData,
+                clientReference: ensureQuoteClientReference(),
+              });
             } else {
               throw new Error('Failed to update quote');
             }
@@ -1050,7 +991,10 @@ const App: React.FC = () => {
           if (updateError?.response?.status === 404 || updateError?.status === 404) {
             console.warn('[App] Quote not found (404), creating new quote instead');
             setEditingQuoteId(null);
-            response = await quotesService.create(backendQuoteData);
+            response = await quotesService.create({
+              ...backendQuoteData,
+              clientReference: ensureQuoteClientReference(),
+            });
           } else {
             // Re-throw other errors
             throw updateError;
@@ -1058,7 +1002,10 @@ const App: React.FC = () => {
         }
       } else {
         // Create new quote
-        response = await quotesService.create(backendQuoteData);
+        response = await quotesService.create({
+          ...backendQuoteData,
+          clientReference: ensureQuoteClientReference(),
+        });
       }
       
       if (isApiResponseSuccess(response)) {
@@ -1120,7 +1067,10 @@ const App: React.FC = () => {
               console.warn('[App] Quote not found (404), creating new quote instead');
               // Clear editingQuoteId and create new quote
               setEditingQuoteId(null);
-              response = await quotesService.create(backendQuoteData);
+              response = await quotesService.create({
+                ...backendQuoteData,
+                clientReference: ensureQuoteClientReference(),
+              });
             } else {
               throw new Error('Failed to update quote');
             }
@@ -1130,7 +1080,10 @@ const App: React.FC = () => {
           if (updateError?.response?.status === 404 || updateError?.status === 404) {
             console.warn('[App] Quote not found (404), creating new quote instead');
             setEditingQuoteId(null);
-            response = await quotesService.create(backendQuoteData);
+            response = await quotesService.create({
+              ...backendQuoteData,
+              clientReference: ensureQuoteClientReference(),
+            });
           } else {
             // Re-throw other errors
             throw updateError;
@@ -1138,7 +1091,10 @@ const App: React.FC = () => {
         }
       } else {
         // Create new quote
-        response = await quotesService.create(backendQuoteData);
+        response = await quotesService.create({
+          ...backendQuoteData,
+          clientReference: ensureQuoteClientReference(),
+        });
       }
       
       if (isApiResponseSuccess(response)) {
@@ -1233,6 +1189,7 @@ const App: React.FC = () => {
       
       const normalizedResponse = normalizeApiResponse(response);
       if (isApiResponseSuccess(normalizedResponse)) {
+        invalidateMaterialListsCache();
         setRefreshMaterialLists(prev => prev + 1);
         navigate('material-list');
       } else {
@@ -1257,6 +1214,7 @@ const App: React.FC = () => {
       try {
         await materialListsService.delete(numId);
         setSelectedMaterialListId(null);
+        invalidateMaterialListsCache();
         setRefreshMaterialLists(prev => prev + 1);
         navigate('material-list');
       } catch (error: any) {
@@ -1796,7 +1754,7 @@ const App: React.FC = () => {
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
             <ProjectsScreen 
-              key={refreshProjects}
+              refreshTrigger={refreshProjects}
               onNewProject={handleNewProject} 
               onBack={() => navigate('home')}
               onViewProject={handleViewProject}

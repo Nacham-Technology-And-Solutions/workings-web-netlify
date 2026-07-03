@@ -29,6 +29,7 @@ interface QuoteState {
   } | null;
   estimationDraft: EstimationDraft | null;
   editingQuoteId: string | null;
+  quoteClientReference: string | null;
 
   setGeneratedQuote: (quote: QuotePreviewData | null) => void;
   setSelectedQuoteId: (id: string | null) => void;
@@ -42,16 +43,19 @@ interface QuoteState {
   updateEstimationDraftMargin: (marginPercent: number, adjustedItems: QuoteItemRow[]) => void;
   clearEstimationDraft: () => void;
   setEditingQuoteId: (id: string | null) => void;
+  ensureQuoteClientReference: () => string;
+  clearQuoteClientReference: () => void;
 }
 
 export const useQuoteStore = create<QuoteState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       generatedQuote: null,
       selectedQuoteId: null,
       standaloneQuoteData: null,
       estimationDraft: null,
       editingQuoteId: null,
+      quoteClientReference: null,
 
       setGeneratedQuote: (quote) => set({ generatedQuote: quote }),
       setSelectedQuoteId: (id) => set({ selectedQuoteId: id }),
@@ -78,7 +82,8 @@ export const useQuoteStore = create<QuoteState>()(
         if (projectData) updated.projectData = projectData;
         return { standaloneQuoteData: updated };
       }),
-      clearStandaloneQuoteData: () => set({ standaloneQuoteData: null, estimationDraft: null }),
+      clearStandaloneQuoteData: () =>
+        set({ standaloneQuoteData: null, estimationDraft: null, quoteClientReference: null }),
       setEstimationDraft: (draft) => set({ estimationDraft: draft }),
       updateEstimationDraftMargin: (marginPercent, adjustedItems) =>
         set((state) => {
@@ -101,6 +106,14 @@ export const useQuoteStore = create<QuoteState>()(
         }),
       clearEstimationDraft: () => set({ estimationDraft: null }),
       setEditingQuoteId: (id) => set({ editingQuoteId: id }),
+      ensureQuoteClientReference: () => {
+        const existing = get().quoteClientReference;
+        if (existing) return existing;
+        const ref = crypto.randomUUID();
+        set({ quoteClientReference: ref });
+        return ref;
+      },
+      clearQuoteClientReference: () => set({ quoteClientReference: null }),
     }),
     {
       name: 'quote-storage',
@@ -110,6 +123,7 @@ export const useQuoteStore = create<QuoteState>()(
         standaloneQuoteData: state.standaloneQuoteData,
         estimationDraft: state.estimationDraft,
         editingQuoteId: state.editingQuoteId,
+        quoteClientReference: state.quoteClientReference,
       }),
     }
   )

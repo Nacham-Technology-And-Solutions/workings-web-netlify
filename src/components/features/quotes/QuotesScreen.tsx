@@ -1,12 +1,13 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { sampleQuotes } from '@/constants';
 import QuoteCard from '@/components/features/quotes/QuoteCard';
 import { PlusIcon, ChevronLeftIcon, SearchIcon, CloseIcon } from '@/assets/icons/IconComponents';
 import EmptyState from '@/components/common/EmptyState';
 import type { Quote } from '@/types';
 import { quotesService } from '@/services/api';
-import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
+import { normalizeApiResponse, isApiResponseSuccess } from '@/utils/apiResponseHelper';
+import { useQuotesQuery } from '@/hooks/useListQueries';
 
 interface QuotesScreenProps {
     onNewQuote: () => void;
@@ -21,82 +22,16 @@ type Tab = 'All' | 'Draft' | 'Paid' | 'Unpaid';
 
 const tabs: Tab[] = ['All', 'Draft', 'Paid', 'Unpaid'];
 
-const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, onEditQuote, onDeleteQuote, onBack, refreshTrigger }) => {
+const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, onEditQuote, onDeleteQuote, onBack, refreshTrigger = 0 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('All');
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Transform backend quote to frontend Quote format
-  const transformBackendQuote = (backendQuote: any): Quote => {
-    // Map backend status to frontend status
-    const statusMap: Record<string, Quote['status']> = {
-      'draft': 'Draft',
-      'sent': 'Sent',
-      'paid': 'Paid',
-      'unpaid': 'Unpaid',
-    };
-
-    return {
-      id: backendQuote.id.toString(),
-      quoteNumber: backendQuote.quoteNumber || `Q-${backendQuote.id}`,
-      projectName: backendQuote.project?.projectName || 'Standalone Quote',
-      customerName: backendQuote.customerName,
-      status: statusMap[backendQuote.status] || 'Draft',
-      total: backendQuote.total || 0,
-      issueDate: new Date(backendQuote.createdAt).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      }),
-    };
-  };
-
-  // Fetch quotes from API
-  const fetchQuotes = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Determine quoteType based on active tab
-      // For now, fetch all quotes and filter client-side
-      const response = await quotesService.list(1, 100);
-
-      const normalizedResponse = normalizeApiResponse(response);
-
-      if (isApiResponseSuccess(response)) {
-        const responseData = getApiResponseData(response) as any;
-        // Handle both response.quotes (list response) and direct array
-        const quotesList = responseData?.quotes || (Array.isArray(responseData) ? responseData : []);
-
-        // Transform backend quotes to frontend format
-        const transformedQuotes = Array.isArray(quotesList)
-          ? quotesList.map(transformBackendQuote)
-          : [];
-
-        setQuotes(transformedQuotes);
-        console.log('[QuotesScreen] Quotes loaded:', transformedQuotes.length, 'from', quotesList.length, 'backend quotes');
-      } else {
-        setError('Failed to load quotes');
-        // Fallback to empty array
-        setQuotes([]);
-      }
-    } catch (err: any) {
-      console.error('[QuotesScreen] Error fetching quotes:', err);
-      setError('Failed to load quotes. Please try again.');
-      // Fallback to empty array
-      setQuotes([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch quotes on mount and when refreshTrigger changes
-  useEffect(() => {
-    fetchQuotes();
-  }, [refreshTrigger]); // Refetch when refreshTrigger changes
+  const { data: quotes = [], isLoading, error: queryError, refetch } = useQuotesQuery(refreshTrigger);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const error =
+    deleteError ||
+    (queryError instanceof Error ? queryError.message : queryError ? 'Failed to load quotes. Please try again.' : null);
 
   const filteredQuotes = useMemo(() => {
     let result = quotes;
@@ -168,7 +103,7 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
     try {
       const quoteIdNum = parseInt(quote.id, 10);
       if (isNaN(quoteIdNum)) {
-        setError('Invalid quote ID');
+        setDeleteError('Invalid quote ID');
         return;
       }
 
@@ -177,16 +112,15 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
       const normalizedResponse = normalizeApiResponse(response);
       
       if (normalizedResponse.success || isApiResponseSuccess(response)) {
-        // Refresh quotes list
-        fetchQuotes();
-        // Also call the callback if provided
+        setDeleteError(null);
+        void refetch();
         onDeleteQuote(quote.id);
       } else {
-        setError(normalizedResponse.message || 'Failed to delete quote');
+        setDeleteError(normalizedResponse.message || 'Failed to delete quote');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting quote:', err);
-      setError('Failed to delete quote. Please try again.');
+      setDeleteError('Failed to delete quote. Please try again.');
     }
   };
 
@@ -264,7 +198,7 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
                         <p className="text-red-800">{error}</p>
                     </div>
                     <button
-                        onClick={fetchQuotes}
+                        onClick={() => void refetch()}
                         className="mt-3 text-sm text-red-600 hover:text-red-800 underline"
                     >
                         Try again

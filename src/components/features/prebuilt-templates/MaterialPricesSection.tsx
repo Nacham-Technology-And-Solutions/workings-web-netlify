@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
-import { estimationService } from '@/services/api/estimation.service';
-import type { MaterialCatalogItem } from '@/types/estimation';
 import type { MaterialPrice } from '@/types/templates';
 import * as XLSX from 'xlsx';
 import {
@@ -32,6 +30,9 @@ const MaterialPricesSection: React.FC = () => {
   const {
     materialPrices,
     isLoadingMaterialPrices,
+    materialCatalogItems,
+    isLoadingCatalog,
+    loadMaterialCatalog,
     loadMaterialPrices,
     addMaterialPrice,
     updateMaterialPrice,
@@ -48,27 +49,16 @@ const MaterialPricesSection: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [catalogItems, setCatalogItems] = useState<MaterialCatalogItem[]>([]);
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const isFirstFetch = useRef(true);
 
-  const loadCatalog = useCallback(async () => {
-    setIsLoadingCatalog(true);
-    setCatalogError(null);
-    try {
-      const response = await estimationService.getMaterialCatalog();
-      setCatalogItems(response.response.items);
-    } catch {
-      setCatalogError('Could not load the material catalog. Refresh the page to try again.');
-    } finally {
-      setIsLoadingCatalog(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadCatalog();
-  }, [loadCatalog]);
+    void loadMaterialCatalog().catch(() => {
+      setCatalogError('Could not load the material catalog. Refresh the page to try again.');
+    });
+  }, [loadMaterialCatalog]);
+
+  const catalogItems = materialCatalogItems;
 
   useEffect(() => {
     const delay = isFirstFetch.current ? 0 : 300;

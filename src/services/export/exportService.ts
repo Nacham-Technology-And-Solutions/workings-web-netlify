@@ -12,7 +12,7 @@ import {
   pdfAutoTableUnicodeHooks,
 } from '@/utils/pdfFonts';
 import { formatNairaForPdf } from '@/utils/formatters';
-import type { GlassPlacement } from '@/types/calculations';
+import type { GlassPlacement, NetListCut } from '@/types/calculations';
 import type { DimensionItem } from '@/types/project';
 import { SLIDING_SASH_OPTIONS, isSlidingGlazingType } from '@/utils/slidingWindow';
 
@@ -1536,6 +1536,169 @@ export const exportGlassCuttingListToExcel = (
 
   // Save file
   XLSX.writeFile(wb, `Glass-Cutting-List-${projectName.replace(/\s+/g, '-')}.xlsx`);
+};
+
+export interface NetCuttingListExportData {
+  cuts: NetListCut[];
+  totalPanes: number;
+  rollType?: string;
+  totalRolls?: number;
+  totalAreaM2?: number;
+  requiredLengthM?: number;
+  purchaseSummary?: string;
+}
+
+function sortedNetCuts(cuts: NetListCut[]): NetListCut[] {
+  return [...cuts].sort((a, b) => b.w * b.h - a.w * a.h);
+}
+
+function netCuttingFileBase(projectName: string): string {
+  return `Net-Cutting-List-${projectName.replace(/\s+/g, '-')}`;
+}
+
+export const exportNetCuttingListToCSV = (
+  data: NetCuttingListExportData,
+  projectName: string
+) => {
+  const date = new Date().toLocaleDateString();
+  const lines: string[] = [
+    ['Project', projectName].map(escapeCsvCell).join(','),
+    ['Date', date].map(escapeCsvCell).join(','),
+    ['Total panes', data.totalPanes].map(escapeCsvCell).join(','),
+  ];
+  if (data.rollType) {
+    lines.push(['Roll type', data.rollType].map(escapeCsvCell).join(','));
+  }
+  if (data.totalRolls != null) {
+    lines.push(['Total rolls', data.totalRolls].map(escapeCsvCell).join(','));
+  }
+  if (data.purchaseSummary) {
+    lines.push(['Purchase', data.purchaseSummary].map(escapeCsvCell).join(','));
+  }
+  if (data.totalAreaM2 != null) {
+    lines.push(['Total area (m²)', data.totalAreaM2.toFixed(2)].map(escapeCsvCell).join(','));
+  }
+  if (data.requiredLengthM != null) {
+    lines.push(['Required length (m)', data.requiredLengthM.toFixed(2)].map(escapeCsvCell).join(','));
+  }
+  lines.push('');
+  lines.push(['Width (mm)', 'Height (mm)', 'Qty'].map(escapeCsvCell).join(','));
+  sortedNetCuts(data.cuts).forEach((cut) => {
+    lines.push([cut.w, cut.h, cut.qty].map(escapeCsvCell).join(','));
+  });
+
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${netCuttingFileBase(projectName)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportNetCuttingListToExcel = (
+  data: NetCuttingListExportData,
+  projectName: string
+) => {
+  const wsData: (string | number)[][] = [
+    ['Net Cutting List'],
+    [],
+    ['Project:', projectName],
+    ['Date:', new Date().toLocaleDateString()],
+    ['Total panes:', data.totalPanes],
+  ];
+  if (data.rollType) wsData.push(['Roll type:', data.rollType]);
+  if (data.totalRolls != null) wsData.push(['Total rolls:', data.totalRolls]);
+  if (data.purchaseSummary) wsData.push(['Purchase:', data.purchaseSummary]);
+  if (data.totalAreaM2 != null) wsData.push(['Total area (m²):', data.totalAreaM2.toFixed(2)]);
+  if (data.requiredLengthM != null) wsData.push(['Required length (m):', data.requiredLengthM.toFixed(2)]);
+  wsData.push([], ['Width (mm)', 'Height (mm)', 'Qty']);
+  sortedNetCuts(data.cuts).forEach((cut) => {
+    wsData.push([cut.w, cut.h, cut.qty]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Net Cutting List');
+  XLSX.writeFile(wb, `${netCuttingFileBase(projectName)}.xlsx`);
+};
+
+export const exportNetCuttingListToPDF = async (
+  data: NetCuttingListExportData,
+  projectName: string,
+  cover?: ProjectExportCoverInfo
+) => {
+  const logo = await getPdfAppLogo();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const docWithTable = doc as { lastAutoTable?: { finalY: number } };
+
+  if (cover?.rows?.length) {
+    drawProjectCartCoverPage(doc, 'NET CUTTING LIST', {
+      ...cover,
+      projectName: cover.projectName || projectName,
+    }, logo);
+    doc.addPage();
+  }
+
+  let startY = 20;
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(55, 65, 81);
+  doc.text('NET CUTTING LIST', margin, startY);
+  if (!cover?.rows?.length) {
+    drawPdfHeaderLogo(doc, pageW, margin, startY, logo);
+  }
+  startY += 14;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Project: ${projectName}`, margin, startY);
+  startY += 6;
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, startY);
+  startY += 6;
+  doc.text(`Total panes: ${data.totalPanes}`, margin, startY);
+  startY += 6;
+  if (data.rollType) {
+    doc.text(`Roll type: ${data.rollType}`, margin, startY);
+    startY += 6;
+  }
+  if (data.totalRolls != null) {
+    doc.text(`Total rolls: ${data.totalRolls}`, margin, startY);
+    startY += 6;
+  }
+  if (data.purchaseSummary) {
+    doc.text(`Purchase: ${data.purchaseSummary}`, margin, startY);
+    startY += 6;
+  }
+  if (data.totalAreaM2 != null) {
+    doc.text(`Total area: ${data.totalAreaM2.toFixed(2)} m²`, margin, startY);
+    startY += 6;
+  }
+  if (data.requiredLengthM != null) {
+    doc.text(`Required length: ${data.requiredLengthM.toFixed(2)} m`, margin, startY);
+    startY += 6;
+  }
+  startY += 4;
+
+  autoTable(doc, {
+    startY,
+    head: [['Width (mm)', 'Height (mm)', 'Qty']],
+    body: sortedNetCuts(data.cuts).map((cut) => [
+      cut.w.toLocaleString(),
+      cut.h.toLocaleString(),
+      String(cut.qty),
+    ]),
+    theme: 'striped',
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [55, 65, 81], fontStyle: 'bold' },
+    margin: { left: margin, right: margin },
+  });
+
+  applyPdfWatermarks(doc, logo);
+  doc.save(`${netCuttingFileBase(projectName)}.pdf`);
 };
 
 export const shareData = async (

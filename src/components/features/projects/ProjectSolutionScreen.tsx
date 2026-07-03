@@ -19,12 +19,19 @@ import {
   exportGlassCuttingListToPDF,
   exportGlassCuttingListToExcel,
   exportGlassCuttingListToCSV,
+  exportNetCuttingListToPDF,
+  exportNetCuttingListToExcel,
+  exportNetCuttingListToCSV,
   buildProjectCartExportRows,
   shareData,
   type ProjectExportCoverInfo,
 } from '@/services/export/exportService';
 import { projectsService } from '@/services/api';
 import { createProjectData, validateGlazingDimensions } from '@/utils/dataTransformers';
+import { useEstimationStore } from '@/stores/estimationStore';
+import { ESTIMATION_PRICE_FILL_STORAGE_KEY } from '@/utils/estimationQuoteMappers';
+import type { PriceFillSource } from '@/types/estimation';
+import type { ProjectCalculateResponse } from '@/services/api/projects.service';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
 import {
@@ -50,6 +57,15 @@ function serializePlanArrayValue(raw: string[] | CuttingPlanPiece[]): string {
       .join(',');
   }
   return [...(raw as string[])].sort().join(',');
+}
+
+function readStoredFillSource(): PriceFillSource {
+  if (typeof window === 'undefined') return 'last_used';
+  const stored = localStorage.getItem(ESTIMATION_PRICE_FILL_STORAGE_KEY);
+  if (stored === 'system' || stored === 'user_library' || stored === 'last_used') {
+    return stored;
+  }
+  return 'last_used';
 }
 
 /** Stable signature so identical backend plan rows merge into one layout card. */
@@ -160,7 +176,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   const [glassElementFilter, setGlassElementFilter] = useState<string>('all');
   
   // Export dropdown states
-  const [showExportDropdown, setShowExportDropdown] = useState<'material' | 'cutting' | 'glass' | null>(null);
+  const [showExportDropdown, setShowExportDropdown] = useState<'material' | 'cutting' | 'glass' | 'net' | null>(null);
   /** Mobile: filters panel open (All Profiles / All elements behind a button) */
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   /** Cutting list: full-screen expanded card { profileIndex (in filtered list), layoutIndex } */
@@ -368,12 +384,16 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       }
 
       // Step 2: Call project calculate (uses stored glazingDimensions; results are saved on the project)
-      const calcResponse = await projectsService.calculate(projectId);
-      const calcData = getApiResponseData(calcResponse) as {
-        calculationResult: { result: Record<string, unknown> };
-        pointsDeducted?: number;
-        balanceAfter?: number;
-      };
+      const priceFillSource = readStoredFillSource();
+      const calcResponse = await projectsService.calculate(projectId, {
+        includePriceFill: true,
+        priceFillSource,
+      });
+      const calcData = getApiResponseData(calcResponse) as ProjectCalculateResponse;
+
+      if (calcData?.estimationBootstrap) {
+        useEstimationStore.getState().seedFromBootstrap(calcData.estimationBootstrap);
+      }
 
       const calculationData = calcData?.calculationResult?.result;
       const points = calcData?.pointsDeducted ?? null;
@@ -700,6 +720,35 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
     setShowExportDropdown(null);
   };
 
+  const handleExportNetCuttingList = (format: 'pdf' | 'excel' | 'csv') => {
+    const netList = calculationResult?.netList;
+    if (!netList?.cuts?.length || !previousData?.projectDescription) return;
+
+    const projectName = previousData.projectDescription.projectName || 'Project';
+    const exportData = {
+      cuts: netList.cuts,
+      totalPanes: netPaneCount,
+      rollType: netList.roll_type,
+      totalRolls: netList.total_rolls,
+      totalAreaM2: netList.total_area_m2,
+      requiredLengthM: netList.required_length_m,
+      purchaseSummary:
+        netRollItems.length > 0
+          ? netRollItems.map((r) => `${r.name} (${r.quantity} ${r.unit})`).join(', ')
+          : undefined,
+    };
+
+    if (format === 'pdf') {
+      void exportNetCuttingListToPDF(exportData, projectName, buildExportCover());
+    } else if (format === 'csv') {
+      exportNetCuttingListToCSV(exportData, projectName);
+    } else {
+      exportNetCuttingListToExcel(exportData, projectName);
+    }
+
+    setShowExportDropdown(null);
+  };
+
   // Initialize quantities from items when calculation result changes
   useEffect(() => {
     if (!materialSections) return;
@@ -865,6 +914,41 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                       </button>
                       <button
                         onClick={() => handleExportGlassCuttingList('excel')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg border-t border-gray-100"
+                      >
+                        Export as Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
+                )}
+                {activeTab === 'net' && showNetTab && (
+                <div className="relative export-dropdown-container">
+                  <button
+                    onClick={() => setShowExportDropdown(showExportDropdown === 'net' ? null : 'net')}
+                    className="flex items-center gap-2 px-6 py-3 font-semibold rounded transition-colors bg-gray-900 text-white hover:bg-gray-800"
+                  >
+                    <span>Export Net List</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {showExportDropdown === 'net' && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <button
+                        onClick={() => handleExportNetCuttingList('pdf')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        onClick={() => handleExportNetCuttingList('csv')}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 border-t border-gray-100"
+                      >
+                        Export as CSV
+                      </button>
+                      <button
+                        onClick={() => handleExportNetCuttingList('excel')}
                         className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg border-t border-gray-100"
                       >
                         Export as Excel
@@ -1969,6 +2053,26 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   <button onClick={() => handleExportGlassCuttingList('pdf')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg">Export as PDF</button>
                   <button onClick={() => handleExportGlassCuttingList('csv')} className="w-full text-left px-4 py-2 hover:bg-gray-50 border-t border-gray-100">Export as CSV</button>
                   <button onClick={() => handleExportGlassCuttingList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg border-t border-gray-100">Export as Excel</button>
+                </div>
+              )}
+            </div>
+          )}
+          {activeTab === 'net' && showNetTab && (
+            <div className="relative export-dropdown-container">
+              <button
+                onClick={() => setShowExportDropdown(showExportDropdown === 'net' ? null : 'net')}
+                className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800"
+              >
+                <span>Export Net List</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+              {showExportDropdown === 'net' && (
+                <div className="absolute left-0 right-0 bottom-full mb-2 py-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <button onClick={() => handleExportNetCuttingList('pdf')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-t-lg">Export as PDF</button>
+                  <button onClick={() => handleExportNetCuttingList('csv')} className="w-full text-left px-4 py-2 hover:bg-gray-50 border-t border-gray-100">Export as CSV</button>
+                  <button onClick={() => handleExportNetCuttingList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg border-t border-gray-100">Export as Excel</button>
                 </div>
               )}
             </div>

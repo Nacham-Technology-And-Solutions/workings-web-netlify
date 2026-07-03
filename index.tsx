@@ -1,8 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './src/app/App';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
+import { queryClient } from './src/lib/queryClient';
 import * as serviceWorkerRegistration from './src/utils/serviceWorkerRegistration';
 import './src/styles/index.css';
 
@@ -15,7 +17,11 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
-const appTree = <App />;
+const appTree = (
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>
+);
 
 root.render(
   <React.StrictMode>

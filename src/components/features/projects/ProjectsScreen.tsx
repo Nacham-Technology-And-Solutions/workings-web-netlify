@@ -1,12 +1,11 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import ProjectCard from '@/components/features/projects/ProjectCard';
 import { ChevronLeftIcon, PlusIcon, SearchIcon, CloseIcon } from '@/assets/icons/IconComponents';
 import { projectsService } from '@/services/api';
-import type { Project as ApiProject } from '@/services/api/projects.service';
 import type { Project, ProjectStatus } from '@/types';
-import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse } from '@/utils/apiResponseHelper';
 import ErrorMessage from '@/components/common/ErrorMessage';
+import { useProjectsQuery } from '@/hooks/useListQueries';
 
 interface ProjectsScreenProps {
   onNewProject?: () => void;
@@ -15,33 +14,12 @@ interface ProjectsScreenProps {
   onEditProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
   onCalculateProject?: (projectId: string) => void;
+  refreshTrigger?: number;
 }
 
 type Tab = 'All' | 'Draft' | 'Completed';
 
 const tabs: Tab[] = ['All', 'Draft', 'Completed'];
-
-// Map API Project status to frontend ProjectStatus
-const mapApiStatusToFrontend = (status: ApiProject['status']): ProjectStatus => {
-  const statusMap: Record<ApiProject['status'], ProjectStatus> = {
-    'draft': 'Draft',
-    'calculated': 'Completed',
-    'archived': 'On Hold',
-  };
-  return statusMap[status] || 'Draft';
-};
-
-// Transform API Project to frontend Project format
-const transformApiProject = (apiProject: ApiProject): Project => {
-  return {
-    id: apiProject.id.toString(),
-    name: apiProject.projectName,
-    address: apiProject.siteAddress,
-    status: mapApiStatusToFrontend(apiProject.status),
-    lastUpdated: apiProject.updatedAt || apiProject.createdAt,
-    projectId: `#${String(apiProject.id).padStart(6, '0')}`,
-  };
-};
 
 const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   onNewProject,
@@ -50,145 +28,29 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   onEditProject,
   onDeleteProject,
   onCalculateProject,
+  refreshTrigger = 0,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('All');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Helper to safely set error message (always ensures it's a string)
-  const setErrorMessage = (err: unknown) => {
-    if (typeof err === 'string') {
-      setError(err);
-    } else if (err && typeof err === 'object' && 'message' in err) {
-      const msg = (err as { message: unknown }).message;
-      setError(typeof msg === 'string' ? msg : 'An unexpected error occurred');
-    } else {
-      const errorMessage = extractErrorMessage(err);
-      setError(typeof errorMessage.message === 'string'
-        ? errorMessage.message
-        : 'An unexpected error occurred');
-    }
-  };
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<ProjectStatus[]>([]);
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [quickFilter, setQuickFilter] = useState<'all' | 'recent' | 'this-month'>('all');
+  const [serverSearch, setServerSearch] = useState<string | undefined>(undefined);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Track if a request is in progress to prevent duplicates (React StrictMode double-rendering)
-  const requestInProgressRef = useRef(false);
-
-  // Fetch projects from API
-  const fetchProjects = useCallback(async (search?: string) => {
-    // Prevent duplicate concurrent requests (React StrictMode causes double renders in dev)
-    if (requestInProgressRef.current) {
-      console.warn('[ProjectsScreen] Request already in progress, skipping duplicate');
-      return;
-    }
-
-    requestInProgressRef.current = true;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Check if user is authenticated before making request
-      const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) {
-        // No token - redirect will happen via API interceptor, don't show error
-        setIsLoading(false);
-        requestInProgressRef.current = false;
-        return;
-      }
-
-      const response = await projectsService.list(1, 50, search);
-
-      // Normalize the API response - handle both formats
-      const normalizedResponse = normalizeApiResponse(response);
-
-      if (normalizedResponse.success) {
-        const responseData = normalizedResponse.response;
-
-        // Handle different response structures
-        // API returns: { projects: [...], pagination: {...} }
-        // Or: { projects: [...], total: ..., page: ..., limit: ... }
-        let projectsArray: any[] = [];
-
-        if (responseData && (responseData as any).projects && Array.isArray((responseData as any).projects)) {
-          // Standard format: { projects: [...], pagination: {...} }
-          projectsArray = (responseData as any).projects;
-        } else if (Array.isArray(responseData)) {
-          // Sometimes the response might be the array directly
-          projectsArray = responseData;
-        } else {
-          // Invalid format
-          setError('Invalid response format from server');
-          return;
-        }
-
-        // Transform and set projects (empty array is valid - means no projects)
-        const transformedProjects = projectsArray.map(transformApiProject);
-        setProjects(transformedProjects);
-      } else {
-        // Ensure message is always a string
-        const errorMsg = normalizedResponse.message || 'Failed to load projects';
-        setError(errorMsg);
-      }
-    } catch (err: any) {
-      // Don't show 401/403 or auth redirect errors - they trigger refresh or redirect to login
-      if (err?.response?.status === 401 ||
-        err?.response?.status === 403 ||
-        err?.message?.includes('401') ||
-        err?.message?.includes('403') ||
-        err?.isAuthError ||
-        err?.redirecting) {
-        // Auth/session error - API interceptor handles refresh or session-expired modal
-        setIsLoading(false);
-        return;
-      }
-
-      setErrorMessage(err);
-      console.error('Error fetching projects:', err);
-    } finally {
-      setIsLoading(false);
-      requestInProgressRef.current = false;
-    }
-  }, []);
-
-  // Load projects on mount and when search changes
-  useEffect(() => {
-    let isMounted = true;
-    let abortController: AbortController | null = null;
-
-    const loadProjects = async () => {
-      // Prevent duplicate requests
-      if (abortController) {
-        abortController.abort();
-      }
-      abortController = new AbortController();
-
-      try {
-        await fetchProjects();
-      } catch (error) {
-        // Ignore abort errors
-        if (error instanceof Error && error.name !== 'AbortError' && isMounted) {
-          console.error('Error loading projects:', error);
-        }
-      }
-    };
-
-    loadProjects();
-
-    return () => {
-      isMounted = false;
-      if (abortController) {
-        abortController.abort();
-      }
-    };
-    // Only run on mount, not when fetchProjects changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { data: projects = [], isLoading, error: queryError, refetch } = useProjectsQuery(
+    refreshTrigger,
+    serverSearch
+  );
+  const error =
+    deleteError ||
+    (queryError instanceof Error
+      ? queryError.message
+      : queryError
+        ? 'An unexpected error occurred'
+        : null);
 
   // Load search history from localStorage
   useEffect(() => {
@@ -276,9 +138,9 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   const handleSearchSubmit = () => {
     if (searchQuery.trim()) {
       saveSearchToHistory(searchQuery);
-      fetchProjects(searchQuery.trim());
+      setServerSearch(searchQuery.trim());
     } else {
-      fetchProjects();
+      setServerSearch(undefined);
     }
   };
 
@@ -288,6 +150,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
 
   const resetFilters = () => {
     setSearchQuery('');
+    setServerSearch(undefined);
     setSelectedStatuses([]);
     setDateRange({ start: '', end: '' });
     setQuickFilter('all');
@@ -301,24 +164,21 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
     try {
       const projectIdNum = parseInt(project.id, 10);
       if (isNaN(projectIdNum)) {
-        setError('Invalid project ID');
+        setDeleteError('Invalid project ID');
         return;
       }
 
       const response = await projectsService.delete(projectIdNum);
-
-      // Normalize API response (backend doesn't send success field)
-      // If we get here without an error, the delete was successful
       const normalizedResponse = normalizeApiResponse(response);
 
       if (normalizedResponse.success) {
-        // Refresh projects list
-        fetchProjects(searchQuery || undefined);
+        setDeleteError(null);
+        await refetch();
       } else {
-        setError(normalizedResponse.message || 'Failed to delete project');
+        setDeleteError(normalizedResponse.message || 'Failed to delete project');
       }
     } catch (err) {
-      setErrorMessage(err);
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete project');
       console.error('Error deleting project:', err);
     }
   };
@@ -432,7 +292,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
           <div className="max-w-7xl lg:mx-auto">
             <ErrorMessage
               message={typeof error === 'string' ? error : 'An unexpected error occurred'}
-              onDismiss={() => setError(null)}
+              onDismiss={() => setDeleteError(null)}
             />
           </div>
         </div>

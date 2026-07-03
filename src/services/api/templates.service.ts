@@ -140,6 +140,8 @@ export const templatesService = {
   getMaterialPrices: async (params?: {
     category?: string;
     search?: string;
+    enrich?: boolean;
+    autoMigrate?: boolean;
   }): Promise<MaterialPrice[]> => {
     try {
       const qs = new URLSearchParams();
@@ -149,10 +151,10 @@ export const templatesService = {
       if (params?.search?.trim()) {
         qs.append('search', params.search.trim());
       }
+      qs.set('enrich', String(params?.enrich !== false));
+      qs.set('autoMigrate', String(params?.autoMigrate !== false));
       const query = qs.toString();
-      const url = query
-        ? `/api/v1/templates/material-prices?${query}`
-        : '/api/v1/templates/material-prices';
+      const url = `/api/v1/templates/material-prices?${query}`;
       const response = await apiClient.get<ApiResponse<{ materialPrices: MaterialPrice[] }>>(url);
       const rows = response.data.response.materialPrices ?? [];
       return rows.map((row) => normalizeMaterialPrice(row));

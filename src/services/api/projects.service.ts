@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 import type { ProjectData, GlazingDimension } from '@/types/project';
 import type { CalculationResult, CalculationSettings } from '@/types/calculations';
+import type { EstimationBootstrap, PriceFillSource } from '@/types/estimation';
 
 export interface Project {
   id: number;
@@ -21,6 +22,8 @@ export interface Project {
   status: 'draft' | 'calculated' | 'archived';
   createdAt: string;
   updatedAt: string;
+  materialListId?: number | null;
+  hasMaterialList?: boolean;
 }
 
 export interface CreateProjectRequest {
@@ -82,6 +85,7 @@ export interface ProjectCalculateResponse {
   };
   pointsDeducted?: number;
   balanceAfter?: number;
+  estimationBootstrap?: EstimationBootstrap;
 }
 
 // Projects Service
@@ -137,9 +141,20 @@ export const projectsService = {
    * Run calculation on a project. Uses stored glazingDimensions and calculationSettings.
    * Results are saved to the project and returned. GET project will include lastCalculationResult.
    */
-  calculate: async (projectId: number): Promise<ApiResponse<ProjectCalculateResponse>> => {
+  calculate: async (
+    projectId: number,
+    options?: { includePriceFill?: boolean; priceFillSource?: PriceFillSource }
+  ): Promise<ApiResponse<ProjectCalculateResponse>> => {
+    const params = new URLSearchParams();
+    if (options?.includePriceFill) {
+      params.set('includePriceFill', 'true');
+      if (options.priceFillSource) {
+        params.set('priceFillSource', options.priceFillSource);
+      }
+    }
+    const query = params.toString();
     const response = await apiClient.post<ApiResponse<ProjectCalculateResponse>>(
-      `/api/v1/projects/${projectId}/calculate`,
+      `/api/v1/projects/${projectId}/calculate${query ? `?${query}` : ''}`,
       {}
     );
     return response.data;
