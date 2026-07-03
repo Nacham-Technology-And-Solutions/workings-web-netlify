@@ -6,6 +6,8 @@ export interface QuoteFormatConfig {
   header: {
     logoSource?: 'company' | 'custom' | 'none';
     logoUrl?: string;
+    logoSize?: 'small' | 'medium' | 'large';
+    logoPosition?: 'top-left' | 'top-center' | 'top-right';
     companyName: string;
     tagline?: string;
     alignment: 'left' | 'center' | 'right';

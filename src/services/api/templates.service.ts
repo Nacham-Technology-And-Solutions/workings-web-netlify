@@ -13,6 +13,7 @@ import {
   mergeMaterialPriceResponse,
   normalizeMaterialPrice,
 } from '@/utils/materialPriceHelpers';
+import { sanitizeTemplateConfigForApi } from '@/utils/templateConfigSanitizer';
 
 export interface TemplateConfig {
   quoteFormat: QuoteFormatConfig;
@@ -62,7 +63,8 @@ export const templatesService = {
    */
   saveTemplates: async (config: TemplateConfig): Promise<boolean> => {
     try {
-      await apiClient.put<ApiResponse<{ success: boolean }>>('/api/v1/templates', config);
+      const payload = sanitizeTemplateConfigForApi(config);
+      await apiClient.put<ApiResponse<{ success: boolean }>>('/api/v1/templates', payload);
       return true;
     } catch (error: any) {
       // Fallback to localStorage (handled by persist middleware)

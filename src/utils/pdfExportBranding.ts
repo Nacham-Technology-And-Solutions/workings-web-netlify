@@ -196,3 +196,32 @@ export function migrateQuoteFormatLogoSource(
   if (header.logoUrl) return 'custom';
   return 'none';
 }
+
+type LegacyPdfQuoteLogo = {
+  enabled?: boolean;
+  size?: 'small' | 'medium' | 'large';
+  position?: 'top-left' | 'top-center' | 'top-right';
+};
+
+export function migrateQuoteFormatLogoPlacement<
+  T extends {
+    header: {
+      logoSource?: 'company' | 'custom' | 'none';
+      logoSize?: 'small' | 'medium' | 'large';
+      logoPosition?: 'top-left' | 'top-center' | 'top-right';
+    };
+  },
+>(quoteFormat: T, legacyPdfLogo?: LegacyPdfQuoteLogo): T {
+  return {
+    ...quoteFormat,
+    header: {
+      ...quoteFormat.header,
+      logoSize: quoteFormat.header.logoSize ?? legacyPdfLogo?.size ?? 'medium',
+      logoPosition: quoteFormat.header.logoPosition ?? legacyPdfLogo?.position ?? 'top-right',
+    },
+  };
+}
+
+export function isQuoteLogoEnabled(logoSource?: 'company' | 'custom' | 'none'): boolean {
+  return (logoSource ?? 'none') !== 'none';
+}

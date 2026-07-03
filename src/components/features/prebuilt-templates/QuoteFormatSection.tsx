@@ -65,6 +65,9 @@ const QuoteFormatSection: React.FC = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Export Logo</label>
+            <p className="text-xs text-gray-500 mb-3">
+              Controls the logo on quote PDFs. Size and position apply when a company or custom logo is selected.
+            </p>
             <div className="flex flex-wrap gap-4 mb-4">
               {([
                 { id: 'company' as const, label: 'Company logo' },
@@ -136,6 +139,48 @@ const QuoteFormatSection: React.FC = () => {
               <img src={logoPreview} alt="Company logo" className="h-20 w-auto object-contain" />
             ) : (
               <p className="text-sm text-gray-500">No logo will appear on exports. Company name may be used instead.</p>
+            )}
+            {logoSource !== 'none' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Logo Size</label>
+                  <select
+                    value={quoteFormat.header.logoSize ?? 'medium'}
+                    onChange={(e) =>
+                      updateQuoteFormat({
+                        header: {
+                          ...quoteFormat.header,
+                          logoSize: e.target.value as 'small' | 'medium' | 'large',
+                        },
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Logo Position</label>
+                  <select
+                    value={quoteFormat.header.logoPosition ?? 'top-right'}
+                    onChange={(e) =>
+                      updateQuoteFormat({
+                        header: {
+                          ...quoteFormat.header,
+                          logoPosition: e.target.value as 'top-left' | 'top-center' | 'top-right',
+                        },
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  >
+                    <option value="top-left">Top Left</option>
+                    <option value="top-center">Top Center</option>
+                    <option value="top-right">Top Right</option>
+                  </select>
+                </div>
+              </div>
             )}
           </div>
           <div>

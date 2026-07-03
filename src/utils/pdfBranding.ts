@@ -7,6 +7,15 @@ const WATERMARK_MAX_H = 14;
 const HEADER_MAX_W = 36;
 const HEADER_MAX_H = 22;
 
+const LOGO_SIZE_MM = {
+  small: { maxW: 28, maxH: 16 },
+  medium: { maxW: HEADER_MAX_W, maxH: HEADER_MAX_H },
+  large: { maxW: 48, maxH: 28 },
+} as const;
+
+export type PdfLogoPosition = 'top-left' | 'top-center' | 'top-right';
+export type PdfLogoSize = 'small' | 'medium' | 'large';
+
 function logoDimensions(
   logo: PdfAppLogo,
   maxW: number,
@@ -48,6 +57,37 @@ export function drawPdfHeaderLogo(
   const x = pageW - margin - w;
   const titleTopY = titleBaselineY - doc.getTextDimensions('Mg').h;
   doc.addImage(logo.dataUrl, 'PNG', x, titleTopY, w, h);
+}
+
+/** Logo placement within a header band — used by quote PDF export. */
+export function drawPdfHeaderLogoPositioned(
+  doc: jsPDF,
+  pageW: number,
+  marginLeft: number,
+  marginRight: number,
+  headerTopY: number,
+  headerHeight: number,
+  logo: PdfAppLogo | null,
+  position: PdfLogoPosition,
+  size: PdfLogoSize
+): void {
+  if (!logo) return;
+
+  const { maxW, maxH } = LOGO_SIZE_MM[size];
+  const { w, h } = logoDimensions(logo, maxW, maxH);
+  const centerY = headerTopY + Math.max(headerHeight, h) / 2;
+  const y = centerY - h / 2;
+
+  let x: number;
+  if (position === 'top-left') {
+    x = marginLeft;
+  } else if (position === 'top-center') {
+    x = (pageW - w) / 2;
+  } else {
+    x = pageW - marginRight - w;
+  }
+
+  doc.addImage(logo.dataUrl, 'PNG', x, y, w, h);
 }
 
 /** Small transparent logo — every page, lower-left. */

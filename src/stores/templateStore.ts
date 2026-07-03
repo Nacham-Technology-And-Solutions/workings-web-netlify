@@ -18,7 +18,7 @@ import type {
 import { templatesService } from '@/services/api/templates.service';
 import { estimationService } from '@/services/api/estimation.service';
 import { extractErrorMessage } from '@/utils/errorHandler';
-import { migrateQuoteFormatLogoSource } from '@/utils/pdfExportBranding';
+import { migrateQuoteFormatLogoSource, migrateQuoteFormatLogoPlacement } from '@/utils/pdfExportBranding';
 
 const TEMPLATES_CACHE_TTL_MS = 5 * 60_000;
 const CATALOG_CACHE_TTL_MS = 30 * 60_000;
@@ -108,6 +108,8 @@ interface TemplateState {
 const defaultQuoteFormat: QuoteFormatConfig = {
   header: {
     logoSource: 'none',
+    logoSize: 'medium',
+    logoPosition: 'top-right',
     companyName: '',
     tagline: '',
     alignment: 'left',
@@ -787,13 +789,16 @@ export const useTemplateStore = create<TemplateState>()(
 
             if (apiData) {
               const loadedQuoteFormat = apiData.quoteFormat || defaultQuoteFormat;
-              const migratedQuoteFormat = {
-                ...loadedQuoteFormat,
-                header: {
-                  ...loadedQuoteFormat.header,
-                  logoSource: migrateQuoteFormatLogoSource(loadedQuoteFormat.header),
+              const migratedQuoteFormat = migrateQuoteFormatLogoPlacement(
+                {
+                  ...loadedQuoteFormat,
+                  header: {
+                    ...loadedQuoteFormat.header,
+                    logoSource: migrateQuoteFormatLogoSource(loadedQuoteFormat.header),
+                  },
                 },
-              };
+                apiData.pdfExport?.quote?.logo
+              );
               set({
                 quoteFormat: migratedQuoteFormat,
                 paymentMethods: apiData.paymentMethods || [],

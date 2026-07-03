@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useAuthStore } from '@/stores';
-import { resolveEffectiveLogoUrl, resolveExportCompanyName } from '@/utils/pdfExportBranding';
+import { resolveEffectiveLogoUrl, resolveExportCompanyName, isQuoteLogoEnabled } from '@/utils/pdfExportBranding';
 import { previewExportFileName } from '@/utils/exportFileNaming';
 
 type PreviewMode = 'layout' | 'actual';
@@ -311,14 +311,15 @@ const TemplatePreviewCanvas: React.FC = () => {
     const headerH = q.header.enabled ? Math.max(8, Math.min(q.header.height * 0.4, 24)) : 0;
     const footerH = q.footer.enabled ? Math.max(6, Math.min(q.footer.height * 0.4, 18)) : 0;
     const bodyH = previewH - headerH - footerH;
-    const logoPos = q.logo.position;
-    const logoSize = q.logo.size === 'small' ? 12 : q.logo.size === 'large' ? 20 : 16;
+    const logoPos = quoteFormat.header.logoPosition ?? 'top-right';
+    const logoSizeKey = quoteFormat.header.logoSize ?? 'medium';
+    const logoSize = logoSizeKey === 'small' ? 12 : logoSizeKey === 'large' ? 20 : 16;
 
     const fileNamePreview = previewExportFileName(
       pdfExport.fileNaming.pattern,
       pdfExport.fileNaming.dateFormat
     );
-    const pdfPreviewLogoUrl = q.logo.enabled ? previewLogoUrl : null;
+    const pdfPreviewLogoUrl = isQuoteLogoEnabled(quoteFormat.header.logoSource) ? previewLogoUrl : null;
 
     return (
       <div className="space-y-4">
@@ -338,8 +339,8 @@ const TemplatePreviewCanvas: React.FC = () => {
                 backgroundColor: '#f5f5f5',
               }}
             >
-              {q.logo.enabled && (
-                pdfPreviewLogoUrl ? (
+              {isQuoteLogoEnabled(quoteFormat.header.logoSource) &&
+                (pdfPreviewLogoUrl ? (
                   <img
                     src={pdfPreviewLogoUrl}
                     alt="Logo"
@@ -376,8 +377,7 @@ const TemplatePreviewCanvas: React.FC = () => {
                   >
                     Logo
                   </div>
-                )
-              )}
+                ))}
             </div>
           )}
           <div

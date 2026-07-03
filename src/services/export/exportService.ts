@@ -7,7 +7,7 @@ import { applyPdfWatermarks } from '@/utils/pdfBranding';
 import {
   drawPdfHeaderBrandingSync,
   resolveExportHeaderBranding,
-  resolveExportCompanyName,
+  isQuoteLogoEnabled,
   type ExportHeaderBranding,
 } from '@/utils/pdfExportBranding';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@/utils/pdfFonts';
 import { formatNairaForPdf } from '@/utils/formatters';
 import { formatExportDate } from '@/utils/exportFileNaming';
+import { renderQuotePdfContent } from '@/utils/quotePdfRenderer';
 import type { GlassPlacement, NetListCut } from '@/types/calculations';
 import type { DimensionItem } from '@/types/project';
 import { SLIDING_SASH_OPTIONS, isSlidingGlazingType } from '@/utils/slidingWindow';
@@ -1770,208 +1771,30 @@ interface QuoteData {
   additionalNotes?: string;
 }
 
-const PAYMENT_TERMS_LABELS: Record<string, string> = {
-  'due-on-receipt': 'Due on Receipt',
-  'net-7': 'Net 7 (Due 7 days after quote date)',
-  'net-30': 'Net 30 (Due 30 days after invoice date)',
-  '50-50': '50% Deposit, 50% on Completion',
-  '30-70': '30% Upfront, 70% on Delivery',
-};
-
-function formatPaymentTermsForPdf(paymentTerms?: string, customPaymentTerms?: string): string | null {
-  if (!paymentTerms) return null;
-  if (paymentTerms === 'customize' && customPaymentTerms?.trim()) {
-    return customPaymentTerms.trim();
-  }
-  return PAYMENT_TERMS_LABELS[paymentTerms] ?? paymentTerms;
-}
-
 /**
  * Export quote to PDF
  */
 export const exportQuoteToPDF = async (quote: QuoteData) => {
   const pdfConfig = useTemplateStore.getState().pdfExport.quote;
   const workingsLogo = await getPdfAppLogo();
-  const headerBranding = await resolveExportHeaderBranding(pdfConfig.logo.enabled);
+  const headerBranding = await resolveExportHeaderBranding(
+    isQuoteLogoEnabled(quoteFormat.header.logoSource)
+  );
   const fileNamingConfig = useTemplateStore.getState().pdfExport.fileNaming;
-  const paymentMethodConfig = useTemplateStore.getState().paymentMethodConfig;
   const quoteFormat = useTemplateStore.getState().quoteFormat;
+  const paymentMethodConfig = useTemplateStore.getState().paymentMethodConfig;
 
-  // Get page size
   const pageSize = getPageSize(pdfConfig.pageSize, pdfConfig.customSize);
-  
-  // Create PDF document with configured page size and orientation
+
   const doc = new jsPDF({
     orientation: pdfConfig.orientation,
     unit: 'mm',
     format: pageSize,
   });
   await ensurePdfUnicodeFonts(doc);
-  const pageW = doc.internal.pageSize.getWidth();
-  const margin = 14;
-  const headerTitleY = 20;
 
-  let currentY = pdfConfig.header.enabled ? pdfConfig.header.height : headerTitleY;
+  renderQuotePdfContent(doc, quote, quoteFormat, pdfConfig, paymentMethodConfig, headerBranding);
 
-  // Header section (if enabled)
-  if (pdfConfig.header.enabled) {
-    const displayCompanyName = quoteFormat.header.companyName || resolveExportCompanyName();
-
-    if (displayCompanyName) {
-      doc.setFontSize(pdfConfig.fonts.headingSize);
-      setPdfUnicodeFont(doc, 'bold');
-      doc.setTextColor(pdfConfig.fonts.headingColor);
-      doc.text(displayCompanyName, margin, headerTitleY);
-      if (pdfConfig.logo.enabled) {
-        drawPdfHeaderBrandingSync(doc, pageW, margin, headerTitleY, headerBranding);
-      }
-      currentY = 30;
-
-      if (quoteFormat.header.tagline) {
-        doc.setFontSize(pdfConfig.fonts.bodySize);
-        setPdfUnicodeFont(doc, 'normal');
-        doc.text(quoteFormat.header.tagline, margin, currentY);
-        currentY += 10;
-      }
-    } else {
-      doc.setFontSize(pdfConfig.fonts.headingSize);
-      setPdfUnicodeFont(doc, 'bold');
-      doc.setTextColor(pdfConfig.fonts.headingColor);
-      doc.text('QUOTE', margin, headerTitleY);
-      if (pdfConfig.logo.enabled) {
-        drawPdfHeaderBrandingSync(doc, pageW, margin, headerTitleY, headerBranding);
-      }
-      currentY = 30;
-    }
-  } else {
-    currentY = headerTitleY;
-    doc.setFontSize(pdfConfig.fonts.headingSize);
-    setPdfUnicodeFont(doc, 'bold');
-    doc.text('QUOTE', margin, headerTitleY);
-    if (pdfConfig.logo.enabled) {
-      drawPdfHeaderBrandingSync(doc, pageW, margin, headerTitleY, headerBranding);
-    }
-    currentY = 30;
-  }
-
-  // Quote Info
-  setPdfUnicodeFont(doc, 'normal');
-  doc.setFontSize(pdfConfig.fonts.bodySize);
-  doc.setTextColor(pdfConfig.fonts.bodyColor);
-  doc.text(`Quote ID: ${quote.quoteId}`, 14, currentY);
-  currentY += 6;
-  doc.text(`Issue Date: ${quote.issueDate}`, 14, currentY);
-  currentY += 10;
-
-  // Project Info
-  doc.text(`Project: ${quote.projectName}`, 14, currentY);
-  currentY += 6;
-  doc.text(`Site Address: ${quote.siteAddress}`, 14, currentY);
-  currentY += 10;
-
-  // Customer Info
-  doc.text(`Customer: ${quote.customerName}`, 14, currentY);
-  currentY += 6;
-  if (quote.customerEmail) {
-    doc.text(`Email: ${quote.customerEmail}`, 14, currentY);
-    currentY += 6;
-  }
-  const paymentTermsText = formatPaymentTermsForPdf(quote.paymentTerms, quote.customPaymentTerms);
-  if (paymentTermsText) {
-    doc.text(`Payment Terms: ${paymentTermsText}`, 14, currentY);
-    currentY += 6;
-  }
-  currentY += 4;
-
-  // Items Table
-  const tableData = quote.items.map((item, index) => [
-    index + 1,
-    item.description,
-    item.quantity,
-    formatNairaForPdf(item.unitPrice),
-    formatNairaForPdf(item.total),
-  ]);
-
-  autoTable(doc, {
-    startY: currentY,
-    head: [['S/N', 'Description', 'Qty', 'Unit Price', 'Total']],
-    body: tableData,
-    theme: 'grid',
-    styles: { 
-      fontSize: pdfConfig.fonts.tableSize,
-      ...pdfTableFontStyles({ textColor: pdfConfig.fonts.bodyColor }),
-    },
-    headStyles: { 
-      fillColor: [55, 65, 81] as [number, number, number],
-      ...pdfTableHeadFontStyles({ textColor: [255, 255, 255] }),
-    },
-    bodyStyles: pdfTableFontStyles({ textColor: pdfConfig.fonts.bodyColor }),
-    ...pdfAutoTableUnicodeHooks(),
-  });
-
-  // Summary
-  const finalY = (doc as any).lastAutoTable.finalY || currentY;
-  currentY = finalY + 10;
-
-  setPdfUnicodeFont(doc, 'normal');
-  doc.setFontSize(pdfConfig.fonts.bodySize);
-  doc.setTextColor(pdfConfig.fonts.bodyColor);
-  doc.text(`Subtotal: ${formatNairaForPdf(quote.summary.subtotal)}`, 14, currentY);
-  currentY += 6;
-
-  // Charges
-  quote.summary.charges.forEach(charge => {
-    doc.text(`${charge.label}: ${formatNairaForPdf(charge.amount)}`, 14, currentY);
-    currentY += 6;
-  });
-
-  // Grand Total
-  currentY += 3;
-  doc.setFontSize(pdfConfig.fonts.headingSize);
-  setPdfUnicodeFont(doc, 'bold');
-  doc.setTextColor(pdfConfig.fonts.headingColor);
-  doc.text(`Grand Total: ${formatNairaForPdf(quote.summary.grandTotal)}`, 14, currentY);
-  currentY += 10;
-
-  // Payment Information (only if enabled in config and payment info exists)
-  if (paymentMethodConfig.displayOptions.showInPDF && quote.paymentInfo.accountName) {
-    doc.setFontSize(pdfConfig.fonts.bodySize);
-    doc.setFont(pdfConfig.fonts.family as any, 'bold');
-    doc.setTextColor(pdfConfig.fonts.headingColor);
-    doc.text('Payment Information', 14, currentY);
-    currentY += 6;
-    doc.setFont(pdfConfig.fonts.family as any, 'normal');
-    doc.setTextColor(pdfConfig.fonts.bodyColor);
-    doc.text(`Account Name: ${quote.paymentInfo.accountName}`, 14, currentY);
-    currentY += 6;
-    doc.text(`Account Number: ${quote.paymentInfo.accountNumber}`, 14, currentY);
-    currentY += 6;
-    doc.text(`Bank: ${quote.paymentInfo.bankName}`, 14, currentY);
-    currentY += 6;
-    
-    // Custom payment instructions if available
-    if (paymentMethodConfig.displayOptions.customInstructions) {
-      currentY += 3;
-      doc.text(paymentMethodConfig.displayOptions.customInstructions, 14, currentY);
-    }
-  }
-
-  // Footer (if enabled)
-  if (pdfConfig.footer.enabled) {
-    const quoteFormat = useTemplateStore.getState().quoteFormat;
-    if (quoteFormat.footer.visible && quoteFormat.footer.content) {
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const footerY = pageHeight - pdfConfig.footer.height;
-      doc.setFontSize(pdfConfig.fonts.bodySize - 1);
-      doc.setFont(pdfConfig.fonts.family as any, 'normal');
-      doc.setTextColor(pdfConfig.fonts.bodyColor);
-      doc.text(quoteFormat.footer.content, 14, footerY, {
-        align: quoteFormat.footer.alignment as any,
-      });
-    }
-  }
-
-  // Generate filename from pattern
   const fileName = generateFileName(fileNamingConfig.pattern, quote, fileNamingConfig.dateFormat) + '.pdf';
   applyPdfWatermarks(doc, workingsLogo);
   doc.save(fileName);

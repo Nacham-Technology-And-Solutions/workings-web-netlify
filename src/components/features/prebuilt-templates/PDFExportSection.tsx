@@ -224,78 +224,9 @@ const PDFExportSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Logo Settings */}
-          <div>
-            <h4 className="text-base font-medium text-gray-800 mb-3">Logo in PDF</h4>
-            <p className="text-xs text-gray-500 mb-3">
-              Logo image comes from Quote Format (company or custom logo). Size and position below affect the preview panel only.
-            </p>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={pdfExport.quote.logo.enabled}
-                  onChange={(e) =>
-                    updatePDFExport({
-                      quote: {
-                        ...pdfExport.quote,
-                        logo: { ...pdfExport.quote.logo, enabled: e.target.checked },
-                      },
-                    })
-                  }
-                  className="w-5 h-5 text-gray-900 border-gray-300 rounded focus:ring-gray-400"
-                />
-                <span className="text-sm text-gray-700">Include your branding in PDF header (logo or company name)</span>
-              </label>
-              {pdfExport.quote.logo.enabled && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Logo Size</label>
-                    <select
-                      value={pdfExport.quote.logo.size}
-                      onChange={(e) =>
-                        updatePDFExport({
-                          quote: {
-                            ...pdfExport.quote,
-                            logo: {
-                              ...pdfExport.quote.logo,
-                              size: e.target.value as any,
-                            },
-                          },
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                    >
-                      <option value="small">Small</option>
-                      <option value="medium">Medium</option>
-                      <option value="large">Large</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Logo Position</label>
-                    <select
-                      value={pdfExport.quote.logo.position}
-                      onChange={(e) =>
-                        updatePDFExport({
-                          quote: {
-                            ...pdfExport.quote,
-                            logo: {
-                              ...pdfExport.quote.logo,
-                              position: e.target.value as any,
-                            },
-                          },
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                    >
-                      <option value="top-left">Top Left</option>
-                      <option value="top-center">Top Center</option>
-                      <option value="top-right">Top Right</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            Quote logo (source, size, and position) is configured in the <strong>Quote Format</strong> tab.
+            This tab controls page layout, fonts, and file naming for quote PDFs.
           </div>
 
           {/* Font Settings */}
