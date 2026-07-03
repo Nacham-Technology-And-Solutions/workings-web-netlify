@@ -67,12 +67,13 @@ export interface VerifyPaymentRequest {
 
 export interface VerifyPaymentResponse {
   message: string;
+  status?: 'activated' | 'already_processed';
   subscriptionId: number;
-  plan: SubscriptionPlanId;
-  billingCycle: BillingCycle;
-  provider: PaymentProvider;
-  reference: string;
-  amount: number;
+  plan?: SubscriptionPlanId;
+  billingCycle?: BillingCycle;
+  provider?: PaymentProvider;
+  reference?: string;
+  amount?: number;
 }
 
 // Subscriptions Service
@@ -130,5 +131,24 @@ export const subscriptionsService = {
     );
     return response.data;
   },
+
+  getHistory: async (): Promise<ApiResponse<{ history: SubscriptionHistoryItem[] }>> => {
+    const response = await apiClient.get<ApiResponse<{ history: SubscriptionHistoryItem[] }>>(
+      '/api/v1/subscriptions/history'
+    );
+    return response.data;
+  },
 };
+
+export interface SubscriptionHistoryItem {
+  id: number;
+  plan: SubscriptionPlanId;
+  billingCycle: BillingCycle;
+  amount: number;
+  currency: string;
+  paymentProvider: PaymentProvider;
+  paymentReference: string;
+  status: string;
+  createdAt: string;
+}
 

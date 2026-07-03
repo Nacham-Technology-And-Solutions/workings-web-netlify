@@ -1,57 +1,106 @@
 import React, { useEffect, useState } from 'react';
 import { subscriptionsService } from '@/services/api/subscriptions.service';
+import {
+  clearPaymentCallback,
+  getPaymentReferenceFromUrl,
+  isPaymentCallbackExpired,
+  readPaymentCallback,
+  savePaymentCallback,
+} from '@/utils/paymentCallbackStorage';
 
 interface PaymentCallbackScreenProps {
   onSuccess?: () => void;
   onFailure?: (error: string) => void;
+  onDismiss?: () => void;
 }
 
-const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess, onFailure }) => {
+const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({
+  onSuccess,
+  onFailure,
+  onDismiss,
+}) => {
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed' | 'pending'>('verifying');
   const [message, setMessage] = useState<string>('Verifying payment...');
+  const [showEscapeHatch, setShowEscapeHatch] = useState(false);
 
   useEffect(() => {
+    const escapeTimer = window.setTimeout(() => setShowEscapeHatch(true), 15_000);
     void verifyPayment(0);
+    return () => window.clearTimeout(escapeTimer);
   }, []);
+
+  const finishSuccess = (successMessage: string) => {
+    setStatus('success');
+    setMessage(successMessage);
+    clearPaymentCallback();
+    setTimeout(() => onSuccess?.(), 2000);
+  };
+
+  const finishFailure = (errorMessage: string) => {
+    setStatus('failed');
+    setMessage(errorMessage);
+    clearPaymentCallback();
+    onFailure?.(errorMessage);
+  };
 
   const verifyPayment = async (networkRetryCount: number) => {
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const refFromUrl =
-        urlParams.get('reference')?.trim() ||
-        urlParams.get('tx_ref')?.trim() ||
-        urlParams.get('trxref')?.trim() ||
-        '';
-      const reference = refFromUrl || localStorage.getItem('paymentReference');
+      const refFromUrl = getPaymentReferenceFromUrl();
+      let stored = readPaymentCallback();
 
       if (refFromUrl) {
-        localStorage.setItem('paymentReference', refFromUrl);
+        const provider = stored?.provider || 'paystack';
+        savePaymentCallback(refFromUrl, provider);
+        stored = readPaymentCallback();
       }
 
       if (window.location.search) {
         window.history.replaceState(null, '', window.location.pathname + window.location.hash);
       }
 
-      if (!reference) {
-        setStatus('failed');
-        setMessage('No payment reference found. Please contact support if you completed the payment.');
-        onFailure?.('No payment reference found');
+      if (stored && isPaymentCallbackExpired(stored)) {
+        clearPaymentCallback();
+        onDismiss?.();
         return;
       }
 
-      const provider = (localStorage.getItem('paymentProvider') || 'paystack') as
-        | 'paystack'
-        | 'flutterwave'
-        | 'monnify';
+      const reference = refFromUrl || stored?.reference;
+      if (!reference) {
+        finishFailure('No payment reference found. Please contact support if you completed the payment.');
+        return;
+      }
+
+      const provider = stored?.provider || 'paystack';
+
+      try {
+        const currentResponse = await subscriptionsService.getCurrent();
+        const subscription = currentResponse?.response?.subscription;
+        if (subscription?.status === 'active' && subscription.plan !== 'free') {
+          finishSuccess('Your subscription is already active.');
+          return;
+        }
+      } catch {
+        // Continue with verify if current subscription check fails
+      }
 
       const verifyResponse = await subscriptionsService.verifyPayment({ reference, provider });
+      const responseBody = verifyResponse?.response;
+      const responseStatus = responseBody?.status;
 
-      if (verifyResponse?.response) {
-        setStatus('success');
-        setMessage('Payment successful! Your subscription has been activated.');
-        localStorage.removeItem('paymentReference');
-        localStorage.removeItem('paymentProvider');
-        setTimeout(() => onSuccess?.(), 2000);
+      if (
+        responseBody &&
+        (responseStatus === 'activated' ||
+          responseStatus === 'already_processed' ||
+          !responseStatus)
+      ) {
+        const isAlreadyProcessed =
+          responseStatus === 'already_processed' ||
+          responseBody.message?.toLowerCase().includes('already');
+        finishSuccess(
+          isAlreadyProcessed
+            ? 'Payment was already processed. Your subscription is active.'
+            : 'Payment successful! Your subscription has been activated.'
+        );
         return;
       }
 
@@ -59,13 +108,10 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
         verifyResponse?.responseMessage ||
         (verifyResponse as { message?: string })?.message ||
         'Verification failed.';
-      setStatus('failed');
-      setMessage(errMsg);
-      onFailure?.(errMsg);
+      finishFailure(errMsg);
     } catch (error: unknown) {
       const isNetworkError =
-        error instanceof TypeError ||
-        (error as { code?: string })?.code === 'ERR_NETWORK';
+        error instanceof TypeError || (error as { code?: string })?.code === 'ERR_NETWORK';
 
       if (isNetworkError && networkRetryCount < 2) {
         setStatus('pending');
@@ -86,10 +132,13 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
         err?.response?.data?.message ||
         err?.message ||
         'Failed to verify payment. Please check your subscription status or contact support.';
-      setStatus('failed');
-      setMessage(errorMessage);
-      onFailure?.(errorMessage);
+      finishFailure(errorMessage);
     }
+  };
+
+  const handleDismiss = () => {
+    clearPaymentCallback();
+    onDismiss?.();
   };
 
   return (
@@ -100,6 +149,14 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Payment</h2>
             <p className="text-gray-600">{message}</p>
+            {showEscapeHatch && (
+              <button
+                onClick={handleDismiss}
+                className="mt-6 px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Go to Settings
+              </button>
+            )}
           </>
         )}
 
@@ -126,7 +183,7 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
             <h2 className="text-xl font-bold text-gray-900 mb-2">Payment Verification Failed</h2>
             <p className="text-gray-600 mb-4">{message}</p>
             <button
-              onClick={() => (window.location.href = '/settings')}
+              onClick={handleDismiss}
               className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               Go to Settings
@@ -143,7 +200,7 @@ const PaymentCallbackScreen: React.FC<PaymentCallbackScreenProps> = ({ onSuccess
               This may take a moment. You can close this window and check your subscription status later.
             </p>
             <button
-              onClick={() => (window.location.href = '/settings')}
+              onClick={handleDismiss}
               className="mt-4 px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               Go to Settings

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
+import { previewExportFileName } from '@/utils/exportFileNaming';
 
 const PDFExportSection: React.FC = () => {
   const { pdfExport, updatePDFExport, resetPDFExport } = useTemplateStore();
@@ -13,18 +14,8 @@ const PDFExportSection: React.FC = () => {
     { value: 'YYYY/MM/DD', label: 'YYYY/MM/DD (2024/12/25)' },
   ];
 
-  const generateFileNamePreview = () => {
-    const pattern = pdfExport.fileNaming.pattern;
-    const date = new Date();
-    const dateStr = date.toISOString().split('T')[0];
-    
-    return pattern
-      .replace('{quoteId}', 'Q-20241225-0001')
-      .replace('{projectName}', 'Sample Project')
-      .replace('{customerName}', 'John Doe')
-      .replace('{quoteNumber}', 'Q-20241225-0001')
-      .replace('{date}', dateStr);
-  };
+  const generateFileNamePreview = () =>
+    previewExportFileName(pdfExport.fileNaming.pattern, pdfExport.fileNaming.dateFormat);
 
   return (
     <div className="space-y-6">
@@ -236,6 +227,9 @@ const PDFExportSection: React.FC = () => {
           {/* Logo Settings */}
           <div>
             <h4 className="text-base font-medium text-gray-800 mb-3">Logo in PDF</h4>
+            <p className="text-xs text-gray-500 mb-3">
+              Logo image comes from Quote Format (company or custom logo). Size and position below affect the preview panel only.
+            </p>
             <div className="space-y-4">
               <label className="flex items-center gap-3">
                 <input
@@ -251,7 +245,7 @@ const PDFExportSection: React.FC = () => {
                   }
                   className="w-5 h-5 text-gray-900 border-gray-300 rounded focus:ring-gray-400"
                 />
-                <span className="text-sm text-gray-700">Include logo in PDF</span>
+                <span className="text-sm text-gray-700">Include your branding in PDF header (logo or company name)</span>
               </label>
               {pdfExport.quote.logo.enabled && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

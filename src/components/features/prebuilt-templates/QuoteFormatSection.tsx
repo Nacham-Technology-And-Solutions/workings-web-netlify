@@ -1,9 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
+import { useAuthStore } from '@/stores';
 
 const QuoteFormatSection: React.FC = () => {
   const { quoteFormat, updateQuoteFormat, resetQuoteFormat } = useTemplateStore();
-  const [logoPreview, setLogoPreview] = useState<string | null>(quoteFormat.header.logoUrl || null);
+  const { user } = useAuthStore();
+  const logoSource = quoteFormat.header.logoSource ?? 'none';
+  const [logoPreview, setLogoPreview] = useState<string | null>(
+    logoSource === 'custom' ? quoteFormat.header.logoUrl || null : user?.companyLogoUrl || null
+  );
+
+  useEffect(() => {
+    if (logoSource === 'company') {
+      setLogoPreview(user?.companyLogoUrl || null);
+    }
+  }, [logoSource, user?.companyLogoUrl]);
+
+  const handleLogoSourceChange = (source: 'company' | 'custom' | 'none') => {
+    updateQuoteFormat({
+      header: { ...quoteFormat.header, logoSource: source },
+    });
+    if (source === 'company') {
+      setLogoPreview(user?.companyLogoUrl || null);
+    } else if (source === 'custom') {
+      setLogoPreview(quoteFormat.header.logoUrl || null);
+    } else {
+      setLogoPreview(null);
+    }
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -17,7 +41,7 @@ const QuoteFormatSection: React.FC = () => {
         const result = reader.result as string;
         setLogoPreview(result);
         updateQuoteFormat({
-          header: { ...quoteFormat.header, logoUrl: result },
+          header: { ...quoteFormat.header, logoSource: 'custom', logoUrl: result },
         });
       };
       reader.readAsDataURL(file);
@@ -27,7 +51,7 @@ const QuoteFormatSection: React.FC = () => {
   const handleRemoveLogo = () => {
     setLogoPreview(null);
     updateQuoteFormat({
-      header: { ...quoteFormat.header, logoUrl: undefined },
+      header: { ...quoteFormat.header, logoSource: 'none', logoUrl: undefined },
     });
   };
 
@@ -40,47 +64,78 @@ const QuoteFormatSection: React.FC = () => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Header Settings</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Company Logo</label>
-            {logoPreview ? (
-              <div className="flex items-center gap-4">
-                <img src={logoPreview} alt="Logo" className="h-20 w-auto object-contain" />
-                <button
-                  onClick={handleRemoveLogo}
-                  className="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-50"
-                >
-                  Remove Logo
-                </button>
-              </div>
-            ) : (
-              <div>
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <svg
-                      className="w-10 h-10 mb-3 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <p className="mb-2 text-sm text-gray-500">
-                      <span className="font-semibold">Click to upload</span> or drag and drop
-                    </p>
-                    <p className="text-xs text-gray-500">PNG, JPG or GIF (MAX. 5MB)</p>
-                  </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Export Logo</label>
+            <div className="flex flex-wrap gap-4 mb-4">
+              {([
+                { id: 'company' as const, label: 'Company logo' },
+                { id: 'custom' as const, label: 'Custom logo' },
+                { id: 'none' as const, label: 'No logo' },
+              ]).map((option) => (
+                <label key={option.id} className="flex items-center gap-2">
                   <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
+                    type="radio"
+                    name="logoSource"
+                    value={option.id}
+                    checked={logoSource === option.id}
+                    disabled={option.id === 'company' && !user?.companyLogoUrl}
+                    onChange={() => handleLogoSourceChange(option.id)}
+                    className="w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-400"
                   />
+                  <span className="text-sm text-gray-700">{option.label}</span>
                 </label>
-              </div>
+              ))}
+            </div>
+            {logoSource === 'company' && !user?.companyLogoUrl && (
+              <p className="text-xs text-amber-700 mb-3">
+                Upload a company logo in Profile settings to use this option.
+              </p>
+            )}
+            {logoSource === 'custom' ? (
+              logoPreview ? (
+                <div className="flex items-center gap-4">
+                  <img src={logoPreview} alt="Logo" className="h-20 w-auto object-contain" />
+                  <button
+                    onClick={handleRemoveLogo}
+                    className="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-50"
+                  >
+                    Remove Logo
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <svg
+                        className="w-10 h-10 mb-3 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG or GIF (MAX. 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                    />
+                  </label>
+                </div>
+              )
+            ) : logoSource === 'company' && logoPreview ? (
+              <img src={logoPreview} alt="Company logo" className="h-20 w-auto object-contain" />
+            ) : (
+              <p className="text-sm text-gray-500">No logo will appear on exports. Company name may be used instead.</p>
             )}
           </div>
           <div>

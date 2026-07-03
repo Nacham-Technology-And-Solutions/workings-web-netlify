@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeftIcon, EditIcon, EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
+import React, { useState, useEffect } from 'react';
+import { EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
 import { useAuthStore } from '@/stores';
-import { userService } from '@/services/api';
+import { authService, userService } from '@/services/api';
 import { getUserInitials } from '@/utils/userHelpers';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
@@ -23,14 +23,34 @@ const LoadingOverlay: React.FC = () => (
 );
 
 
+const PASSWORD_RULES_MESSAGE =
+  'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.';
+
+function isValidPassword(password: string): boolean {
+  return (
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  );
+}
+
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => {
-  const { user, updateUser } = useAuthStore();
+  const { user, updateUser, logout } = useAuthStore();
+  const [hasPassword, setHasPassword] = useState(user?.hasPassword ?? true);
+  const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(user?.companyLogoUrl || null);
+  const [bankDetails, setBankDetails] = useState({
+    accountName: user?.bankDetails?.accountName || '',
+    accountNumber: user?.bankDetails?.accountNumber || '',
+    bankName: user?.bankDetails?.bankName || '',
+  });
+  const [editingBankDetails, setEditingBankDetails] = useState(false);
   const [initialData, setInitialData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    password: '', // Password is not stored
     companyName: user?.companyName || '',
-    companyAddress: '', // Not in user profile yet
+    companyAddress: user?.companyAddress || '',
   });
 
   const [formData, setFormData] = useState(initialData);
@@ -44,8 +64,44 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   const [error, setError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
   const userInitials = getUserInitials(user?.name);
-  
-  const hasPasswordChanged = useMemo(() => newPassword.length > 0, [newPassword]);
+
+  const applyProfileToState = (userProfile: {
+    name?: string;
+    email?: string;
+    companyName?: string;
+    companyAddress?: string | null;
+    companyLogoUrl?: string | null;
+    subscriptionStatus?: string;
+    pointsBalance?: number;
+    hasPassword?: boolean;
+    bankDetails?: { accountName: string; accountNumber: string; bankName: string } | null;
+  }) => {
+    updateUser({
+      name: userProfile.name,
+      email: userProfile.email,
+      companyName: userProfile.companyName,
+      companyAddress: userProfile.companyAddress,
+      companyLogoUrl: userProfile.companyLogoUrl,
+      subscriptionStatus: userProfile.subscriptionStatus as any,
+      pointsBalance: userProfile.pointsBalance,
+      hasPassword: userProfile.hasPassword,
+      bankDetails: userProfile.bankDetails,
+    });
+
+    const newInitialData = {
+      name: userProfile.name || '',
+      email: userProfile.email || '',
+      companyName: userProfile.companyName || '',
+      companyAddress: userProfile.companyAddress || '',
+    };
+    setInitialData(newInitialData);
+    setFormData(newInitialData);
+    setCompanyLogoPreview(userProfile.companyLogoUrl || null);
+    setHasPassword(userProfile.hasPassword ?? true);
+    if (userProfile.bankDetails) {
+      setBankDetails(userProfile.bankDetails);
+    }
+  };
 
   // Fetch fresh user data from API when component mounts
   useEffect(() => {
@@ -59,25 +115,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
         if (normalizedResponse.success && normalizedResponse.response) {
           const responseData = normalizedResponse.response as any;
           const userProfile = responseData.userProfile || responseData.user || responseData;
-          
-          // Update auth store with fresh data
-          updateUser({
-            name: userProfile.name,
-            email: userProfile.email,
-            companyName: userProfile.companyName,
-            subscriptionStatus: userProfile.subscriptionStatus,
-          });
-
-          // Update local form data
-          const newInitialData = {
-            name: userProfile.name || '',
-            email: userProfile.email || '',
-            password: '',
-            companyName: userProfile.companyName || '',
-            companyAddress: '', // Not in user profile yet
-          };
-          setInitialData(newInitialData);
-          setFormData(newInitialData);
+          applyProfileToState(userProfile);
         }
       } catch (err) {
         console.error('Error fetching user profile:', err);
@@ -95,12 +133,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       const newInitialData = {
         name: user.name || '',
         email: user.email || '',
-        password: '',
         companyName: user.companyName || '',
-        companyAddress: '', // Not in user profile yet
+        companyAddress: user.companyAddress || '',
       };
       setInitialData(newInitialData);
       setFormData(newInitialData);
+      setCompanyLogoPreview(user.companyLogoUrl || null);
+      setHasPassword(user.hasPassword ?? true);
+      if (user.bankDetails) {
+        setBankDetails(user.bankDetails);
+      }
     }
   }, [user]);
   
@@ -116,49 +158,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
   
   const handleFieldSave = async (field: string) => {
     if (!user) return;
-    
-    // Handle companyAddress locally (not in API yet)
-    if (field === 'companyAddress') {
-      const newFormData = { ...formData, [field]: tempValue };
-      setFormData(newFormData);
-      setInitialData(newFormData);
-      handleCancelClick();
-      return;
-    }
-    
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
-      const updateData: { name?: string; email?: string; companyName?: string } = {};
-      
+      const updateData: {
+        name?: string;
+        email?: string;
+        companyName?: string;
+        companyAddress?: string;
+      } = {};
+
       if (field === 'name') updateData.name = tempValue;
       if (field === 'email') updateData.email = tempValue;
       if (field === 'companyName') updateData.companyName = tempValue;
-      
-      // Update via API
+      if (field === 'companyAddress') updateData.companyAddress = tempValue;
+
       const apiResponse = await userService.updateProfile(user.id, updateData);
-      const normalizedResponse = normalizeApiResponse(apiResponse);
-      
       if (isApiResponseSuccess(apiResponse)) {
         const responseData = getApiResponseData(apiResponse);
-        
-        // Handle nested response structure
-        const userProfile = (responseData as any).user || responseData;
-        
-        // Update auth store with new user data
-        updateUser({
-          name: userProfile.name,
-          email: userProfile.email,
-          companyName: userProfile.companyName,
-          subscriptionStatus: userProfile.subscriptionStatus,
-          pointsBalance: userProfile.pointsBalance,
-        });
-        
-        // Update local form data
-        const newFormData = { ...formData, [field]: tempValue };
-        setFormData(newFormData);
-        setInitialData(newFormData);
+        const userProfile = (responseData as { user?: unknown }).user || responseData;
+        applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
         handleCancelClick();
       } else {
         setError(getApiResponseMessage(apiResponse) || 'Failed to update profile');
@@ -166,6 +187,85 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
     } catch (err) {
       const errorMessage = extractErrorMessage(err);
       setError(errorMessage.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCompanyLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Logo file size must be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const result = reader.result as string;
+      setIsSaving(true);
+      setError(null);
+      try {
+        const apiResponse = await userService.updateProfile(user.id, { companyLogoUrl: result });
+        if (isApiResponseSuccess(apiResponse)) {
+          const responseData = getApiResponseData(apiResponse);
+          const userProfile = (responseData as { user?: unknown }).user || responseData;
+          applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
+          setCompanyLogoPreview(result);
+        } else {
+          setError(getApiResponseMessage(apiResponse) || 'Failed to upload company logo');
+        }
+      } catch (err) {
+        setError(extractErrorMessage(err).message);
+      } finally {
+        setIsSaving(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveCompanyLogo = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const apiResponse = await userService.updateProfile(user.id, { companyLogoUrl: null });
+      if (isApiResponseSuccess(apiResponse)) {
+        const responseData = getApiResponseData(apiResponse);
+        const userProfile = (responseData as { user?: unknown }).user || responseData;
+        applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
+        setCompanyLogoPreview(null);
+      } else {
+        setError(getApiResponseMessage(apiResponse) || 'Failed to remove company logo');
+      }
+    } catch (err) {
+      setError(extractErrorMessage(err).message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleBankDetailsSave = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const apiResponse = await userService.updateBankDetails(user.id, bankDetails);
+      if (isApiResponseSuccess(apiResponse)) {
+        const responseData = getApiResponseData(apiResponse);
+        const userData = (responseData as { user?: { bankDetails?: typeof bankDetails } }).user;
+        if (userData?.bankDetails) {
+          setBankDetails(userData.bankDetails);
+          updateUser({ bankDetails: userData.bankDetails });
+        }
+        setEditingBankDetails(false);
+      } else {
+        setError(getApiResponseMessage(apiResponse) || 'Failed to update bank details');
+      }
+    } catch (err) {
+      setError(extractErrorMessage(err).message);
     } finally {
       setIsSaving(false);
     }
@@ -183,39 +283,43 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
 
   const handlePasswordSave = async () => {
     if (!user) return;
-    
+
     if (!newPassword || newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters');
+
+    if (!isValidPassword(newPassword)) {
+      setError(PASSWORD_RULES_MESSAGE);
       return;
     }
-    
+
+    if (hasPassword && !currentPassword) {
+      setError('Current password is required');
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
-      // Note: We need current password for the API
-      const apiResponse = await userService.changePassword(user.id, {
-        currentPassword: currentPassword,
-        newPassword: newPassword,
-      });
-      
-      const normalizedResponse = normalizeApiResponse(apiResponse);
-      
+      const apiResponse = hasPassword
+        ? await userService.changePassword(user.id, {
+            currentPassword: currentPassword,
+            newPassword: newPassword,
+          })
+        : await userService.setPassword(user.id, { newPassword });
+
       if (isApiResponseSuccess(apiResponse)) {
         setNewPassword('');
         setConfirmPassword('');
         setCurrentPassword('');
+        setHasPassword(true);
+        updateUser({ hasPassword: true });
         setEditingField(null);
       } else {
-        const errorMsg = getApiResponseMessage(apiResponse) || 'Failed to change password';
+        const errorMsg = getApiResponseMessage(apiResponse) || 'Failed to update password';
         setError(errorMsg);
-        const apiResponseData = (apiResponse as any)?.response || apiResponse;
-        setDetailedError(apiResponseData?.message || apiResponseData?.error || null);
       }
     } catch (err) {
       const errorMessage = extractErrorMessage(err);
@@ -228,65 +332,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
 
   const handleSaveChanges = (e: React.FormEvent) => {
     e.preventDefault();
-    // All changes are saved individually when fields are saved
-    // This button can be used for bulk save if needed in the future
   };
-  
-  const inputClass = "w-full px-4 py-3 text-gray-900 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 placeholder:text-gray-400 disabled:bg-gray-50";
-  const isEditingNonPassword = editingField && editingField !== 'password';
-  
-  const renderField = (id: 'name' | 'email' | 'companyName' | 'companyAddress', label: string) => {
-      const isEditingThisField = editingField === id;
-      return (
-        <div>
-            <div className="flex justify-between items-center mb-1">
-                <label htmlFor={id} className="text-sm font-medium text-gray-700">{label}</label>
-                {isEditingThisField ? (
-                    <button type="button" onClick={handleCancelClick} className="text-sm font-medium text-red-600 hover:text-red-800">Cancel</button>
-                ) : (
-                    <button type="button" onClick={() => handleEditClick(id, formData[id])} className="text-sm font-medium text-gray-600 hover:text-gray-900">Edit</button>
-                )}
-            </div>
-            <input
-                id={id}
-                type={id === 'email' ? 'email' : 'text'}
-                value={isEditingThisField ? tempValue : formData[id]}
-                onChange={(e) => setTempValue(e.target.value)}
-                className={inputClass}
-                disabled={!isEditingThisField}
-            />
-            {isEditingThisField && (
-                <div className="mt-2">
-                    <button type="button" onClick={() => handleFieldSave(id)} className="px-5 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700">
-                        Save
-                    </button>
-                </div>
-            )}
-        </div>
-      );
-  };
-
 
   const handleDeleteAccount = async () => {
     if (!user) return;
-    
-    const confirmed = window.confirm(
-      'Are you sure you want to delete your account? This action cannot be undone and will permanently remove all your projects, quotes, and lists.'
-    );
-    
-    if (!confirmed) return;
-    
+
+    const typed = window.prompt('Type DELETE to deactivate your account. Your data will be retained but you will lose access.');
+    if (typed !== 'DELETE') return;
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
-      // TODO: Implement delete account API call when endpoint is available
-      // await userService.deleteAccount(user.id);
-      console.log('Delete account functionality to be implemented');
-      alert('Account deletion functionality will be available soon.');
+      const apiResponse = await userService.deactivateAccount(user.id);
+      if (isApiResponseSuccess(apiResponse)) {
+        try {
+          await authService.logout();
+        } catch {
+          // Continue with local logout even if API fails
+        }
+        logout();
+      } else {
+        setError(getApiResponseMessage(apiResponse) || 'Failed to deactivate account');
+      }
     } catch (err) {
-      const errorMessage = extractErrorMessage(err);
-      setError(errorMessage.message);
+      setError(extractErrorMessage(err).message);
     } finally {
       setIsSaving(false);
     }
@@ -312,21 +382,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             </div>
           )}
           
-          {/* User Avatar - Left on desktop, centered on mobile */}
+          {/* User Avatar - initials from name; update name below to change */}
           <div className="flex justify-center lg:justify-start mb-6 sm:mb-8">
-            <div className="relative">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300">
-                <span className="text-gray-900 font-bold text-2xl sm:text-3xl">{userInitials}</span>
-              </div>
-              <button 
-                type="button"
-                className="absolute bottom-0 right-0 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-blue-200 transition-colors" 
-                aria-label="Edit profile picture"
-              >
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
+            <div
+              className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
+              aria-label={`Profile initials: ${userInitials}`}
+            >
+              <span className="text-gray-900 font-bold text-2xl sm:text-3xl">{userInitials}</span>
             </div>
           </div>
 
@@ -405,27 +467,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                   {editingField === 'password' ? (
                     <button type="button" onClick={handlePasswordCancel} className="text-sm font-medium text-gray-700">Cancel</button>
                   ) : (
-                    <button type="button" onClick={handlePasswordEdit} className="text-sm font-medium text-gray-700">Create new</button>
+                    <button type="button" onClick={handlePasswordEdit} className="text-sm font-medium text-gray-700">
+                      {hasPassword ? 'Change password' : 'Set password'}
+                    </button>
                   )}
                 </div>
                 {editingField === 'password' ? (
                   <div className="space-y-4">
-                    {/* Current Password */}
+                    {hasPassword && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Enter current password"
+                          className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+                          autoFocus
+                        />
+                      </div>
+                    )}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Enter current password"
-                        className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                        autoFocus
-                      />
-                    </div>
-
-                    {/* New Password */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {hasPassword ? 'New Password' : 'Password'}
+                      </label>
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
@@ -478,7 +543,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                 ) : (
                   <input
                     type="text"
-                    value="No password yet"
+                    value={hasPassword ? '••••••••' : 'No password set (social sign-in)'}
                     disabled
                     className="w-full px-4 py-3 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg"
                   />
@@ -493,16 +558,34 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             <div className="space-y-4">
               {/* Logo Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Logo Upload</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Company Logo</label>
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                  <div className="w-full sm:w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors flex-shrink-0">
-                    <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <span className="text-xs text-gray-500 text-center px-2">Upload your logo</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-600">This logo will appear on invoices and email notifications</p>
+                  <label className="w-full sm:w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors flex-shrink-0 overflow-hidden">
+                    {companyLogoPreview ? (
+                      <img src={companyLogoPreview} alt="Company logo" className="max-h-full max-w-full object-contain p-2" />
+                    ) : (
+                      <>
+                        <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span className="text-xs text-gray-500 text-center px-2">Upload your logo</span>
+                      </>
+                    )}
+                    <input type="file" className="hidden" accept="image/*" onChange={handleCompanyLogoUpload} />
+                  </label>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <p className="text-sm text-gray-600">
+                      Used on exports when you choose &quot;Company logo&quot; in Export settings.
+                    </p>
+                    {companyLogoPreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveCompanyLogo}
+                        className="text-sm font-medium text-red-700 hover:text-red-900"
+                      >
+                        Remove logo
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -561,6 +644,71 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
             </div>
           </section>
 
+          <section className="mb-8">
+            <h2 className="text-base font-bold mb-4 text-gray-900">Bank Details</h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-600">Used on quotes and payment instructions.</p>
+                {!editingBankDetails ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingBankDetails(true)}
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditingBankDetails(false)}
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Name</label>
+                <input
+                  type="text"
+                  value={bankDetails.accountName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountName: e.target.value })}
+                  disabled={!editingBankDetails}
+                  className="w-full px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg disabled:bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
+                <input
+                  type="text"
+                  value={bankDetails.accountNumber}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                  disabled={!editingBankDetails}
+                  className="w-full px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg disabled:bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                <input
+                  type="text"
+                  value={bankDetails.bankName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                  disabled={!editingBankDetails}
+                  className="w-full px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg disabled:bg-gray-50"
+                />
+              </div>
+              {editingBankDetails && (
+                <button
+                  type="button"
+                  onClick={handleBankDetailsSave}
+                  className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
+                >
+                  Save Bank Details
+                </button>
+              )}
+            </div>
+          </section>
+
           {/* Danger Zone Section */}
           <section>
             <h2 className="text-base font-bold mb-4 text-gray-900">Danger Zone</h2>
@@ -569,7 +717,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-red-900 mb-1">Delete Account</p>
                   <p className="text-xs text-red-700">
-                    Deleting your account will remove all projects, quotes, and lists permanently.
+                    Deactivating your account will sign you out. Your data is retained but you will no longer have access.
                   </p>
                 </div>
                 <button

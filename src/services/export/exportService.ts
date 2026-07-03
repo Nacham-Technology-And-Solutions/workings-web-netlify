@@ -3,7 +3,13 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useTemplateStore } from '@/stores/templateStore';
 import { getPdfAppLogo, preloadPdfAppLogo, type PdfAppLogo } from '@/utils/pdfAppLogo';
-import { drawPdfHeaderLogo, applyPdfWatermarks } from '@/utils/pdfBranding';
+import { applyPdfWatermarks } from '@/utils/pdfBranding';
+import {
+  drawPdfHeaderBrandingSync,
+  resolveExportHeaderBranding,
+  resolveExportCompanyName,
+  type ExportHeaderBranding,
+} from '@/utils/pdfExportBranding';
 import {
   ensurePdfUnicodeFonts,
   setPdfUnicodeFont,
@@ -12,6 +18,7 @@ import {
   pdfAutoTableUnicodeHooks,
 } from '@/utils/pdfFonts';
 import { formatNairaForPdf } from '@/utils/formatters';
+import { formatExportDate } from '@/utils/exportFileNaming';
 import type { GlassPlacement, NetListCut } from '@/types/calculations';
 import type { DimensionItem } from '@/types/project';
 import { SLIDING_SASH_OPTIONS, isSlidingGlazingType } from '@/utils/slidingWindow';
@@ -72,7 +79,7 @@ function drawProjectCartCoverPage(
   doc: jsPDF,
   documentTitle: string,
   cover: ProjectExportCoverInfo,
-  logo: PdfAppLogo | null
+  headerBranding: ExportHeaderBranding
 ): void {
   const margin = 14;
   const pageW = doc.internal.pageSize.getWidth();
@@ -82,7 +89,7 @@ function drawProjectCartCoverPage(
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(55, 65, 81);
   doc.text(documentTitle, margin, startY);
-  drawPdfHeaderLogo(doc, pageW, margin, startY, logo);
+  drawPdfHeaderBrandingSync(doc, pageW, margin, startY, headerBranding);
   startY += 14;
 
   doc.setFontSize(10);
@@ -192,23 +199,8 @@ const getPageSize = (pageSize: string, customSize?: { width: number; height: num
 
 // Helper function to generate filename from pattern
 const generateFileName = (pattern: string, quote: QuoteData, dateFormat: string = 'YYYY-MM-DD'): string => {
-  const date = new Date();
-  let dateStr = '';
-  
-  switch (dateFormat) {
-    case 'DD-MM-YYYY':
-      dateStr = date.toLocaleDateString('en-GB').replace(/\//g, '-');
-      break;
-    case 'MM/DD/YYYY':
-      dateStr = date.toLocaleDateString('en-US');
-      break;
-    case 'YYYY/MM/DD':
-      dateStr = date.toISOString().split('T')[0].replace(/-/g, '/');
-      break;
-    default:
-      dateStr = date.toISOString().split('T')[0];
-  }
-  
+  const dateStr = formatExportDate(dateFormat);
+
   return pattern
     .replace('{quoteId}', quote.quoteId.replace(/#/g, ''))
     .replace('{projectName}', quote.projectName.replace(/\s+/g, '-'))
@@ -256,7 +248,8 @@ export const exportProjectMaterialListToPDF = async (
   grandTotal: number,
   mode: MaterialListExportMode
 ) => {
-  const logo = await getPdfAppLogo();
+  const workingsLogo = await getPdfAppLogo();
+  const headerBranding = await resolveExportHeaderBranding(true);
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 14;
@@ -268,7 +261,7 @@ export const exportProjectMaterialListToPDF = async (
   setPdfUnicodeFont(doc, 'bold');
   doc.setTextColor(55, 65, 81);
   doc.text('MATERIAL LIST', margin, headerY);
-  drawPdfHeaderLogo(doc, pageW, margin, headerY, logo);
+  drawPdfHeaderBrandingSync(doc, pageW, margin, headerY, headerBranding);
 
   doc.setFontSize(10);
   setPdfUnicodeFont(doc, 'normal');
@@ -329,7 +322,7 @@ export const exportProjectMaterialListToPDF = async (
     doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, startY);
   }
 
-  applyPdfWatermarks(doc, logo);
+  applyPdfWatermarks(doc, workingsLogo);
   doc.save(materialListExportFilename(projectName, mode, 'pdf'));
 };
 
@@ -420,7 +413,8 @@ export const exportMaterialListToPDF = async (
   customerName: string,
   grandTotal: number
 ) => {
-  const logo = await getPdfAppLogo();
+  const workingsLogo = await getPdfAppLogo();
+  const headerBranding = await resolveExportHeaderBranding(true);
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 14;
@@ -431,7 +425,7 @@ export const exportMaterialListToPDF = async (
   setPdfUnicodeFont(doc, 'bold');
   doc.setTextColor(55, 65, 81);
   doc.text('MATERIAL LIST', margin, headerY);
-  drawPdfHeaderLogo(doc, pageW, margin, headerY, logo);
+  drawPdfHeaderBrandingSync(doc, pageW, margin, headerY, headerBranding);
 
   doc.setFontSize(10);
   setPdfUnicodeFont(doc, 'normal');
@@ -464,7 +458,7 @@ export const exportMaterialListToPDF = async (
   setPdfUnicodeFont(doc, 'bold');
   doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, finalY + 10);
 
-  applyPdfWatermarks(doc, logo);
+  applyPdfWatermarks(doc, workingsLogo);
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -487,7 +481,8 @@ export const exportFullMaterialListToPDF = async (
   grandTotal: number,
   date?: string
 ) => {
-  const logo = await getPdfAppLogo();
+  const workingsLogo = await getPdfAppLogo();
+  const headerBranding = await resolveExportHeaderBranding(true);
   const materials: MaterialItem[] = items.map((item) => ({
     id: item.id,
     name: item.description,
@@ -506,7 +501,7 @@ export const exportFullMaterialListToPDF = async (
   setPdfUnicodeFont(doc, 'bold');
   doc.setTextColor(55, 65, 81);
   doc.text('MATERIAL LIST', margin, headerY);
-  drawPdfHeaderLogo(doc, pageW, margin, headerY, logo);
+  drawPdfHeaderBrandingSync(doc, pageW, margin, headerY, headerBranding);
 
   doc.setFontSize(10);
   setPdfUnicodeFont(doc, 'normal');
@@ -539,7 +534,7 @@ export const exportFullMaterialListToPDF = async (
   setPdfUnicodeFont(doc, 'bold');
   doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, finalY + 10);
 
-  applyPdfWatermarks(doc, logo);
+  applyPdfWatermarks(doc, workingsLogo);
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -687,14 +682,14 @@ function drawCuttingListDocumentHeader(
   projectName: string,
   startY: number,
   logoEnabled: boolean,
-  logo: PdfAppLogo | null
+  headerBranding: ExportHeaderBranding
 ): number {
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(55, 65, 81);
   doc.text('CUTTING LIST', margin, startY);
   if (logoEnabled) {
-    drawPdfHeaderLogo(doc, pageW, margin, startY, logo);
+    drawPdfHeaderBrandingSync(doc, pageW, margin, startY, headerBranding);
   }
   startY += 12;
   doc.setFontSize(10);
@@ -733,7 +728,8 @@ export const exportCuttingListToPDF = async (
   projectName: string,
   cover?: ProjectExportCoverInfo
 ) => {
-  const logo = await getPdfAppLogo();
+  const workingsLogo = await getPdfAppLogo();
+  const headerBranding = await resolveExportHeaderBranding(true);
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -748,7 +744,7 @@ export const exportCuttingListToPDF = async (
     drawProjectCartCoverPage(doc, 'CUTTING LIST', {
       ...cover,
       projectName: cover.projectName || projectName,
-    }, logo);
+    }, headerBranding);
     doc.addPage();
   }
 
@@ -762,7 +758,7 @@ export const exportCuttingListToPDF = async (
 
     if (sectionIndex === 0) {
       const showDocumentLogo = logoEnabled && !(cover?.rows?.length);
-      startY = drawCuttingListDocumentHeader(doc, pageW, margin, projectName, startY, showDocumentLogo, logo);
+      startY = drawCuttingListDocumentHeader(doc, pageW, margin, projectName, startY, showDocumentLogo, headerBranding);
     }
 
     startY = drawProfileCuttingSectionHeader(doc, margin, pageW, section, startY);
@@ -913,7 +909,7 @@ export const exportCuttingListToPDF = async (
     }
   }
 
-  applyPdfWatermarks(doc, logo);
+  applyPdfWatermarks(doc, workingsLogo);
   doc.save(`Cutting-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -1269,7 +1265,8 @@ export const exportGlassCuttingListToPDF = async (
   projectName: string,
   cover?: ProjectExportCoverInfo
 ) => {
-  const logo = await getPdfAppLogo();
+  const workingsLogo = await getPdfAppLogo();
+  const headerBranding = await resolveExportHeaderBranding(true);
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 14;
@@ -1281,7 +1278,7 @@ export const exportGlassCuttingListToPDF = async (
     drawProjectCartCoverPage(doc, 'GLASS CUTTING PLAN', {
       ...cover,
       projectName: cover.projectName || projectName,
-    }, logo);
+    }, headerBranding);
 
     if (first) {
       let stockY = (docWithTable.lastAutoTable?.finalY ?? 120) + 10;
@@ -1312,7 +1309,7 @@ export const exportGlassCuttingListToPDF = async (
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(55, 65, 81);
     doc.text('GLASS CUTTING PLAN', margin, titleY);
-    drawPdfHeaderLogo(doc, pageW, margin, titleY, logo);
+    drawPdfHeaderBrandingSync(doc, pageW, margin, titleY, headerBranding);
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -1342,7 +1339,7 @@ export const exportGlassCuttingListToPDF = async (
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(55, 65, 81);
     doc.text('GLASS CUTTING PLAN', margin, titleY);
-    drawPdfHeaderLogo(doc, pageW, margin, titleY, logo);
+    drawPdfHeaderBrandingSync(doc, pageW, margin, titleY, headerBranding);
     cursorY += 14;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -1483,7 +1480,7 @@ export const exportGlassCuttingListToPDF = async (
     cursorY += 4;
   });
 
-  applyPdfWatermarks(doc, logo);
+  applyPdfWatermarks(doc, workingsLogo);
   doc.save(`Glass-Cutting-List-${projectName.replace(/\s+/g, '-')}.pdf`);
 };
 
@@ -1629,7 +1626,8 @@ export const exportNetCuttingListToPDF = async (
   projectName: string,
   cover?: ProjectExportCoverInfo
 ) => {
-  const logo = await getPdfAppLogo();
+  const workingsLogo = await getPdfAppLogo();
+  const headerBranding = await resolveExportHeaderBranding(true);
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 14;
@@ -1639,7 +1637,7 @@ export const exportNetCuttingListToPDF = async (
     drawProjectCartCoverPage(doc, 'NET CUTTING LIST', {
       ...cover,
       projectName: cover.projectName || projectName,
-    }, logo);
+    }, headerBranding);
     doc.addPage();
   }
 
@@ -1649,7 +1647,7 @@ export const exportNetCuttingListToPDF = async (
   doc.setTextColor(55, 65, 81);
   doc.text('NET CUTTING LIST', margin, startY);
   if (!cover?.rows?.length) {
-    drawPdfHeaderLogo(doc, pageW, margin, startY, logo);
+    drawPdfHeaderBrandingSync(doc, pageW, margin, startY, headerBranding);
   }
   startY += 14;
 
@@ -1697,7 +1695,7 @@ export const exportNetCuttingListToPDF = async (
     margin: { left: margin, right: margin },
   });
 
-  applyPdfWatermarks(doc, logo);
+  applyPdfWatermarks(doc, workingsLogo);
   doc.save(`${netCuttingFileBase(projectName)}.pdf`);
 };
 
@@ -1792,11 +1790,12 @@ function formatPaymentTermsForPdf(paymentTerms?: string, customPaymentTerms?: st
  * Export quote to PDF
  */
 export const exportQuoteToPDF = async (quote: QuoteData) => {
-  const logo = await getPdfAppLogo();
-  // Get PDF export configuration from template store
   const pdfConfig = useTemplateStore.getState().pdfExport.quote;
+  const workingsLogo = await getPdfAppLogo();
+  const headerBranding = await resolveExportHeaderBranding(pdfConfig.logo.enabled);
   const fileNamingConfig = useTemplateStore.getState().pdfExport.fileNaming;
   const paymentMethodConfig = useTemplateStore.getState().paymentMethodConfig;
+  const quoteFormat = useTemplateStore.getState().quoteFormat;
 
   // Get page size
   const pageSize = getPageSize(pdfConfig.pageSize, pdfConfig.customSize);
@@ -1816,23 +1815,18 @@ export const exportQuoteToPDF = async (quote: QuoteData) => {
 
   // Header section (if enabled)
   if (pdfConfig.header.enabled) {
-    // Logo (if enabled and available from quote format config)
-    const quoteFormat = useTemplateStore.getState().quoteFormat;
-    if (pdfConfig.logo.enabled && quoteFormat.header.logoUrl) {
-      // Note: jsPDF doesn't directly support base64 images easily, 
-      // but we can add it if needed with addImage
-      // For now, we'll skip logo in PDF as it requires additional handling
-    }
-    
-    // Company name and tagline
-    if (quoteFormat.header.companyName) {
+    const displayCompanyName = quoteFormat.header.companyName || resolveExportCompanyName();
+
+    if (displayCompanyName) {
       doc.setFontSize(pdfConfig.fonts.headingSize);
       setPdfUnicodeFont(doc, 'bold');
       doc.setTextColor(pdfConfig.fonts.headingColor);
-      doc.text(quoteFormat.header.companyName, margin, headerTitleY);
-      drawPdfHeaderLogo(doc, pageW, margin, headerTitleY, logo);
+      doc.text(displayCompanyName, margin, headerTitleY);
+      if (pdfConfig.logo.enabled) {
+        drawPdfHeaderBrandingSync(doc, pageW, margin, headerTitleY, headerBranding);
+      }
       currentY = 30;
-      
+
       if (quoteFormat.header.tagline) {
         doc.setFontSize(pdfConfig.fonts.bodySize);
         setPdfUnicodeFont(doc, 'normal');
@@ -1844,7 +1838,9 @@ export const exportQuoteToPDF = async (quote: QuoteData) => {
       setPdfUnicodeFont(doc, 'bold');
       doc.setTextColor(pdfConfig.fonts.headingColor);
       doc.text('QUOTE', margin, headerTitleY);
-      drawPdfHeaderLogo(doc, pageW, margin, headerTitleY, logo);
+      if (pdfConfig.logo.enabled) {
+        drawPdfHeaderBrandingSync(doc, pageW, margin, headerTitleY, headerBranding);
+      }
       currentY = 30;
     }
   } else {
@@ -1852,7 +1848,9 @@ export const exportQuoteToPDF = async (quote: QuoteData) => {
     doc.setFontSize(pdfConfig.fonts.headingSize);
     setPdfUnicodeFont(doc, 'bold');
     doc.text('QUOTE', margin, headerTitleY);
-    drawPdfHeaderLogo(doc, pageW, margin, headerTitleY, logo);
+    if (pdfConfig.logo.enabled) {
+      drawPdfHeaderBrandingSync(doc, pageW, margin, headerTitleY, headerBranding);
+    }
     currentY = 30;
   }
 
@@ -1975,7 +1973,7 @@ export const exportQuoteToPDF = async (quote: QuoteData) => {
 
   // Generate filename from pattern
   const fileName = generateFileName(fileNamingConfig.pattern, quote, fileNamingConfig.dateFormat) + '.pdf';
-  applyPdfWatermarks(doc, logo);
+  applyPdfWatermarks(doc, workingsLogo);
   doc.save(fileName);
 };
 

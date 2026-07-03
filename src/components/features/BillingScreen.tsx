@@ -1,44 +1,88 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores';
-import { userService, subscriptionsService, type CurrentSubscription } from '@/services/api';
-import { getUserInitials } from '@/utils/userHelpers';
-import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
+import { userService, subscriptionsService, type CurrentSubscription, type SubscriptionHistoryItem } from '@/services/api';
+import { normalizeApiResponse } from '@/utils/apiResponseHelper';
+
+type BillingSettingsSection = 'profile' | 'subscriptionPlans';
 
 interface BillingScreenProps {
   onNavigate?: (view: string) => void;
+  onSectionChange?: (section: BillingSettingsSection) => void;
 }
 
-const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
+const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate, onSectionChange }) => {
   const { user, updateUser } = useAuthStore();
   const [pointsBalance, setPointsBalance] = useState<number | undefined>(user?.pointsBalance);
   const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
+  const [billingHistory, setBillingHistory] = useState<SubscriptionHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  // Fetch subscription and points balance
+  const goToSubscriptionPlans = () => {
+    if (onSectionChange) {
+      onSectionChange('subscriptionPlans');
+      return;
+    }
+    onNavigate?.('subscriptionPlans');
+  };
+
+  const goToProfile = () => {
+    if (onSectionChange) {
+      onSectionChange('profile');
+      return;
+    }
+    onNavigate?.('profile');
+  };
+
+  const goToCreditsHistory = () => {
+    onNavigate?.('creditsHistory');
+  };
+
+  // Fetch subscription, billing history, and profile (for billing address)
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.id) return;
 
       try {
-        const subscriptionResponse = await subscriptionsService.getCurrent();
+        const [subscriptionResponse, historyResponse, profileResponse] = await Promise.all([
+          subscriptionsService.getCurrent(),
+          subscriptionsService.getHistory().catch(() => null),
+          userService.getProfile(user.id).catch(() => null),
+        ]);
+
         const normalizedResponse = normalizeApiResponse(subscriptionResponse);
 
         if (normalizedResponse.success && normalizedResponse.response) {
           const responseData = normalizedResponse.response as any;
           const sub = responseData.subscription || responseData;
           setSubscription(sub);
-          
+
           if (sub.pointsBalance !== undefined) {
             setPointsBalance(sub.pointsBalance);
             updateUser({ pointsBalance: sub.pointsBalance });
           }
         }
+
+        if (historyResponse?.response?.history) {
+          setBillingHistory(historyResponse.response.history);
+        }
+
+        if (profileResponse) {
+          const profileNormalized = normalizeApiResponse(profileResponse);
+          if (profileNormalized.success && profileNormalized.response) {
+            const responseData = profileNormalized.response as any;
+            const userProfile = responseData.userProfile || responseData.user || responseData;
+            updateUser({
+              companyName: userProfile.companyName,
+              companyAddress: userProfile.companyAddress,
+            });
+          }
+        }
       } catch (err) {
-        console.error('Error fetching subscription:', err);
+        console.error('Error fetching billing data:', err);
       } finally {
         setIsLoading(false);
       }
@@ -140,11 +184,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
               <div className="flex flex-col gap-2 items-stretch sm:items-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (onNavigate) {
-                      onNavigate('subscriptionPlans');
-                    }
-                  }}
+                  onClick={goToSubscriptionPlans}
                   className="text-sm font-medium text-blue-600 hover:text-blue-800 underline"
                 >
                   {subscription?.plan && subscription.plan !== 'free' ? 'Change Plan' : 'Upgrade'}
@@ -163,11 +203,15 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
 
             {/* Points Balance */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
-              <div 
+              <div
                 className="cursor-pointer min-w-0"
-                onClick={() => {
-                  if (onNavigate) {
-                    onNavigate('creditsHistory');
+                onClick={goToCreditsHistory}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    goToCreditsHistory();
                   }
                 }}
               >
@@ -184,11 +228,7 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
               <div className="text-left sm:text-right">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (onNavigate) {
-                      onNavigate('creditsHistory');
-                    }
-                  }}
+                  onClick={goToCreditsHistory}
                   className="text-sm font-medium text-gray-600 hover:text-gray-900 underline"
                 >
                   View History
@@ -216,41 +256,46 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
           </div>
         </section>
 
-        {/* Payment Method Section */}
-        <section className="mb-6 sm:mb-8">
-          <h2 className="text-base font-bold mb-4 text-gray-900">Payment Method</h2>
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-12 h-8 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-semibold text-gray-600">Card</span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900">No payment method on file</p>
-                  <p className="text-xs text-gray-500">Add a payment method to continue your subscription</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors w-full sm:w-auto flex-shrink-0"
-              >
-                Add Payment Method
-              </button>
-            </div>
-          </div>
-        </section>
-
         {/* Billing History Section */}
         <section className="mb-6 sm:mb-8">
           <h2 className="text-base font-bold mb-4 text-gray-900">Billing History</h2>
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="p-6 sm:p-8 text-center">
-              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-sm text-gray-500">No billing history available</p>
-              <p className="text-xs text-gray-400 mt-1">Your invoices and transactions will appear here</p>
-            </div>
+            {billingHistory.length === 0 ? (
+              <div className="p-6 sm:p-8 text-center">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-sm text-gray-500">No billing history available</p>
+                <p className="text-xs text-gray-400 mt-1">Your subscription payments will appear here</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {billingHistory.map((item) => (
+                  <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 capitalize">
+                        {item.plan} · {item.billingCycle}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}{' '}
+                        · {item.paymentProvider}
+                      </p>
+                    </div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {new Intl.NumberFormat('en-NG', {
+                        style: 'currency',
+                        currency: item.currency || 'NGN',
+                        maximumFractionDigits: 0,
+                      }).format(item.amount)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -264,14 +309,15 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                   {user?.companyName || 'Company Name'}
                 </p>
                 <p className="text-sm text-gray-600 break-words">
-                  {user?.email || 'No address on file'}
+                  {user?.companyAddress || 'No billing address on file'}
                 </p>
               </div>
               <button
                 type="button"
+                onClick={goToProfile}
                 className="text-sm font-medium text-gray-600 hover:text-gray-900 underline flex-shrink-0 self-start sm:self-auto"
               >
-                Edit
+                Edit in Profile
               </button>
             </div>
           </div>
@@ -303,15 +349,9 @@ const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                 </p>
               </div>
               {subscription?.plan && subscription.plan !== 'free' && subscription.status === 'active' && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={true}
-                    readOnly
-                    className="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-800"
-                  />
-                  <span className="text-sm text-gray-700">Auto-renewal</span>
-                </label>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 flex-shrink-0">
+                  Auto-renewal enabled
+                </span>
               )}
             </div>
           </div>

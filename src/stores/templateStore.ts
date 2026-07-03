@@ -18,7 +18,7 @@ import type {
 import { templatesService } from '@/services/api/templates.service';
 import { estimationService } from '@/services/api/estimation.service';
 import { extractErrorMessage } from '@/utils/errorHandler';
-import type { MaterialCatalogItem } from '@/types/estimation';
+import { migrateQuoteFormatLogoSource } from '@/utils/pdfExportBranding';
 
 const TEMPLATES_CACHE_TTL_MS = 5 * 60_000;
 const CATALOG_CACHE_TTL_MS = 30 * 60_000;
@@ -107,6 +107,7 @@ interface TemplateState {
 // Default values
 const defaultQuoteFormat: QuoteFormatConfig = {
   header: {
+    logoSource: 'none',
     companyName: '',
     tagline: '',
     alignment: 'left',
@@ -785,8 +786,16 @@ export const useTemplateStore = create<TemplateState>()(
             const apiData = await templatesService.getTemplates();
 
             if (apiData) {
+              const loadedQuoteFormat = apiData.quoteFormat || defaultQuoteFormat;
+              const migratedQuoteFormat = {
+                ...loadedQuoteFormat,
+                header: {
+                  ...loadedQuoteFormat.header,
+                  logoSource: migrateQuoteFormatLogoSource(loadedQuoteFormat.header),
+                },
+              };
               set({
-                quoteFormat: apiData.quoteFormat || defaultQuoteFormat,
+                quoteFormat: migratedQuoteFormat,
                 paymentMethods: apiData.paymentMethods || [],
                 paymentMethodConfig: apiData.paymentMethodConfig || {
                   methods: apiData.paymentMethods || [],
@@ -841,11 +850,9 @@ export const useTemplateStore = create<TemplateState>()(
           const saved = await templatesService.saveTemplates(templateConfig);
           
           if (saved) {
-            // API success
             set({ isSaving: false, hasUnsavedChanges: false });
           } else {
-            // API failed - data will be saved to localStorage by persist middleware
-            set({ isSaving: false, hasUnsavedChanges: false });
+            set({ isSaving: false });
           }
         } catch (error) {
           console.error('[TemplateStore] Error saving templates:', error);

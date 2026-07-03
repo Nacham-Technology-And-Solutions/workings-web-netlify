@@ -5,11 +5,14 @@ export interface UserProfile {
   name: string;
   email: string;
   companyName: string;
+  companyAddress?: string | null;
+  companyLogoUrl?: string | null;
   subscriptionStatus: 'free' | 'pro' | 'starter' | 'enterprise';
   subscriptionExpiresAt: string | null;
   pointsBalance: number;
   isAdmin: boolean;
   isActive: boolean;
+  hasPassword?: boolean;
   bankDetails: {
     accountName: string;
     accountNumber: string;
@@ -23,10 +26,16 @@ export interface UpdateProfileRequest {
   name?: string;
   email?: string;
   companyName?: string;
+  companyAddress?: string;
+  companyLogoUrl?: string | null;
 }
 
 export interface ChangePasswordRequest {
   currentPassword: string;
+  newPassword: string;
+}
+
+export interface SetPasswordRequest {
   newPassword: string;
 }
 
@@ -69,16 +78,16 @@ export const userService = {
   /**
    * Get user profile by ID
    */
-  getProfile: async (userId: number): Promise<ApiResponse<UserProfile>> => {
-    const response = await apiClient.get<ApiResponse<UserProfile>>(`/api/v1/user/${userId}`);
+  getProfile: async (userId: number): Promise<ApiResponse<{ userProfile: UserProfile }>> => {
+    const response = await apiClient.get<ApiResponse<{ userProfile: UserProfile }>>(`/api/v1/user/${userId}`);
     return response.data;
   },
 
   /**
    * Update user profile
    */
-  updateProfile: async (userId: number, data: UpdateProfileRequest): Promise<ApiResponse<UserProfile>> => {
-    const response = await apiClient.patch<ApiResponse<UserProfile>>(`/api/v1/user/${userId}`, data);
+  updateProfile: async (userId: number, data: UpdateProfileRequest): Promise<ApiResponse<{ user: UserProfile }>> => {
+    const response = await apiClient.patch<ApiResponse<{ user: UserProfile }>>(`/api/v1/user/${userId}`, data);
     return response.data;
   },
 
@@ -87,6 +96,22 @@ export const userService = {
    */
   changePassword: async (userId: number, data: ChangePasswordRequest): Promise<ApiResponse<{ message: string }>> => {
     const response = await apiClient.patch<ApiResponse<{ message: string }>>(`/api/v1/user/${userId}/password`, data);
+    return response.data;
+  },
+
+  /**
+   * Set initial password for OAuth-only accounts
+   */
+  setPassword: async (userId: number, data: SetPasswordRequest): Promise<ApiResponse<{ message: string }>> => {
+    const response = await apiClient.patch<ApiResponse<{ message: string }>>(`/api/v1/user/${userId}/set-password`, data);
+    return response.data;
+  },
+
+  /**
+   * Soft-deactivate user account
+   */
+  deactivateAccount: async (userId: number): Promise<ApiResponse<{ user: UserProfile }>> => {
+    const response = await apiClient.delete<ApiResponse<{ user: UserProfile }>>(`/api/v1/user/${userId}`);
     return response.data;
   },
 
@@ -108,4 +133,3 @@ export const userService = {
     return response.data;
   },
 };
-

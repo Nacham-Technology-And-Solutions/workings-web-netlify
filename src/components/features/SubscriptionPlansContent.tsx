@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckIcon } from '@/assets/icons/IconComponents';
 import { subscriptionsService, type SubscriptionPlan, type PaymentProvider, type BillingCycle } from '@/services/api/subscriptions.service';
+import { savePaymentCallback } from '@/utils/paymentCallbackStorage';
 
 interface SubscriptionPlansContentProps {
   onBack?: () => void;
@@ -156,8 +157,7 @@ const SubscriptionPlansContent: React.FC<SubscriptionPlansContentProps> = ({ onB
       if (response.response?.authorizationUrl) {
         // Store payment reference for verification
         if (response.response.reference) {
-          localStorage.setItem('paymentReference', response.response.reference);
-          localStorage.setItem('paymentProvider', response.response.paymentProvider);
+          savePaymentCallback(response.response.reference, response.response.paymentProvider);
         }
 
         // Redirect to payment page

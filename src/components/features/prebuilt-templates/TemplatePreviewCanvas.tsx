@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
+import { useAuthStore } from '@/stores';
+import { resolveEffectiveLogoUrl, resolveExportCompanyName } from '@/utils/pdfExportBranding';
+import { previewExportFileName } from '@/utils/exportFileNaming';
 
 type PreviewMode = 'layout' | 'actual';
 
@@ -14,7 +17,10 @@ const spacing = (px: number) => Math.max(2, Math.round(px * MARGIN_SCALE));
  */
 const TemplatePreviewCanvas: React.FC = () => {
   const { quoteFormat, paymentMethodConfig, pdfExport, activeTab } = useTemplateStore();
+  const { user } = useAuthStore();
   const [previewMode, setPreviewMode] = useState<PreviewMode>('actual');
+  const previewLogoUrl = resolveEffectiveLogoUrl();
+  const previewCompanyName = resolveExportCompanyName();
 
   const showQuotePreview = activeTab === 'quoteFormat';
   const showPDFPreview = activeTab === 'pdfExport';
@@ -51,12 +57,12 @@ const TemplatePreviewCanvas: React.FC = () => {
         style={{ borderColor: quoteFormat.colors.secondary, backgroundColor: `${quoteFormat.colors.primary}08` }}
       >
         <div className={alignmentClass(quoteFormat.header.alignment)}>
-          {quoteFormat.header.logoUrl && (
-            <img src={quoteFormat.header.logoUrl} alt="Logo" className="max-h-8 w-auto mb-1 inline-block object-contain" />
+          {previewLogoUrl && (
+            <img src={previewLogoUrl} alt="Logo" className="max-h-8 w-auto mb-1 inline-block object-contain" />
           )}
-          {quoteFormat.header.companyName && (
+          {previewCompanyName && (
             <p className="font-semibold" style={{ fontSize: headingSize, color: quoteFormat.colors.primary }}>
-              {quoteFormat.header.companyName}
+              {previewCompanyName}
             </p>
           )}
           {quoteFormat.header.tagline && (
@@ -128,16 +134,16 @@ const TemplatePreviewCanvas: React.FC = () => {
           }}
         >
           <div className={alignmentClass(quoteFormat.header.alignment)}>
-            {quoteFormat.header.logoUrl && (
+            {previewLogoUrl && (
               <img
-                src={quoteFormat.header.logoUrl}
+                src={previewLogoUrl}
                 alt="Logo"
                 className="max-h-10 w-auto mb-1 inline-block object-contain"
               />
             )}
-            {quoteFormat.header.companyName && (
+            {previewCompanyName && (
               <p className="font-semibold leading-tight" style={{ fontSize: headingSize, color: quoteFormat.colors.primary }}>
-                {quoteFormat.header.companyName}
+                {previewCompanyName}
               </p>
             )}
             {quoteFormat.header.tagline && (
@@ -308,12 +314,11 @@ const TemplatePreviewCanvas: React.FC = () => {
     const logoPos = q.logo.position;
     const logoSize = q.logo.size === 'small' ? 12 : q.logo.size === 'large' ? 20 : 16;
 
-    const fileNamePreview = pdfExport.fileNaming.pattern
-      .replace('{quoteId}', 'Q-20241225-0001')
-      .replace('{projectName}', 'Sample Project')
-      .replace('{customerName}', 'John Doe')
-      .replace('{quoteNumber}', 'Q-20241225-0001')
-      .replace('{date}', new Date().toISOString().split('T')[0]);
+    const fileNamePreview = previewExportFileName(
+      pdfExport.fileNaming.pattern,
+      pdfExport.fileNaming.dateFormat
+    );
+    const pdfPreviewLogoUrl = q.logo.enabled ? previewLogoUrl : null;
 
     return (
       <div className="space-y-4">
@@ -334,19 +339,44 @@ const TemplatePreviewCanvas: React.FC = () => {
               }}
             >
               {q.logo.enabled && (
-                <div
-                  className="absolute bg-blue-100 rounded border border-blue-300 flex items-center justify-center text-[8px] text-blue-700 font-medium"
-                  style={{
-                    position: 'absolute',
-                    width: logoSize,
-                    height: logoSize,
-                    ...(logoPos === 'top-left' && { left: 4, top: '50%', transform: 'translateY(-50%)' }),
-                    ...(logoPos === 'top-center' && { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }),
-                    ...(logoPos === 'top-right' && { right: 4, top: '50%', transform: 'translateY(-50%)' }),
-                  }}
-                >
-                  Logo
-                </div>
+                pdfPreviewLogoUrl ? (
+                  <img
+                    src={pdfPreviewLogoUrl}
+                    alt="Logo"
+                    className="absolute object-contain"
+                    style={{
+                      maxWidth: logoSize * 2,
+                      maxHeight: logoSize,
+                      ...(logoPos === 'top-left' && { left: 4, top: '50%', transform: 'translateY(-50%)' }),
+                      ...(logoPos === 'top-center' && { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }),
+                      ...(logoPos === 'top-right' && { right: 4, top: '50%', transform: 'translateY(-50%)' }),
+                    }}
+                  />
+                ) : previewCompanyName ? (
+                  <span
+                    className="absolute text-[7px] font-semibold text-gray-700 truncate max-w-[40%]"
+                    style={{
+                      ...(logoPos === 'top-left' && { left: 4, top: '50%', transform: 'translateY(-50%)' }),
+                      ...(logoPos === 'top-center' && { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }),
+                      ...(logoPos === 'top-right' && { right: 4, top: '50%', transform: 'translateY(-50%)' }),
+                    }}
+                  >
+                    {previewCompanyName}
+                  </span>
+                ) : (
+                  <div
+                    className="absolute bg-blue-100 rounded border border-blue-300 flex items-center justify-center text-[8px] text-blue-700 font-medium"
+                    style={{
+                      width: logoSize,
+                      height: logoSize,
+                      ...(logoPos === 'top-left' && { left: 4, top: '50%', transform: 'translateY(-50%)' }),
+                      ...(logoPos === 'top-center' && { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }),
+                      ...(logoPos === 'top-right' && { right: 4, top: '50%', transform: 'translateY(-50%)' }),
+                    }}
+                  >
+                    Logo
+                  </div>
+                )
               )}
             </div>
           )}

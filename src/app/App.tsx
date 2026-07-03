@@ -75,6 +75,11 @@ import {
 import { invalidateMaterialListsCache } from '../utils/materialListFetch';
 import type { Project as ApiProject } from '../services/api/projects.service';
 import { onSessionExpired, clearAuthData } from '../utils/sessionManager';
+import {
+  clearPaymentCallback,
+  hasActivePaymentCallback,
+  hasPaymentCallbackUrlParams,
+} from '../utils/paymentCallbackStorage';
 
 // Import types and constants
 import type { FloorPlan, Tool, EstimateCategory, ProjectMeasurementData } from '../types';
@@ -133,6 +138,8 @@ const App: React.FC = () => {
     setAuthScreen,
     setResetPasswordData,
     initializeAuth,
+    hydrateUserProfile,
+    user,
   } = useAuthStore();
 
   const {
@@ -227,6 +234,12 @@ const App: React.FC = () => {
       });
     });
   }, [initializeAuth, initializeOnlineStatus]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      void hydrateUserProfile();
+    }
+  }, [isAuthenticated, user?.id, hydrateUserProfile]);
 
   useEffect(() => {
     if (!selectedMaterialListId) {
@@ -1457,7 +1470,7 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <CreditsHistoryScreen onBack={() => navigate('profile')} />
+            <CreditsHistoryScreen onBack={() => navigate('billings')} />
           </div>
         </div>
       </div>
@@ -1465,8 +1478,15 @@ const App: React.FC = () => {
   }
 
   // Profile, Subscription Plans, and Export settings are now handled within SettingsScreen
-  if (currentView === 'profile' || currentView === 'subscriptionPlans' || currentView === 'exportSettings') {
-    const targetSection = currentView === 'subscriptionPlans' ? 'subscriptionPlans' : currentView === 'exportSettings' ? 'exportSettings' : 'profile';
+  if (currentView === 'profile' || currentView === 'billings' || currentView === 'subscriptionPlans' || currentView === 'exportSettings') {
+    const targetSection =
+      currentView === 'subscriptionPlans'
+        ? 'subscriptionPlans'
+        : currentView === 'exportSettings'
+        ? 'exportSettings'
+        : currentView === 'billings'
+        ? 'billings'
+        : 'profile';
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
         <div className={!['home', 'projects', 'quotes', 'material-list'].includes(currentView) ? 'hidden md:block' : ''}>
@@ -1490,24 +1510,24 @@ const App: React.FC = () => {
     );
   }
 
-  // Payment callback handler - check URL params for payment reference (incl. Paystack trxref)
-  const urlParams = new URLSearchParams(window.location.search);
+  // Payment callback handler - check URL params or non-expired callback storage
   const hasPaymentCallback =
-    urlParams.has('reference') ||
-    urlParams.has('tx_ref') ||
-    urlParams.has('trxref') ||
-    localStorage.getItem('paymentReference');
-  
+    hasPaymentCallbackUrlParams() || hasActivePaymentCallback();
+
   if (hasPaymentCallback && (currentView === 'home' || !currentView)) {
     return (
       <PaymentCallbackScreen
         onSuccess={() => {
-          localStorage.removeItem('paymentReference');
-          localStorage.removeItem('paymentProvider');
+          clearPaymentCallback();
           navigate('settings');
         }}
         onFailure={(error) => {
           console.error('Payment callback error:', error);
+          clearPaymentCallback();
+          navigate('settings');
+        }}
+        onDismiss={() => {
+          clearPaymentCallback();
           navigate('settings');
         }}
       />

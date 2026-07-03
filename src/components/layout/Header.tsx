@@ -87,8 +87,16 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               aria-label="User menu"
             >
               <span className="text-sm text-gray-600 max-w-[180px] truncate">{user?.email || 'User'}</span>
-              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-gray-700 font-semibold text-sm">{userInitials}</span>
+              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {user?.name ? (
+                  <span className="text-gray-700 font-semibold text-sm" title={user.name}>
+                    {userInitials}
+                  </span>
+                ) : (
+                  <span className="text-gray-700 font-semibold text-sm" title={user?.email || 'User'}>
+                    {userInitials}
+                  </span>
+                )}
               </div>
               <svg
                 className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}

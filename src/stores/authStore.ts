@@ -1,14 +1,24 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import logger from '@/utils/logger';
+import { userService } from '@/services/api/user.service';
+import { normalizeApiResponse } from '@/utils/apiResponseHelper';
 
 interface UserProfile {
   id: number;
   email: string;
   name?: string;
   companyName?: string;
+  companyAddress?: string | null;
+  companyLogoUrl?: string | null;
   subscriptionStatus?: 'free' | 'pro' | 'starter' | 'enterprise';
   pointsBalance?: number;
+  hasPassword?: boolean;
+  bankDetails?: {
+    accountName: string;
+    accountNumber: string;
+    bankName: string;
+  } | null;
 }
 
 interface AuthState {
@@ -41,6 +51,7 @@ interface AuthState {
   updateUser: (updates: Partial<UserProfile>) => void;
   logout: () => void;
   initializeAuth: () => void;
+  hydrateUserProfile: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -133,19 +144,21 @@ export const useAuthStore = create<AuthState>()(
         const refreshToken = localStorage.getItem('refreshToken');
         const userId = localStorage.getItem('userId');
         const userEmail = localStorage.getItem('userEmail');
-        
+        const existingUser = get().user;
+
         if (isAuth && accessToken && refreshToken && userId && userEmail) {
           set({
             isAuthenticated: true,
             accessToken,
             refreshToken,
             user: {
-              id: parseInt(userId),
+              ...existingUser,
+              id: parseInt(userId, 10),
               email: userEmail,
             },
           });
         }
-        
+
         const onboardingShown = localStorage.getItem('onboardingShown');
         if (!onboardingShown) {
           set({ showOnboarding: true });
@@ -154,6 +167,48 @@ export const useAuthStore = create<AuthState>()(
         // Only hide loading immediately for returning users; new users see splash first (splash sets loading false after 2.5s)
         if (isAuth || onboardingShown) {
           set({ isLoading: false });
+        }
+      },
+
+      hydrateUserProfile: async () => {
+        const { user, isAuthenticated } = get();
+        if (!isAuthenticated || !user?.id) return;
+
+        try {
+          const response = await userService.getProfile(user.id);
+          const normalized = normalizeApiResponse(response);
+
+          if (normalized.success && normalized.response) {
+            const responseData = normalized.response as {
+              userProfile?: Record<string, unknown>;
+              user?: Record<string, unknown>;
+            };
+            const profile = (responseData.userProfile || responseData.user || normalized.response) as {
+              name?: string;
+              email?: string;
+              companyName?: string;
+              companyAddress?: string | null;
+              companyLogoUrl?: string | null;
+              subscriptionStatus?: string;
+              pointsBalance?: number;
+              hasPassword?: boolean;
+              bankDetails?: UserProfile['bankDetails'];
+            };
+
+            get().updateUser({
+              name: profile.name,
+              email: profile.email,
+              companyName: profile.companyName,
+              companyAddress: profile.companyAddress,
+              companyLogoUrl: profile.companyLogoUrl,
+              subscriptionStatus: profile.subscriptionStatus as UserProfile['subscriptionStatus'],
+              pointsBalance: profile.pointsBalance,
+              hasPassword: profile.hasPassword,
+              bankDetails: profile.bankDetails,
+            });
+          }
+        } catch (error) {
+          console.error('[AuthStore] Failed to hydrate user profile:', error);
         }
       },
     }),

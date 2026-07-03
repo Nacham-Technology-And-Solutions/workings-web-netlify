@@ -147,7 +147,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, initialSect
             <ProfileScreen onBack={() => {}} onNavigate={onNavigate} />
           )}
           {activeSection === 'billings' && (
-            <BillingScreen onNavigate={onNavigate} />
+            <BillingScreen onNavigate={onNavigate} onSectionChange={handleSectionChange} />
           )}
           {activeSection === 'subscriptionPlans' && (
             <div className="p-4 sm:p-6">

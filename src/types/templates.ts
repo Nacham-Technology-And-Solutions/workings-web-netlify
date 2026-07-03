@@ -4,6 +4,7 @@
 
 export interface QuoteFormatConfig {
   header: {
+    logoSource?: 'company' | 'custom' | 'none';
     logoUrl?: string;
     companyName: string;
     tagline?: string;
