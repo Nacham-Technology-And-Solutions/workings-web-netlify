@@ -59,7 +59,7 @@ export function drawPdfHeaderLogo(
   doc.addImage(logo.dataUrl, 'PNG', x, titleTopY, w, h);
 }
 
-/** Logo placement within a header band — used by quote PDF export. */
+/** Logo placement within a header band — used by material list exports. */
 export function drawPdfHeaderLogoPositioned(
   doc: jsPDF,
   pageW: number,
@@ -88,6 +88,37 @@ export function drawPdfHeaderLogoPositioned(
   }
 
   doc.addImage(logo.dataUrl, 'PNG', x, y, w, h);
+}
+
+export function measurePdfHeaderLogo(logo: PdfAppLogo, size: PdfLogoSize): { w: number; h: number } {
+  const { maxW, maxH } = LOGO_SIZE_MM[size];
+  return logoDimensions(logo, maxW, maxH);
+}
+
+/** Place quote header logo with its top edge at topY (stacked above title/tagline). */
+export function drawPdfHeaderLogoAtY(
+  doc: jsPDF,
+  pageW: number,
+  marginLeft: number,
+  marginRight: number,
+  topY: number,
+  logo: PdfAppLogo,
+  position: PdfLogoPosition,
+  size: PdfLogoSize
+): { w: number; h: number } {
+  const { w, h } = measurePdfHeaderLogo(logo, size);
+
+  let x: number;
+  if (position === 'top-left') {
+    x = marginLeft;
+  } else if (position === 'top-center') {
+    x = (pageW - w) / 2;
+  } else {
+    x = pageW - marginRight - w;
+  }
+
+  doc.addImage(logo.dataUrl, 'PNG', x, topY, w, h);
+  return { w, h };
 }
 
 /** Small transparent logo — every page, lower-left. */

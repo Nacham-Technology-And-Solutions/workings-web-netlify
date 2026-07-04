@@ -1,39 +1,47 @@
 import apiClient from './apiClient';
+import type { MaterialListSource } from '@/types/material';
 
-export interface MaterialListItem {
+export interface MaterialListItemPayload {
   description: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  type?: string;
+  unit?: string;
 }
 
-export interface MaterialList {
+export interface MaterialListSummary {
   id: number;
-  projectId: number;
-  items: MaterialListItem[];
+  projectId: number | null;
+  projectName: string;
+  listSource: MaterialListSource;
+  status: 'draft' | 'completed';
+  itemCount: number;
+  itemsTotal: number;
+  preparedBy: string | null;
+  issueDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FormattedMaterialListResponse {
+  id: number;
+  projectId: number | null;
+  listSource: MaterialListSource;
+  status: 'draft' | 'completed';
+  savedToLibrary: boolean;
+  displayName: string | null;
+  preparedBy: string | null;
+  issueDate: string | null;
+  projectName: string;
+  items: MaterialListItemPayload[];
   total: number;
   createdAt: string;
   updatedAt: string;
   project?: {
     id: number;
-    projectName: string;
-    siteAddress?: string;
+    projectName?: string;
   };
-}
-
-export interface MaterialListSummary {
-  id: number;
-  projectId: number;
-  projectName: string;
-  siteAddress: string | null;
-  projectStatus: 'draft' | 'calculated' | 'archived';
-  calculated: boolean;
-  lastCalculatedAt: string | null;
-  itemCount: number;
-  itemsTotal: number;
-  pointsCost: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface MaterialListListResponse {
@@ -47,17 +55,23 @@ export interface MaterialListListResponse {
 }
 
 export interface CreateMaterialListRequest {
+  listSource: MaterialListSource;
   projectId?: number;
-  projectName?: string;
-  items: {
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-  }[];
-  total: number;
+  displayName?: string;
   preparedBy?: string;
-  date?: string;
+  issueDate?: string;
+  status?: 'draft' | 'completed';
+  items: MaterialListItemPayload[];
+  total?: number;
+}
+
+export interface UpdateMaterialListRequest {
+  displayName?: string;
+  preparedBy?: string | null;
+  issueDate?: string | null;
+  status?: 'draft' | 'completed';
+  items?: MaterialListItemPayload[];
+  total?: number;
 }
 
 export interface ApiResponse<T> {
@@ -67,19 +81,21 @@ export interface ApiResponse<T> {
 }
 
 export const materialListsService = {
-  /**
-   * List material list summaries (replaces projects + N+1 fan-out)
-   */
   list: async (
     page = 1,
     limit = 20,
-    options?: { status?: 'draft' | 'calculated' | 'archived'; search?: string }
+    options?: {
+      status?: 'draft' | 'completed';
+      listSource?: MaterialListSource;
+      search?: string;
+    }
   ): Promise<ApiResponse<MaterialListListResponse>> => {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
     });
     if (options?.status) params.set('status', options.status);
+    if (options?.listSource) params.set('listSource', options.listSource);
     if (options?.search?.trim()) params.set('search', options.search.trim());
 
     const response = await apiClient.get<ApiResponse<MaterialListListResponse>>(
@@ -88,30 +104,47 @@ export const materialListsService = {
     return response.data;
   },
 
-  create: async (data: CreateMaterialListRequest): Promise<ApiResponse<{ materialList: MaterialList }>> => {
-    const response = await apiClient.post<ApiResponse<{ materialList: MaterialList }>>(
+  create: async (
+    data: CreateMaterialListRequest
+  ): Promise<ApiResponse<{ materialList: FormattedMaterialListResponse }>> => {
+    const response = await apiClient.post<ApiResponse<{ materialList: FormattedMaterialListResponse }>>(
       '/api/v1/material-lists',
       data
     );
     return response.data;
   },
 
-  getByProject: async (projectId: number): Promise<ApiResponse<{ materialList: MaterialList }>> => {
-    const response = await apiClient.get<ApiResponse<{ materialList: MaterialList }>>(
+  update: async (
+    materialListId: number,
+    data: UpdateMaterialListRequest
+  ): Promise<ApiResponse<{ materialList: FormattedMaterialListResponse }>> => {
+    const response = await apiClient.patch<ApiResponse<{ materialList: FormattedMaterialListResponse }>>(
+      `/api/v1/material-lists/${materialListId}`,
+      data
+    );
+    return response.data;
+  },
+
+  getByProject: async (
+    projectId: number
+  ): Promise<ApiResponse<{ materialList: FormattedMaterialListResponse }>> => {
+    const response = await apiClient.get<ApiResponse<{ materialList: FormattedMaterialListResponse }>>(
       `/api/v1/material-lists/project/${projectId}`
     );
     return response.data;
   },
 
-  getById: async (materialListId: number): Promise<ApiResponse<{ materialList: MaterialList }>> => {
-    const response = await apiClient.get<ApiResponse<{ materialList: MaterialList }>>(
+  getById: async (
+    materialListId: number
+  ): Promise<ApiResponse<{ materialList: FormattedMaterialListResponse }>> => {
+    const response = await apiClient.get<ApiResponse<{ materialList: FormattedMaterialListResponse }>>(
       `/api/v1/material-lists/${materialListId}`
     );
     return response.data;
   },
 
-  delete: async (materialListId: number): Promise<ApiResponse<{ message?: string }>> => {
-    const response = await apiClient.delete<ApiResponse<{ message?: string }>>(
+  delete: async (materialListId: number): Promise<ApiResponse<{ id: number }>> => {
+    const response = await apiClient.delete<ApiResponse<{ id: number }>>(
       `/api/v1/material-lists/${materialListId}`
     );
     return response.data;

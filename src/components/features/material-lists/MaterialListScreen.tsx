@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeftIcon, ShoppingBagIcon, PlusIcon, SearchIcon, CloseIcon, UserCircleIcon } from '@/assets/icons/IconComponents';
+import { ChevronLeftIcon, PlusIcon, SearchIcon, CloseIcon } from '@/assets/icons/IconComponents';
 import { useMaterialListsQuery } from '@/hooks/useListQueries';
-import type { MaterialList, MaterialListStatus } from '@/types';
+import type { MaterialList, MaterialListStatus, MaterialListSource } from '@/types';
 
 interface MaterialListScreenProps {
   onBack: () => void;
@@ -20,8 +20,18 @@ const getInitials = (name: string): string => {
   return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
 };
 
+const sourceStyles: Record<MaterialListSource, string> = {
+  from_project: 'bg-blue-100 text-blue-800 border border-blue-200',
+  standalone: 'bg-purple-100 text-purple-800 border border-purple-200',
+};
+
+const sourceLabels: Record<MaterialListSource, string> = {
+  from_project: 'From project',
+  standalone: 'Manual',
+};
+
 const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ list, onClick }) => {
-  const { projectName, listNumber, status, issueDate } = list;
+  const { projectName, listNumber, status, issueDate, listSource } = list;
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     day: 'numeric',
     month: 'short',
@@ -45,9 +55,14 @@ const MaterialCard: React.FC<{ list: MaterialList; onClick: () => void }> = ({ l
           <span>•</span>
           <span className="text-gray-600 font-medium">{listNumber}</span>
         </div>
-        <span className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${statusStyles[status]}`}>
-          {status}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${statusStyles[status]}`}>
+            {status}
+          </span>
+          <span className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${sourceStyles[listSource]}`}>
+            {sourceLabels[listSource]}
+          </span>
+        </div>
       </div>
     </button>
   );

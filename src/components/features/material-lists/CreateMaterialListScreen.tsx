@@ -280,6 +280,7 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
       date: date ? date.toISOString() : new Date().toISOString(),
       preparedBy,
       status: 'Draft',
+      listSource: 'standalone',
       items: items.map((item) => {
         const quantity = parseFloat(item.quantity) || 0;
         const unitPrice = parseFloat(item.unitPrice) || 0;
@@ -303,6 +304,7 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
       date: date ? date.toISOString() : new Date().toISOString(),
       preparedBy,
       status: 'Draft',
+      listSource: 'standalone',
       items: items.map((item) => {
         const quantity = parseFloat(item.quantity) || 0;
         const unitPrice = parseFloat(item.unitPrice) || 0;

@@ -87,6 +87,7 @@ import type { EstimationPreviewAcceptedPayload } from '../components/features/es
 import { applyMarginToItems, quoteItemsSubtotal } from '../utils/estimationQuoteMappers';
 import type { SelectProjectData } from '../types/project';
 import type { FullMaterialList } from '../types/material';
+import { mapApiToFullMaterialList, mapFullMaterialListToCreateRequest } from '../utils/materialListMappers';
 import { initialEstimates } from '../constants';
 import {
   splitQuoteBackendItems,
@@ -259,30 +260,13 @@ const App: React.FC = () => {
           setMaterialListDetailData(null);
           return;
         }
-        const responseData = getApiResponseData(response) as { materialList?: Record<string, unknown> };
-        const ml = (responseData?.materialList ?? responseData) as {
-          id: number;
-          items?: Array<{ description: string; quantity: number; unitPrice: number; totalPrice?: number }>;
-          total?: number;
-          createdAt?: string;
-          preparedBy?: string;
-          project?: { projectName?: string };
-        };
-        const full: FullMaterialList = {
-          id: String(ml.id),
-          projectName: ml.project?.projectName || 'Material List',
-          date: ml.createdAt || new Date().toISOString(),
-          preparedBy: ml.preparedBy || '',
-          status: 'Completed',
-          items: (ml.items || []).map((item, i) => ({
-            id: `item-${i}`,
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.totalPrice ?? item.quantity * item.unitPrice,
-          })),
-          total: ml.total ?? 0,
-        };
+        const responseData = getApiResponseData(response) as { materialList?: Parameters<typeof mapApiToFullMaterialList>[0] };
+        const ml = responseData?.materialList;
+        if (!ml) {
+          if (!cancelled) setMaterialListDetailData(null);
+          return;
+        }
+        const full = mapApiToFullMaterialList(ml);
         if (!cancelled) setMaterialListDetailData(full);
       } catch (error) {
         console.error('[App] Error loading material list detail:', error);
@@ -1175,43 +1159,134 @@ const App: React.FC = () => {
     navigate('createMaterialList');
   };
 
-  const handleSaveMaterialListDraft = async (listData: any) => {
-    try {
-      // Transform FullMaterialList to API format
-      const requestData = {
-        projectName: listData.projectName,
-        items: listData.items.map((item: any) => {
-          const quantity = typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity) || 0;
-          const unitPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice) || 0;
-          const totalPrice = item.total ?? (quantity * unitPrice);
-          return {
-            description: item.description || '',
-            quantity,
-            unitPrice,
-            totalPrice: typeof totalPrice === 'number' ? totalPrice : quantity * unitPrice,
-          };
-        }),
-        total: typeof listData.total === 'number' ? listData.total : parseFloat(String(listData.total)) || 0,
-        preparedBy: listData.preparedBy || '',
-        date: listData.date || new Date().toISOString(),
-      };
+  const persistMaterialList = async (
+    listData: FullMaterialList,
+    options?: { status?: 'draft' | 'completed'; isUpdate?: boolean }
+  ): Promise<string | null> => {
+    const numId = parseInt(listData.id, 10);
+    const isUpdate = options?.isUpdate && !isNaN(numId);
 
-      // Call API to save material list
-      const response = await materialListsService.create(requestData);
-      
-      const normalizedResponse = normalizeApiResponse(response);
-      if (isApiResponseSuccess(normalizedResponse)) {
-        invalidateMaterialListsCache();
-        setRefreshMaterialLists(prev => prev + 1);
-        navigate('material-list');
-      } else {
-        const msg = (normalizedResponse as any)?.message || 'Failed to save material list';
-        alert(`Save failed: ${msg}. Please try again.`);
+    const payload = mapFullMaterialListToCreateRequest(
+      { ...listData, listSource: listData.listSource ?? 'standalone' },
+      { status: options?.status }
+    );
+
+    if (isUpdate) {
+      const response = await materialListsService.update(numId, {
+        displayName: payload.displayName,
+        preparedBy: payload.preparedBy,
+        issueDate: payload.issueDate,
+        status: payload.status,
+        items: payload.items,
+        total: payload.total,
+      });
+      const normalized = normalizeApiResponse(response);
+      if (!isApiResponseSuccess(normalized)) {
+        throw new Error((normalized as { message?: string }).message || 'Failed to update material list');
       }
-    } catch (error: any) {
+      const data = getApiResponseData(normalized) as { materialList?: Parameters<typeof mapApiToFullMaterialList>[0] };
+      return data?.materialList ? String(data.materialList.id) : String(numId);
+    }
+
+    const response = await materialListsService.create(payload);
+    const normalized = normalizeApiResponse(response);
+    if (!isApiResponseSuccess(normalized)) {
+      throw new Error((normalized as { message?: string }).message || 'Failed to save material list');
+    }
+    const data = getApiResponseData(normalized) as { materialList?: Parameters<typeof mapApiToFullMaterialList>[0] };
+    return data?.materialList ? String(data.materialList.id) : null;
+  };
+
+  const handleSaveMaterialListDraft = async (listData: FullMaterialList) => {
+    try {
+      const savedId = await persistMaterialList(
+        { ...listData, listSource: listData.listSource ?? 'standalone' },
+        { status: 'draft' }
+      );
+      invalidateMaterialListsCache();
+      setRefreshMaterialLists((prev) => prev + 1);
+      if (savedId) setSelectedMaterialListId(savedId);
+      navigate('material-list');
+    } catch (error: unknown) {
       console.error('[App] Error saving material list:', error);
-      const msg = error?.response?.data?.message || error?.message || 'An unexpected error occurred';
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      const msg = err?.response?.data?.message || err?.message || 'An unexpected error occurred';
       alert(`Error saving draft: ${msg}. Please try again.`);
+    }
+  };
+
+  const handleCompleteMaterialList = async (listData: FullMaterialList) => {
+    try {
+      const isExisting = listData.id && !listData.id.startsWith('mlist-') && !listData.id.startsWith('dup-');
+      const savedId = await persistMaterialList(
+        { ...listData, listSource: listData.listSource ?? 'standalone' },
+        { status: 'completed', isUpdate: Boolean(isExisting) }
+      );
+      invalidateMaterialListsCache();
+      setRefreshMaterialLists((prev) => prev + 1);
+      setMaterialListPreviewData(null);
+      if (savedId) {
+        setSelectedMaterialListId(savedId);
+        navigate('materialListDetail');
+      } else {
+        navigate('material-list');
+      }
+    } catch (error: unknown) {
+      console.error('[App] Error completing material list:', error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      const msg = err?.response?.data?.message || err?.message || 'An unexpected error occurred';
+      alert(`Save failed: ${msg}. Please try again.`);
+    }
+  };
+
+  const handleSendProjectToMaterialList = async (payload: {
+    projectId: number;
+    projectName: string;
+    preparedBy?: string;
+    items: FullMaterialList['items'];
+    total: number;
+  }) => {
+    try {
+      const listData: FullMaterialList = {
+        id: `mlist-new-${Date.now()}`,
+        projectId: payload.projectId,
+        projectName: payload.projectName,
+        date: new Date().toISOString(),
+        preparedBy: payload.preparedBy || '',
+        status: 'Completed',
+        listSource: 'from_project',
+        items: payload.items,
+        total: payload.total,
+      };
+      const savedId = await persistMaterialList(listData, { status: 'completed' });
+      invalidateMaterialListsCache();
+      setRefreshMaterialLists((prev) => prev + 1);
+      if (savedId) {
+        setSelectedMaterialListId(savedId);
+        navigate('materialListDetail');
+      }
+    } catch (error: unknown) {
+      console.error('[App] Error sending to material list:', error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      alert(`Failed to save material list: ${err?.response?.data?.message || err?.message || 'Please try again.'}`);
+    }
+  };
+
+  const handleUpdateMaterialList = async (listData: FullMaterialList) => {
+    try {
+      const savedId = await persistMaterialList(listData, {
+        status: listData.status === 'Completed' ? 'completed' : 'draft',
+        isUpdate: true,
+      });
+      invalidateMaterialListsCache();
+      setRefreshMaterialLists((prev) => prev + 1);
+      setEditingMaterialList(null);
+      if (savedId) setSelectedMaterialListId(savedId);
+      navigate('materialListDetail');
+    } catch (error: unknown) {
+      console.error('[App] Error updating material list:', error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      alert(`Update failed: ${err?.response?.data?.message || err?.message || 'Please try again.'}`);
     }
   };
 
@@ -1240,8 +1315,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDuplicateMaterialList = (list: import('@/types').FullMaterialList) => {
-    setDuplicateMaterialListData({ ...list, id: `dup-${Date.now()}` });
+  const handleDuplicateMaterialList = (list: FullMaterialList) => {
+    setDuplicateMaterialListData({
+      ...list,
+      id: `dup-${Date.now()}`,
+      listSource: 'standalone',
+      projectId: undefined,
+    });
     setSelectedMaterialListId(null);
     navigate('createMaterialList');
   };
@@ -1660,11 +1740,7 @@ const App: React.FC = () => {
                 navigate('materialListDetail');
                 setEditingMaterialList(null);
               }}
-              onNext={() => {
-                // Handle next - could navigate to Item List tab or save
-                navigate('materialListDetail');
-                setEditingMaterialList(null);
-              }}
+              onSave={(updated) => handleUpdateMaterialList(updated)}
             />
           </div>
         </div>
@@ -1689,8 +1765,15 @@ const App: React.FC = () => {
             <MaterialListPreviewScreen
               list={materialListPreviewData}
               onBack={() => navigate('createMaterialList')}
+              onSaveDraft={() => handleSaveMaterialListDraft(materialListPreviewData!)}
+              onSaveComplete={() => handleCompleteMaterialList(materialListPreviewData!)}
               onDuplicate={() => {
-                setDuplicateMaterialListData({ ...materialListPreviewData!, id: `dup-${Date.now()}` });
+                setDuplicateMaterialListData({
+                  ...materialListPreviewData!,
+                  id: `dup-${Date.now()}`,
+                  listSource: 'standalone',
+                  projectId: undefined,
+                });
                 navigate('createMaterialList');
               }}
             />
@@ -1972,6 +2055,7 @@ const App: React.FC = () => {
               }}
               onCalculationComplete={(result) => setInitialCalculationResult(result)}
               onCalculatedProjectId={(id) => setDraftProjectId(id)}
+              onSendToMaterialList={handleSendProjectToMaterialList}
             />
           </div>
         </div>

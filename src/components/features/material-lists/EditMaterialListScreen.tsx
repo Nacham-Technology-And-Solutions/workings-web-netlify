@@ -9,7 +9,7 @@ import CalendarModal from '@/components/common/CalendarModal';
 interface EditMaterialListScreenProps {
   list: FullMaterialList;
   onBack: () => void;
-  onNext: () => void;
+  onSave: (list: FullMaterialList) => void;
 }
 
 const getDayWithSuffix = (day: number) => {
@@ -45,7 +45,7 @@ type EditableItem = {
   unitPrice: string;
 };
 
-const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, onBack, onNext }) => {
+const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, onBack, onSave }) => {
   const [activeTab, setActiveTab] = useState<'Overview' | 'Item List'>('Overview');
   const [projectName, setProjectName] = useState(list.projectName);
   const [issueDate, setIssueDate] = useState<Date | null>(new Date(list.date));
@@ -98,6 +98,30 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
   const subtotal = useMemo(() => {
     return itemTotals.reduce((sum, total) => sum + total, 0);
   }, [itemTotals]);
+
+  const buildUpdatedList = (status: FullMaterialList['status']): FullMaterialList => ({
+    ...list,
+    projectName: list.listSource === 'standalone' ? projectName : list.projectName,
+    date: issueDate ? issueDate.toISOString() : list.date,
+    preparedBy,
+    status,
+    items: items.map((item, index) => {
+      const quantity = parseFloat(item.quantity) || 0;
+      const unitPrice = parseFloat(item.unitPrice) || 0;
+      return {
+        id: item.id || `item-${index}`,
+        description: item.description,
+        quantity,
+        unitPrice,
+        total: quantity * unitPrice,
+      };
+    }),
+    total: subtotal,
+  });
+
+  const handleSave = (status: FullMaterialList['status']) => {
+    onSave(buildUpdatedList(status));
+  };
 
   return (
     <div className="flex flex-col h-screen bg-white font-sans text-gray-800">
@@ -317,14 +341,14 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
                 </div>
               </div>
 
-              {/* Add a Dimension Button */}
+              {/* Add Item */}
               <button
                 type="button"
                 onClick={handleAddItem}
                 className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"
               >
                 <PlusIcon />
-                <span className="text-sm font-medium">Add a Dimension</span>
+                <span className="text-sm font-medium">Add an Item</span>
               </button>
 
               {/* Subtotal */}
@@ -346,26 +370,34 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
               </button>
             </div>
           ) : (
-            <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="mt-8 pt-6 border-t border-gray-200 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={onNext}
+                onClick={() => handleSave('Completed')}
                 className="w-full lg:w-auto px-8 py-3.5 bg-gray-800 text-white text-base font-semibold rounded-lg hover:bg-gray-700 transition-colors"
               >
-                Next
+                Save changes
+              </button>
+              <button
+                onClick={() => handleSave('Draft')}
+                className="w-full lg:w-auto px-8 py-3.5 bg-white text-gray-800 border border-gray-400 text-base font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                Save as draft
               </button>
             </div>
           )}
         </div>
       </main>
 
-      {/* Calendar Modal */}
-      {showCalendar && (
-        <CalendarModal
-          selectedDate={issueDate}
-          onSelect={handleDateSelect}
-          onClose={() => setShowCalendar(false)}
-        />
-      )}
+      <CalendarModal
+        isOpen={showCalendar}
+        onClose={() => setShowCalendar(false)}
+        onSubmit={handleDateSelect}
+        onClear={() => {
+          setIssueDate(null);
+          setShowCalendar(false);
+        }}
+        initialDate={issueDate}
+      />
     </div>
   );
 };

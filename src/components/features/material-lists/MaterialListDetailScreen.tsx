@@ -97,6 +97,8 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
 
   const isDraft = list.status === 'Draft';
   const isCompleted = list.status === 'Completed';
+  const listSource = list.listSource ?? 'standalone';
+  const sourceLabel = listSource === 'from_project' ? 'From project' : 'Manual';
 
   return (
     <div className="flex flex-col h-full bg-white font-sans text-gray-800">
@@ -227,12 +229,23 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
             <div className="space-y-3 mb-6">
               <div>
                 <span className="text-gray-600">Prepared by: </span>
-                <span className="font-bold text-gray-900">{list.preparedBy}</span>
+                <span className="font-bold text-gray-900">{list.preparedBy || '—'}</span>
               </div>
 
               <div>
                 <span className="text-gray-600">Project: </span>
                 <span className="font-medium text-gray-900">{list.projectName}</span>
+              </div>
+
+              <div>
+                <span className="text-gray-600">Source: </span>
+                <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                  listSource === 'from_project'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-purple-100 text-purple-800'
+                }`}>
+                  {sourceLabel}
+                </span>
               </div>
             </div>
 
@@ -250,7 +263,12 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
 
                 {/* Table Body */}
                 <div className="bg-white">
-                  {list.items.map((item, index) => (
+                  {list.items.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                      No items in this material list.
+                    </div>
+                  ) : (
+                    list.items.map((item, index) => (
                     <div 
                       key={item.id} 
                       className={`grid grid-cols-12 gap-4 px-4 py-3 bg-white ${
@@ -270,7 +288,8 @@ const MaterialListDetailScreen: React.FC<MaterialListDetailScreenProps> = ({ lis
                         {formatNumber(item.total)}
                       </div>
                     </div>
-                  ))}
+                    ))
+                  )}
                 </div>
 
                 {/* Total Row - Different layout for Draft vs Completed */}

@@ -8,6 +8,8 @@ import { exportFullMaterialListToPDF, exportMaterialListToExcel, shareData } fro
 interface MaterialListPreviewScreenProps {
   list: FullMaterialList;
   onBack: () => void;
+  onSaveDraft?: () => void;
+  onSaveComplete?: () => void;
   onDuplicate?: () => void;
 }
 
@@ -18,7 +20,13 @@ const formatNumber = (amount: number) => {
   }).format(amount);
 };
 
-const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({ list, onBack, onDuplicate }) => {
+const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({
+  list,
+  onBack,
+  onSaveDraft,
+  onSaveComplete,
+  onDuplicate,
+}) => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -258,14 +266,44 @@ const MaterialListPreviewScreen: React.FC<MaterialListPreviewScreenProps> = ({ l
         </div>
       </main>
 
-      {/* Mobile: fixed bottom bar with Download PDF (match quote preview) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3">
+      {/* Mobile: fixed bottom bar with save actions */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3 space-y-2">
+        {onSaveComplete && (
+          <button
+            onClick={onSaveComplete}
+            className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+          >
+            Save as completed
+          </button>
+        )}
         <button
           onClick={handleDownloadPDF}
-          className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+          className="w-full py-3 font-semibold rounded-lg bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 transition-colors"
         >
           Download PDF
         </button>
+      </div>
+
+      {/* Desktop footer actions */}
+      <div className="hidden md:block flex-shrink-0 border-t border-gray-200 bg-white px-8 py-6">
+        <div className="max-w-7xl mx-auto flex flex-wrap gap-3">
+          {onSaveComplete && (
+            <button
+              onClick={onSaveComplete}
+              className="px-8 py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+            >
+              Save as completed
+            </button>
+          )}
+          {onSaveDraft && (
+            <button
+              onClick={onSaveDraft}
+              className="px-8 py-3 font-semibold rounded-lg bg-white text-gray-800 border border-gray-400 hover:bg-gray-100 transition-colors"
+            >
+              Save as draft
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Export Options Modal (for Duplicate - opens more export options) */}

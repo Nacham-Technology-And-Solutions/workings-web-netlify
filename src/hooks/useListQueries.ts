@@ -95,6 +95,6 @@ export function useQuotesQuery(refreshTrigger = 0) {
 export function useMaterialListsQuery(refreshTrigger = 0) {
   return useQuery({
     queryKey: [...queryKeys.materialLists.list(), refreshTrigger],
-    queryFn: () => fetchMaterialListsCached(),
+    queryFn: () => fetchMaterialListsCached({ force: true }),
   });
 }

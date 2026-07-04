@@ -44,6 +44,7 @@ import {
 } from '@/utils/calculationResultParser';
 import { normalizePlanEntryToCuts, formatOffcutLabelMm } from '@/utils/cutPlanKeys';
 import MaterialBomQuantityItem from '@/components/features/estimation/MaterialBomQuantityItem';
+import { mapEngineMaterialListToApiItems } from '@/utils/materialListMappers';
 
 type CuttingPlanEntry = { [key: string]: string[] | CuttingPlanPiece[] };
 
@@ -118,10 +119,15 @@ interface ProjectSolutionScreenProps {
   draftProjectId?: number | null;
   onNavigateToEstimationPricing?: () => void;
   onProjectSaved?: () => void;
-  /** Called when calculation completes so parent can cache the result for "Return to Calculation Results" */
   onCalculationComplete?: (result: CalculationResult) => void;
-  /** Called when calculate yields a project ID (e.g. newly created project) */
   onCalculatedProjectId?: (projectId: number) => void;
+  onSendToMaterialList?: (payload: {
+    projectId: number;
+    projectName: string;
+    preparedBy?: string;
+    items: Array<{ id: string; description: string; quantity: number; unitPrice: number; total: number }>;
+    total: number;
+  }) => void | Promise<void>;
 }
 
 interface MaterialItem {
@@ -143,7 +149,7 @@ function formatMaterialQuantityBadge(
   return item.quantityLabel ?? `${itemQuantities[item.id] ?? item.quantity} ${item.unit}`;
 }
 
-const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onNavigateToEstimationPricing, onProjectSaved, onCalculationComplete, onCalculatedProjectId }) => {
+const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, onGenerate, onNavigateToStep, previousData, initialTab = 'material', initialCalculationResult, draftProjectId, onNavigateToEstimationPricing, onProjectSaved, onCalculationComplete, onCalculatedProjectId, onSendToMaterialList }) => {
   const [activeTab, setActiveTab] = useState<'material' | 'cutting' | 'glass' | 'net'>(initialTab);
   const [warningsDismissed, setWarningsDismissed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
@@ -177,6 +183,7 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
   
   // Export dropdown states
   const [showExportDropdown, setShowExportDropdown] = useState<'material' | 'cutting' | 'glass' | 'net' | null>(null);
+  const [isSendingToMaterialList, setIsSendingToMaterialList] = useState(false);
   /** Mobile: filters panel open (All Profiles / All elements behind a button) */
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   /** Cutting list: full-screen expanded card { profileIndex (in filtered list), layoutIndex } */
@@ -199,6 +206,40 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       return;
     }
     onGenerate(0);
+  };
+
+  const handleSendToMaterialList = async () => {
+    if (!onSendToMaterialList || !calculationResult?.materialList?.length) return;
+    const projectId = calculatedProjectId ?? draftProjectId;
+    if (!projectId) {
+      alert('Save the project calculation before sending to Material List.');
+      return;
+    }
+
+    const projectName =
+      previousData?.projectDescription?.projectName?.trim() || 'Project Material List';
+
+    const apiItems = mapEngineMaterialListToApiItems(calculationResult.materialList);
+    const items = apiItems.map((item, index) => ({
+      id: `item-${index + 1}`,
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      total: item.totalPrice,
+    }));
+    const total = items.reduce((sum, item) => sum + item.total, 0);
+
+    setIsSendingToMaterialList(true);
+    try {
+      await onSendToMaterialList({
+        projectId,
+        projectName,
+        items,
+        total,
+      });
+    } finally {
+      setIsSendingToMaterialList(false);
+    }
   };
 
   // Auto-dismiss calculation success (points/balance) notification after 5 seconds
@@ -849,6 +890,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={handleSendToMaterialList}
+                  disabled={isSendingToMaterialList || !onSendToMaterialList}
+                  className="px-6 py-3 font-semibold rounded transition-colors bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSendingToMaterialList ? 'Saving…' : 'Send to Material List'}
+                </button>
                 <button
                   onClick={handleOpenGenerateQuote}
                   disabled={isSaving}
@@ -2009,6 +2057,13 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
                   </div>
                 )}
               </div>
+              <button
+                onClick={handleSendToMaterialList}
+                disabled={isSendingToMaterialList || !onSendToMaterialList}
+                className="w-full py-3 font-semibold rounded-lg bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSendingToMaterialList ? 'Saving…' : 'Send to Material List'}
+              </button>
               <button
                 onClick={handleOpenGenerateQuote}
                 disabled={isSaving}

@@ -20,6 +20,11 @@ import {
 import { formatNairaForPdf } from '@/utils/formatters';
 import { formatExportDate } from '@/utils/exportFileNaming';
 import { renderQuotePdfContent } from '@/utils/quotePdfRenderer';
+import {
+  autoTableMargins,
+  DEFAULT_PDF_MARGINS,
+  ensurePdfPageSpace,
+} from '@/utils/pdfPagination';
 import type { GlassPlacement, NetListCut } from '@/types/calculations';
 import type { DimensionItem } from '@/types/project';
 import { SLIDING_SASH_OPTIONS, isSlidingGlazingType } from '@/utils/slidingWindow';
@@ -275,14 +280,17 @@ export const exportProjectMaterialListToPDF = async (
   }
 
   let startY = customerName ? 54 : 48;
+  const margins = DEFAULT_PDF_MARGINS;
 
   sections.forEach((section) => {
     if (!section.rows.length) return;
 
+    startY = ensurePdfPageSpace(doc, startY, 16, margins);
+
     doc.setFontSize(11);
     setPdfUnicodeFont(doc, 'bold');
     doc.setTextColor(31, 41, 55);
-    doc.text(section.title, 14, startY);
+    doc.text(section.title, margin, startY);
     startY += 6;
 
     const tableData = section.rows.map((row, index) => {
@@ -302,6 +310,7 @@ export const exportProjectMaterialListToPDF = async (
 
     autoTable(doc, {
       startY,
+      margin: autoTableMargins(margins),
       head: priced
         ? [['S/N', 'Item', 'Quantity', 'Unit', 'Unit Price', 'Total']]
         : [['S/N', 'Item', 'Quantity']],
@@ -317,10 +326,11 @@ export const exportProjectMaterialListToPDF = async (
   });
 
   if (priced) {
+    startY = ensurePdfPageSpace(doc, startY, 12, margins);
     doc.setFontSize(12);
     setPdfUnicodeFont(doc, 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, startY);
+    doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, margin, startY);
   }
 
   applyPdfWatermarks(doc, workingsLogo);
@@ -443,8 +453,11 @@ export const exportMaterialListToPDF = async (
     formatNairaForPdf(item.total),
   ]);
 
+  const margins = DEFAULT_PDF_MARGINS;
+
   autoTable(doc, {
     startY: 54,
+    margin: autoTableMargins(margins),
     head: [['S/N', 'Item', 'Quantity', 'Unit', 'Unit Price', 'Total']],
     body: tableData,
     theme: 'grid',
@@ -454,10 +467,11 @@ export const exportMaterialListToPDF = async (
     ...pdfAutoTableUnicodeHooks(),
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY || 54;
+  let finalY = (doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 54;
+  finalY = ensurePdfPageSpace(doc, finalY + 10, 10, margins);
   doc.setFontSize(12);
   setPdfUnicodeFont(doc, 'bold');
-  doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, finalY + 10);
+  doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, margin, finalY);
 
   applyPdfWatermarks(doc, workingsLogo);
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
@@ -519,8 +533,11 @@ export const exportFullMaterialListToPDF = async (
     formatNairaForPdf(item.total),
   ]);
 
+  const margins = DEFAULT_PDF_MARGINS;
+
   autoTable(doc, {
     startY: 54,
+    margin: autoTableMargins(margins),
     head: [['S/N', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Total']],
     body: tableData,
     theme: 'grid',
@@ -530,10 +547,11 @@ export const exportFullMaterialListToPDF = async (
     ...pdfAutoTableUnicodeHooks(),
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY || 54;
+  let finalY = (doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 54;
+  finalY = ensurePdfPageSpace(doc, finalY + 10, 10, margins);
   doc.setFontSize(12);
   setPdfUnicodeFont(doc, 'bold');
-  doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, 14, finalY + 10);
+  doc.text(`Grand Total: ${formatNairaForPdf(grandTotal)}`, margin, finalY);
 
   applyPdfWatermarks(doc, workingsLogo);
   doc.save(`Material-List-${projectName.replace(/\s+/g, '-')}.pdf`);
@@ -1776,13 +1794,13 @@ interface QuoteData {
  */
 export const exportQuoteToPDF = async (quote: QuoteData) => {
   const pdfConfig = useTemplateStore.getState().pdfExport.quote;
+  const quoteFormat = useTemplateStore.getState().quoteFormat;
+  const paymentMethodConfig = useTemplateStore.getState().paymentMethodConfig;
+  const fileNamingConfig = useTemplateStore.getState().pdfExport.fileNaming;
   const workingsLogo = await getPdfAppLogo();
   const headerBranding = await resolveExportHeaderBranding(
     isQuoteLogoEnabled(quoteFormat.header.logoSource)
   );
-  const fileNamingConfig = useTemplateStore.getState().pdfExport.fileNaming;
-  const quoteFormat = useTemplateStore.getState().quoteFormat;
-  const paymentMethodConfig = useTemplateStore.getState().paymentMethodConfig;
 
   const pageSize = getPageSize(pdfConfig.pageSize, pdfConfig.customSize);
 
