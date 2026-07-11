@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import type { CredentialResponse } from '@react-oauth/google';
 import Input from '@/components/common/Input';
 import { EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
+import GoogleSignInSection from '@/components/features/auth/GoogleSignInSection';
 import { authService } from '@/services/api';
 import { extractErrorMessage, extractFieldErrors, getValidationIssues } from '@/utils/errorHandler';
 import { getFieldErrorsFromIssues, getValidationSummaryMessage, getValidationIssuesFromData, authPathToField } from '@/utils/validationErrors';
@@ -12,9 +14,15 @@ import { useAuthStore } from '@/stores';
 interface RegistrationScreenProps {
   onRegister: () => void;
   onSwitchToLogin: () => void;
+  /** Called after Google OAuth succeeds; parent routes new vs returning users. */
+  onOAuthComplete?: (info: { isNewUser: boolean }) => void;
 }
 
-const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onSwitchToLogin }) => {
+const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
+  onRegister,
+  onSwitchToLogin,
+  onOAuthComplete,
+}) => {
   const { login: loginStore } = useAuthStore();
   const [formData, setFormData] = useState({
     name: '',
@@ -35,6 +43,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<string | null>(null);
   const [validationIssues, setValidationIssues] = useState<{ path: string; message: string }[]>([]);
@@ -226,6 +235,83 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
     }
   };
 
+  const applySession = (
+    accessToken: string,
+    refreshToken: string,
+    userProfile: {
+      id: number;
+      name: string;
+      email: string;
+      companyName: string;
+      subscriptionStatus: string;
+      pointsBalance?: number;
+    }
+  ) => {
+    loginStore(accessToken, refreshToken, {
+      id: userProfile.id,
+      email: userProfile.email,
+      name: userProfile.name,
+      companyName: userProfile.companyName,
+      subscriptionStatus: userProfile.subscriptionStatus as 'free' | 'pro' | 'starter' | 'enterprise',
+      pointsBalance: userProfile.pointsBalance ?? 0,
+    });
+  };
+
+  const handleGoogleCredential = async (credentialResponse: CredentialResponse) => {
+    const idToken = credentialResponse.credential;
+    if (!idToken) {
+      setGeneralError('Google did not return a credential. Please try again.');
+      return;
+    }
+
+    setGoogleLoading(true);
+    setGeneralError(null);
+    setDetailedError(null);
+    setValidationIssues([]);
+    setErrors({
+      name: '',
+      email: '',
+      company: '',
+      password: '',
+      confirmPassword: '',
+    });
+
+    try {
+      const company = formData.company.trim();
+      const response = await authService.oauthWithGoogle(
+        idToken,
+        company.length >= 2 ? company : undefined
+      );
+      const payload = response.response;
+
+      if (payload?.accessToken && payload?.refreshToken && payload?.userProfile) {
+        applySession(payload.accessToken, payload.refreshToken, payload.userProfile);
+        onOAuthComplete?.({ isNewUser: Boolean(payload.isNewUser) });
+        return;
+      }
+
+      setGeneralError(response.message || 'Google sign-in failed. Please try again.');
+    } catch (error) {
+      const issues = getValidationIssues(error);
+      if (issues.length > 0) {
+        setValidationIssues(issues);
+        setErrors((prev) => ({ ...prev, ...getFieldErrorsFromIssues(issues, { pathToField: authPathToField }) }));
+        setGeneralError(getValidationSummaryMessage(issues));
+        setDetailedError(null);
+      } else {
+        const fieldErrors = extractFieldErrors(error);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        }
+        const errorMessage = extractErrorMessage(error);
+        setGeneralError(errorMessage.message);
+        setDetailedError(errorMessage.detailedMessage || null);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-white z-40 font-exo overflow-y-auto">
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8">
@@ -356,6 +442,25 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onRegister, onS
               </button>
             </div>
           </form>
+
+          <div className="flex items-center my-6">
+            <hr className="flex-grow border-t border-gray-200" />
+            <span className="px-4 text-xs sm:text-sm text-gray-500">Or</span>
+            <hr className="flex-grow border-t border-gray-200" />
+          </div>
+
+          <GoogleSignInSection
+            onSuccess={handleGoogleCredential}
+            onError={() => {
+              setGeneralError('Google sign-in failed. Please try again or use the form above.');
+            }}
+            loading={googleLoading}
+            onNotConfigured={() => {
+              setGeneralError(
+                'Add VITE_GOOGLE_CLIENT_ID to your environment to enable Google. You can still register with the form above.'
+              );
+            }}
+          />
         </div>
 
         {/* Footer */}

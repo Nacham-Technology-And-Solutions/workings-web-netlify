@@ -383,6 +383,14 @@ const App: React.FC = () => {
     }
   };
 
+  const handleOAuthComplete = ({ isNewUser }: { isNewUser: boolean }) => {
+    if (isNewUser) {
+      handleRegistrationComplete();
+      return;
+    }
+    handleLogin();
+  };
+
   const handleForgotPassword = () => {
     setAuthScreen('forgot-password');
   };
@@ -1398,6 +1406,7 @@ const App: React.FC = () => {
           onLogin={handleLogin}
           onCreateAccount={() => setAuthScreen('register')}
           onForgotPassword={handleForgotPassword}
+          onOAuthComplete={handleOAuthComplete}
         />
       );
     }
@@ -1406,6 +1415,7 @@ const App: React.FC = () => {
         <RegistrationScreen
           onRegister={handleRegistrationComplete}
           onSwitchToLogin={() => setAuthScreen('login')}
+          onOAuthComplete={handleOAuthComplete}
         />
       );
     }
