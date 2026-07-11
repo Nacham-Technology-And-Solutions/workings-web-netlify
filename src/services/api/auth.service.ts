@@ -6,6 +6,10 @@ export interface RegisterRequest {
   companyName: string;
   password: string;
   confirmPassword: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  referrer?: string;
 }
 
 export interface LoginRequest {

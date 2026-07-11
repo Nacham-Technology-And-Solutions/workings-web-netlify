@@ -7,6 +7,23 @@ import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { queryClient } from './src/lib/queryClient';
 import * as serviceWorkerRegistration from './src/utils/serviceWorkerRegistration';
 import './src/styles/index.css';
+// Parse UTM tracking parameters from URL and store in sessionStorage
+try {
+  const urlParams = new URLSearchParams(window.location.search);
+  const utmSource = urlParams.get('utm_source');
+  const utmMedium = urlParams.get('utm_medium');
+  const utmCampaign = urlParams.get('utm_campaign');
+  
+  if (utmSource) sessionStorage.setItem('utm_source', utmSource);
+  if (utmMedium) sessionStorage.setItem('utm_medium', utmMedium);
+  if (utmCampaign) sessionStorage.setItem('utm_campaign', utmCampaign);
+  
+  if (document.referrer && !document.referrer.includes(window.location.hostname)) {
+    sessionStorage.setItem('referrer', document.referrer);
+  }
+} catch (e) {
+  console.error('Failed to parse UTM tracking parameters:', e);
+}
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 

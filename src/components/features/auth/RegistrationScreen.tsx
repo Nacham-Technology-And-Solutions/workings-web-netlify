@@ -31,7 +31,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
     password: '',
     confirmPassword: '',
   });
-  
+
   const [errors, setErrors] = useState({
     name: '',
     email: '',
@@ -52,49 +52,49 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
     // Clear error on change after a failed submission attempt
-    if(errors[id as keyof typeof errors]) {
-        setErrors(prev => ({...prev, [id]: ''}));
+    if (errors[id as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [id]: '' }));
     }
     if (generalError) setGeneralError(null);
     if (validationIssues.length > 0) setValidationIssues([]);
   };
-  
+
   const validateField = (id: string, value: string): boolean => {
     let error = '';
     switch (id) {
-        case 'name':
-        case 'company':
-            if (!value.trim()) error = 'This field is required.';
-            break;
-        case 'email':
-            if (!value.trim()) {
-                error = 'This field is required.';
-            } else if (!/\S+@\S+\.\S+/.test(value)) {
-                error = 'Please enter a valid email address.';
-            }
-            break;
-        case 'password':
-            if (!value) {
-                error = 'This field is required.';
-            } else if (value.length < 8) {
-                error = 'Must be at least 8 characters.';
-            } else if (!/[A-Z]/.test(value)) {
-                error = 'Must contain at least one uppercase letter.';
-            } else if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
-                error = 'Must contain at least one special character.';
-            }
-            break;
-        case 'confirmPassword':
-            if (!value) {
-                error = 'This field is required.';
-            } else if (value !== formData.password) {
-                error = 'Passwords do not match.';
-            }
-            break;
-        default:
-            break;
+      case 'name':
+      case 'company':
+        if (!value.trim()) error = 'This field is required.';
+        break;
+      case 'email':
+        if (!value.trim()) {
+          error = 'This field is required.';
+        } else if (!/\S+@\S+\.\S+/.test(value)) {
+          error = 'Please enter a valid email address.';
+        }
+        break;
+      case 'password':
+        if (!value) {
+          error = 'This field is required.';
+        } else if (value.length < 8) {
+          error = 'Must be at least 8 characters.';
+        } else if (!/[A-Z]/.test(value)) {
+          error = 'Must contain at least one uppercase letter.';
+        } else if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
+          error = 'Must contain at least one special character.';
+        }
+        break;
+      case 'confirmPassword':
+        if (!value) {
+          error = 'This field is required.';
+        } else if (value !== formData.password) {
+          error = 'Passwords do not match.';
+        }
+        break;
+      default:
+        break;
     }
-    setErrors(prev => ({...prev, [id]: error}));
+    setErrors(prev => ({ ...prev, [id]: error }));
     return !error;
   }
 
@@ -102,7 +102,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
     const { id, value } = e.target;
     validateField(id, value);
   };
-  
+
   const isFormValid = useMemo(() => {
     const hasUppercase = /[A-Z]/.test(formData.password);
     const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password);
@@ -140,6 +140,11 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
       confirmPassword: '',
     });
 
+    const utmSource = sessionStorage.getItem('utm_source') || undefined;
+    const utmMedium = sessionStorage.getItem('utm_medium') || undefined;
+    const utmCampaign = sessionStorage.getItem('utm_campaign') || undefined;
+    const referrer = sessionStorage.getItem('referrer') || undefined;
+
     try {
       const response = await authService.register({
         name: formData.name,
@@ -147,6 +152,10 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
         companyName: formData.company,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        referrer,
       });
 
       const normalizedResponse = normalizeApiResponse<{
@@ -161,7 +170,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
           pointsBalance: number;
         };
       }>(response);
-      
+
       if (isApiResponseSuccess(response)) {
         const responseData = getApiResponseData<{
           accessToken: string;
@@ -175,7 +184,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
             pointsBalance: number;
           };
         }>(response);
-        
+
         // Update auth store
         loginStore(
           responseData.accessToken,
@@ -316,165 +325,165 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
     <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-white z-40 font-exo overflow-y-auto">
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8">
         <div className="w-full max-w-md mx-auto py-8">
-        {/* Header Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Create an account</h1>
-          <p className="text-gray-600 text-base sm:text-lg font-exo">Get started — create quotes and manage projects.</p>
-        </div>
-        
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
-          {/* Validation errors list (API ZodError) */}
-          {validationIssues.length > 0 && (
-            <div className="mb-5">
-              <ValidationErrorAlert
-                issues={validationIssues}
-                onDismiss={() => {
-                  setValidationIssues([]);
-                  setGeneralError(null);
-                  setErrors({ name: '', email: '', company: '', password: '', confirmPassword: '' });
-                }}
-              />
-            </div>
-          )}
-          {/* General error message */}
-          {generalError && validationIssues.length === 0 && (
-            <div className="mb-5">
-              <ErrorMessage
-                message={generalError}
-                detailedMessage={detailedError || undefined}
-                onDismiss={() => {
-                  setGeneralError(null);
-                  setDetailedError(null);
-                }}
-              />
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            <Input
-              id="name"
-              label="Name"
-              placeholder="Enter your full name"
-              value={formData.name}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={errors.name}
-              required
-              aria-label="Name"
-            />
-            <Input
-              id="email"
-              label="Email address"
-              type="email"
-              placeholder="Enter your email address"
-              value={formData.email}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={errors.email}
-              required
-              aria-label="Email address"
-            />
-            <Input
-              id="company"
-              label="Company name"
-              placeholder="Enter your company name"
-              value={formData.company}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={errors.company}
-              required
-              aria-label="Company name"
-            />
-            <Input
-              id="password"
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Create a secure password"
-              value={formData.password}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={errors.password}
-              rightIcon={
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600 transition-colors duration-200" aria-label={showPassword ? "Hide password" : "Show password"}>
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
-              }
-              required
-              aria-label="Password"
-            />
-            <Input
-              id="confirmPassword"
-              label="Confirm password"
-              type={showConfirmPassword ? 'text' : 'password'}
-              placeholder="Confirm your password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={errors.confirmPassword}
-              rightIcon={
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="text-gray-400 hover:text-gray-600 transition-colors duration-200" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
-                  {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
-              }
-              required
-              aria-label="Confirm password"
-            />
-
-            {/* Submit Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={!isFormValid || isLoading}
-                className="w-full py-3 sm:py-3.5 text-base font-semibold text-white bg-gray-900 rounded transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Creating Account...</span>
-                  </>
-                ) : (
-                  'Create Account'
-                )}
-              </button>
-            </div>
-          </form>
-
-          <div className="flex items-center my-6">
-            <hr className="flex-grow border-t border-gray-200" />
-            <span className="px-4 text-xs sm:text-sm text-gray-500">Or</span>
-            <hr className="flex-grow border-t border-gray-200" />
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Create an account</h1>
+            <p className="text-gray-600 text-base sm:text-lg font-exo">Get started — create quotes and manage projects.</p>
           </div>
 
-          <GoogleSignInSection
-            onSuccess={handleGoogleCredential}
-            onError={() => {
-              setGeneralError('Google sign-in failed. Please try again or use the form above.');
-            }}
-            loading={googleLoading}
-            onNotConfigured={() => {
-              setGeneralError(
-                'Add VITE_GOOGLE_CLIENT_ID to your environment to enable Google. You can still register with the form above.'
-              );
-            }}
-          />
-        </div>
+          {/* Form Card */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
+            {/* Validation errors list (API ZodError) */}
+            {validationIssues.length > 0 && (
+              <div className="mb-5">
+                <ValidationErrorAlert
+                  issues={validationIssues}
+                  onDismiss={() => {
+                    setValidationIssues([]);
+                    setGeneralError(null);
+                    setErrors({ name: '', email: '', company: '', password: '', confirmPassword: '' });
+                  }}
+                />
+              </div>
+            )}
+            {/* General error message */}
+            {generalError && validationIssues.length === 0 && (
+              <div className="mb-5">
+                <ErrorMessage
+                  message={generalError}
+                  detailedMessage={detailedError || undefined}
+                  onDismiss={() => {
+                    setGeneralError(null);
+                    setDetailedError(null);
+                  }}
+                />
+              </div>
+            )}
 
-        {/* Footer */}
-        <div className="text-center mt-6">
-          <p className="text-gray-600 text-sm sm:text-base font-exo">
-            Already have an account?{' '}
-            <button 
-              onClick={onSwitchToLogin} 
-              className="font-semibold text-gray-900 hover:text-gray-700 underline underline-offset-2 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-2 rounded-sm font-exo"
-            >
-              Sign in
-            </button>
-          </p>
-        </div>
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+              <Input
+                id="name"
+                label="Name"
+                placeholder="Enter your full name"
+                value={formData.name}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.name}
+                required
+                aria-label="Name"
+              />
+              <Input
+                id="email"
+                label="Email address"
+                type="email"
+                placeholder="Enter your email address"
+                value={formData.email}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.email}
+                required
+                aria-label="Email address"
+              />
+              <Input
+                id="company"
+                label="Company name"
+                placeholder="Enter your company name"
+                value={formData.company}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.company}
+                required
+                aria-label="Company name"
+              />
+              <Input
+                id="password"
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Create a secure password"
+                value={formData.password}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.password}
+                rightIcon={
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600 transition-colors duration-200" aria-label={showPassword ? "Hide password" : "Show password"}>
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                }
+                required
+                aria-label="Password"
+              />
+              <Input
+                id="confirmPassword"
+                label="Confirm password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.confirmPassword}
+                rightIcon={
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="text-gray-400 hover:text-gray-600 transition-colors duration-200" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
+                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                }
+                required
+                aria-label="Confirm password"
+              />
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={!isFormValid || isLoading}
+                  className="w-full py-3 sm:py-3.5 text-base font-semibold text-white bg-gray-900 rounded transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed hover:enabled:bg-gray-800 hover:enabled:shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-900/20 font-exo flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Creating Account...</span>
+                    </>
+                  ) : (
+                    'Create Account'
+                  )}
+                </button>
+              </div>
+            </form>
+
+            <div className="flex items-center my-6">
+              <hr className="flex-grow border-t border-gray-200" />
+              <span className="px-4 text-xs sm:text-sm text-gray-500">Or</span>
+              <hr className="flex-grow border-t border-gray-200" />
+            </div>
+
+            <GoogleSignInSection
+              onSuccess={handleGoogleCredential}
+              onError={() => {
+                setGeneralError('Google sign-in failed. Please try again or use the form above.');
+              }}
+              loading={googleLoading}
+              onNotConfigured={() => {
+                setGeneralError(
+                  'Add VITE_GOOGLE_CLIENT_ID to your environment to enable Google. You can still register with the form above.'
+                );
+              }}
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="text-center mt-6">
+            <p className="text-gray-600 text-sm sm:text-base font-exo">
+              Already have an account?{' '}
+              <button
+                onClick={onSwitchToLogin}
+                className="font-semibold text-gray-900 hover:text-gray-700 underline underline-offset-2 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-2 rounded-sm font-exo"
+              >
+                Sign in
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>
