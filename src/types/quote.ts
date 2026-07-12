@@ -45,6 +45,7 @@ export interface QuotePreviewData {
   paymentTerms?: string;
   customPaymentTerms?: string;
   additionalNotes?: string;
+  status?: string;
 }
 
 export interface FullQuoteData {
@@ -87,6 +88,7 @@ export interface QuoteItemListData {
   listType: 'dimension' | 'material';
   items: QuoteItemRow[];
   subtotal: number;
+  baseItems?: QuoteItemRow[];
 }
 
 export interface QuoteExtrasNotesData {

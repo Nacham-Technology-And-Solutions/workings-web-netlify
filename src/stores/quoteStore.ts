@@ -38,6 +38,7 @@ interface QuoteState {
   updateStandaloneQuoteOverview: (data: QuoteOverviewData) => void;
   updateStandaloneQuoteItemList: (data: QuoteItemListData) => void;
   updateStandaloneQuoteExtrasNotes: (data: QuoteExtrasNotesData) => void;
+  updateStandaloneQuoteMargin: (marginPercent: number, adjustedItems: QuoteItemRow[]) => void;
   clearStandaloneQuoteData: () => void;
   setEstimationDraft: (draft: EstimationDraft | null) => void;
   updateEstimationDraftMargin: (marginPercent: number, adjustedItems: QuoteItemRow[]) => void;
@@ -82,6 +83,38 @@ export const useQuoteStore = create<QuoteState>()(
         if (projectData) updated.projectData = projectData;
         return { standaloneQuoteData: updated };
       }),
+      updateStandaloneQuoteMargin: (marginPercent, adjustedItems) => set((state) => {
+        if (!state.standaloneQuoteData) return state;
+        const currentItemList = state.standaloneQuoteData.itemList;
+        if (!currentItemList) return state;
+
+        const subtotal = adjustedItems.reduce((s, i) => s + i.total, 0);
+        return {
+          standaloneQuoteData: {
+            ...state.standaloneQuoteData,
+            itemList: {
+              ...currentItemList,
+              items: adjustedItems,
+              subtotal,
+            },
+            extrasNotes: state.standaloneQuoteData.extrasNotes
+              ? {
+                  ...state.standaloneQuoteData.extrasNotes,
+                  marginPercent,
+                }
+              : {
+                  extraCharges: '',
+                  amount: 0,
+                  additionalNotes: '',
+                  accountName: '',
+                  accountNumber: '',
+                  bankName: '',
+                  total: subtotal,
+                  marginPercent,
+                },
+          },
+        };
+      }),
       clearStandaloneQuoteData: () =>
         set({ standaloneQuoteData: null, estimationDraft: null, quoteClientReference: null }),
       setEstimationDraft: (draft) => set({ estimationDraft: draft }),
@@ -109,7 +142,14 @@ export const useQuoteStore = create<QuoteState>()(
       ensureQuoteClientReference: () => {
         const existing = get().quoteClientReference;
         if (existing) return existing;
-        const ref = crypto.randomUUID();
+        const ref =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                const r = (Math.random() * 16) | 0;
+                const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+              });
         set({ quoteClientReference: ref });
         return ref;
       },

@@ -39,7 +39,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
 }) => {
     const { user } = useAuthStore();
     const { paymentMethods: templatePaymentMethods, getDefaultPaymentMethod, setActiveTab } = useTemplateStore();
-    const { estimationDraft, updateEstimationDraftMargin } = useQuoteStore();
+    const { estimationDraft, updateEstimationDraftMargin, updateStandaloneQuoteMargin } = useQuoteStore();
     const [extraCharges, setExtraCharges] = useState(previousData?.extrasNotes?.extraCharges || '');
     const [amount, setAmount] = useState(previousData?.extrasNotes?.amount || 0);
     const [additionalNotes, setAdditionalNotes] = useState(previousData?.extrasNotes?.additionalNotes || '');
@@ -88,6 +88,10 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
         if (estimationDraft?.baseItems?.length) {
             const adjusted = applyMarginToItems(estimationDraft.baseItems, value);
             updateEstimationDraftMargin(value, adjusted);
+        } else if (previousData?.itemList?.items?.length) {
+            const baseItems = previousData.itemList.baseItems || previousData.itemList.items;
+            const adjusted = applyMarginToItems(baseItems, value);
+            updateStandaloneQuoteMargin(value, adjusted);
         }
     };
 
@@ -106,6 +110,20 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
         taxType,
         taxValue,
     });
+
+    // Apply margin on mount if marginPercent > 0
+    useEffect(() => {
+        if (marginPercent > 0) {
+            if (estimationDraft?.baseItems?.length) {
+                const adjusted = applyMarginToItems(estimationDraft.baseItems, marginPercent);
+                updateEstimationDraftMargin(marginPercent, adjusted);
+            } else if (previousData?.itemList?.items?.length) {
+                const baseItems = previousData.itemList.baseItems || previousData.itemList.items;
+                const adjusted = applyMarginToItems(baseItems, marginPercent);
+                updateStandaloneQuoteMargin(marginPercent, adjusted);
+            }
+        }
+    }, []);
 
     // Load payment methods from template store and user profile
     useEffect(() => {

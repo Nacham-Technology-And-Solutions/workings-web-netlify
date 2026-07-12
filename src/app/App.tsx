@@ -857,6 +857,12 @@ const App: React.FC = () => {
         const responseData = getApiResponseData(response) as any;
         const backendQuote = responseData?.quote || responseData;
 
+        if (backendQuote.status && backendQuote.status !== 'draft') {
+          alert(`This quote is in "${backendQuote.status}" status and cannot be edited. Only quotes in "draft" status can be edited.`);
+          setIsEditQuoteLoading(false);
+          return;
+        }
+
         const { productItems, extraChargeItems } = splitQuoteBackendItems(backendQuote.items || []);
         const addedCharges = extraChargeItemsToAddedCharges(extraChargeItems);
         const discountItem = extraChargeItems.find((item) =>

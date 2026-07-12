@@ -37,7 +37,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
         if (previousData?.itemList?.items && previousData.itemList.items.length > 0) {
             const savedListType = previousData.itemList.listType;
             if (savedListType === currentListType) {
-                return previousData.itemList.items;
+                return previousData.itemList.baseItems || previousData.itemList.items;
             }
         }
 
@@ -221,7 +221,8 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
     const getItemListData = (): QuoteItemListData => ({
         listType,
         items,
-        subtotal: calculateSubtotal()
+        subtotal: calculateSubtotal(),
+        baseItems: items
     });
 
     const handleNext = () => {

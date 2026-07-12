@@ -523,6 +523,7 @@ export function transformBackendQuoteToPreview(
     project?: { projectName?: string; siteAddress?: string } | null;
     paymentInfo?: { accountName?: string; accountNumber?: string; bankName?: string } | null;
     estimationSnapshot?: EstimationSnapshot;
+    status: string;
   },
   quoteConfig?: {
     quoteName?: string;
@@ -570,6 +571,7 @@ export function transformBackendQuoteToPreview(
   paymentTerms?: string;
   customPaymentTerms?: string;
   additionalNotes?: string;
+  status?: string;
 } {
   const { productItems: rawProductItems, extraChargeItems } = splitQuoteBackendItems(
     backendQuote.items
@@ -690,6 +692,7 @@ export function transformBackendQuoteToPreview(
     paymentTerms: quoteConfig?.paymentTerms,
     customPaymentTerms: quoteConfig?.customPaymentTerms,
     additionalNotes: quoteConfig?.additionalNotes,
+    status: backendQuote.status,
   };
 }
 

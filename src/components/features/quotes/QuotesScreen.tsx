@@ -213,7 +213,7 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
                             quote={quote} 
                             activeTab={activeTab} 
                             onViewQuote={() => onViewQuote(quote.id)}
-                            onEdit={onEditQuote ? () => handleEditQuote(quote) : undefined}
+                            onEdit={onEditQuote && quote.status === 'draft' ? () => handleEditQuote(quote) : undefined}
                             onDelete={onDeleteQuote ? () => handleDeleteQuote(quote) : undefined}
                         />
                     ))}
@@ -283,7 +283,7 @@ const QuotesScreen: React.FC<QuotesScreenProps> = ({ onNewQuote, onViewQuote, on
                     quote={quote}
                     activeTab={activeTab}
                     onViewQuote={() => { setShowSearch(false); onViewQuote(quote.id); }}
-                    onEdit={onEditQuote ? () => { setShowSearch(false); onEditQuote(quote.id); } : undefined}
+                    onEdit={onEditQuote && quote.status === 'draft' ? () => { setShowSearch(false); onEditQuote(quote.id); } : undefined}
                     onDelete={onDeleteQuote ? () => { setShowSearch(false); onDeleteQuote(quote.id); } : undefined}
                   />
                 ))}

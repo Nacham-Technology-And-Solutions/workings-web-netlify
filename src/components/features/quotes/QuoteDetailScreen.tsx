@@ -179,7 +179,7 @@ const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quoteId, onBack, 
           <h1 className="text-xl lg:text-2xl font-bold">Quote</h1>
         </div>
         <div className="flex items-center gap-3 relative">
-          {onEdit && (
+          {onEdit && quote?.status === 'draft' && (
             <button
               onClick={onEdit}
               disabled={isEditLoading}
