@@ -42,6 +42,7 @@ import TemplatesScreen from '../components/features/TemplatesScreen';
 import PaymentCallbackScreen from '../components/features/PaymentCallbackScreen';
 import SessionExpiredModal from '../components/common/SessionExpiredModal';
 import LogViewer from '../components/common/LogViewer';
+import WhatsAppPromptModal from '../components/common/WhatsAppPromptModal';
 
 // Import stores
 import {
@@ -55,7 +56,7 @@ import {
 } from '../stores';
 
 // Import services
-import { projectsService, quotesService, materialListsService } from '../services/api';
+import { projectsService, quotesService, materialListsService, userService } from '../services/api';
 
 // Import utilities
 import { getApiResponseData, normalizeApiResponse, isApiResponseSuccess } from '../utils/apiResponseHelper';
@@ -140,6 +141,7 @@ const App: React.FC = () => {
     initializeAuth,
     hydrateUserProfile,
     user,
+    updateUser,
   } = useAuthStore();
 
   const {
@@ -218,6 +220,31 @@ const App: React.FC = () => {
   const [materialListDetailLoading, setMaterialListDetailLoading] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string>('Your session has expired. Please sign in again to continue.');
+
+  // Local state for WhatsApp number collection
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [hasPromptedThisSession, setHasPromptedThisSession] = useState(false);
+
+  // Trigger WhatsApp number prompt modal if authenticated user doesn't have it
+  useEffect(() => {
+    if (isAuthenticated && user && !user.phoneNumber && !hasPromptedThisSession && !isLoading) {
+      setIsPhoneModalOpen(true);
+      setHasPromptedThisSession(true);
+    }
+  }, [isAuthenticated, user, hasPromptedThisSession, isLoading]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setHasPromptedThisSession(false);
+      setIsPhoneModalOpen(false);
+    }
+  }, [isAuthenticated]);
+
+  const handleSaveWhatsAppNumber = async (phoneNumber: string) => {
+    if (!user) return;
+    await userService.updateProfile(user.id, { phoneNumber });
+    updateUser({ phoneNumber });
+  };
 
   // Initialize stores on mount
   useEffect(() => {
@@ -2350,6 +2377,13 @@ const App: React.FC = () => {
         isOpen={sessionExpired}
         onConfirm={handleSessionExpiredConfirm}
         message={sessionExpiredMessage}
+      />
+
+      {/* WhatsApp Number Prompt Modal */}
+      <WhatsAppPromptModal
+        isOpen={isPhoneModalOpen}
+        onClose={() => setIsPhoneModalOpen(false)}
+        onSave={handleSaveWhatsAppNumber}
       />
     </div>
   );

@@ -21,6 +21,7 @@ export interface UserProfile {
     accountNumber: string;
     bankName: string;
   } | null;
+  phoneNumber?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +33,7 @@ export interface UpdateProfileRequest {
   companyAddress?: string;
   companyLogoUrl?: string | null;
   profilePhotoUrl?: string | null;
+  phoneNumber?: string | null;
 }
 
 export interface ChangePasswordRequest {

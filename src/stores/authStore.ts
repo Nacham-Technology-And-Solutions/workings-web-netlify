@@ -22,6 +22,7 @@ interface UserProfile {
     accountNumber: string;
     bankName: string;
   } | null;
+  phoneNumber?: string | null;
 }
 
 interface AuthState {
@@ -199,6 +200,7 @@ export const useAuthStore = create<AuthState>()(
               pendingEmail?: string | null;
               emailVerified?: boolean;
               bankDetails?: UserProfile['bankDetails'];
+              phoneNumber?: string | null;
             };
 
             get().updateUser({
@@ -214,6 +216,7 @@ export const useAuthStore = create<AuthState>()(
               pendingEmail: profile.pendingEmail,
               emailVerified: profile.emailVerified,
               bankDetails: profile.bankDetails,
+              phoneNumber: profile.phoneNumber,
             });
           }
         } catch (error) {

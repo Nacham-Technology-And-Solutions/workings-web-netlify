@@ -30,6 +30,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
     company: '',
     password: '',
     confirmPassword: '',
+    phoneNumber: '',
   });
 
   const [errors, setErrors] = useState({
@@ -38,6 +39,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
     company: '',
     password: '',
     confirmPassword: '',
+    phoneNumber: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -62,6 +64,9 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
   const validateField = (id: string, value: string): boolean => {
     let error = '';
     switch (id) {
+      case 'phoneNumber':
+        if (value && value.length > 30) error = 'WhatsApp number cannot exceed 30 characters.';
+        break;
       case 'name':
       case 'company':
         if (!value.trim()) error = 'This field is required.';
@@ -124,8 +129,9 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
     const isCompanyValid = validateField('company', formData.company);
     const isPasswordValid = validateField('password', formData.password);
     const isConfirmPasswordValid = validateField('confirmPassword', formData.confirmPassword);
+    const isPhoneNumberValid = validateField('phoneNumber', formData.phoneNumber);
 
-    if (!isNameValid || !isEmailValid || !isCompanyValid || !isPasswordValid || !isConfirmPasswordValid) {
+    if (!isNameValid || !isEmailValid || !isCompanyValid || !isPasswordValid || !isConfirmPasswordValid || !isPhoneNumberValid) {
       return;
     }
 
@@ -138,6 +144,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
       company: '',
       password: '',
       confirmPassword: '',
+      phoneNumber: '',
     });
 
     const utmSource = sessionStorage.getItem('utm_source') || undefined;
@@ -152,6 +159,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
         companyName: formData.company,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
+        phoneNumber: formData.phoneNumber || undefined,
         utmSource,
         utmMedium,
         utmCampaign,
@@ -168,6 +176,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
           companyName: string;
           subscriptionStatus: string;
           pointsBalance: number;
+          phoneNumber: string | null;
         };
       }>(response);
 
@@ -182,6 +191,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
             companyName: string;
             subscriptionStatus: string;
             pointsBalance: number;
+            phoneNumber: string | null;
           };
         }>(response);
 
@@ -196,6 +206,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
             companyName: responseData.userProfile.companyName,
             subscriptionStatus: responseData.userProfile.subscriptionStatus as 'free' | 'pro' | 'starter' | 'enterprise',
             pointsBalance: responseData.userProfile.pointsBalance,
+            phoneNumber: responseData.userProfile.phoneNumber || null,
           }
         );
 
@@ -263,6 +274,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
       companyName: userProfile.companyName,
       subscriptionStatus: userProfile.subscriptionStatus as 'free' | 'pro' | 'starter' | 'enterprise',
       pointsBalance: userProfile.pointsBalance ?? 0,
+      phoneNumber: userProfile.phoneNumber || null,
     });
   };
 
@@ -341,7 +353,7 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
                   onDismiss={() => {
                     setValidationIssues([]);
                     setGeneralError(null);
-                    setErrors({ name: '', email: '', company: '', password: '', confirmPassword: '' });
+                    setErrors({ name: '', email: '', company: '', password: '', confirmPassword: '', phoneNumber: '' });
                   }}
                 />
               </div>
@@ -394,6 +406,16 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
                 error={errors.company}
                 required
                 aria-label="Company name"
+              />
+              <Input
+                id="phoneNumber"
+                label="WhatsApp number (Optional)"
+                placeholder="e.g. +234 913 537 7427"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.phoneNumber}
+                aria-label="WhatsApp number"
               />
               <Input
                 id="password"

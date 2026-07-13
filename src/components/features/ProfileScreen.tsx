@@ -53,6 +53,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
     email: user?.email || '',
     companyName: user?.companyName || '',
     companyAddress: user?.companyAddress || '',
+    phoneNumber: user?.phoneNumber || '',
   });
 
   const [formData, setFormData] = useState(initialData);
@@ -77,6 +78,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
     hasPassword?: boolean;
     pendingEmail?: string | null;
     bankDetails?: { accountName: string; accountNumber: string; bankName: string } | null;
+    phoneNumber?: string | null;
   }) => {
     updateUser({
       name: userProfile.name,
@@ -90,6 +92,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       hasPassword: userProfile.hasPassword,
       pendingEmail: userProfile.pendingEmail,
       bankDetails: userProfile.bankDetails,
+      phoneNumber: userProfile.phoneNumber,
     });
 
     const newInitialData = {
@@ -97,6 +100,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       email: userProfile.email || '',
       companyName: userProfile.companyName || '',
       companyAddress: userProfile.companyAddress || '',
+      phoneNumber: userProfile.phoneNumber || '',
     };
     setInitialData(newInitialData);
     setFormData(newInitialData);
@@ -141,6 +145,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
         email: user.email || '',
         companyName: user.companyName || '',
         companyAddress: user.companyAddress || '',
+        phoneNumber: user.phoneNumber || '',
       };
       setInitialData(newInitialData);
       setFormData(newInitialData);
@@ -176,12 +181,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
         email?: string;
         companyName?: string;
         companyAddress?: string;
+        phoneNumber?: string;
       } = {};
 
       if (field === 'name') updateData.name = tempValue;
       if (field === 'email') updateData.email = tempValue;
       if (field === 'companyName') updateData.companyName = tempValue;
       if (field === 'companyAddress') updateData.companyAddress = tempValue;
+      if (field === 'phoneNumber') updateData.phoneNumber = tempValue;
 
       const apiResponse = await userService.updateProfile(user.id, updateData);
       if (isApiResponseSuccess(apiResponse)) {
@@ -551,6 +558,39 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                     <button 
                       type="button" 
                       onClick={() => handleFieldSave('email')} 
+                      className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* WhatsApp Number Field */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-sm font-medium text-gray-700">WhatsApp Number</label>
+                  {editingField === 'phoneNumber' ? (
+                    <button type="button" onClick={handleCancelClick} className="text-sm font-medium text-gray-700">Cancel</button>
+                  ) : (
+                    <button type="button" onClick={() => handleEditClick('phoneNumber', formData.phoneNumber)} className="text-sm font-medium text-gray-700">Edit</button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. +234 913 537 7427"
+                  value={editingField === 'phoneNumber' ? tempValue : formData.phoneNumber}
+                  onChange={(e) => setTempValue(e.target.value)}
+                  disabled={editingField !== 'phoneNumber'}
+                  className={`w-full px-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 ${
+                    editingField === 'phoneNumber' ? 'bg-white border-gray-400' : ''
+                  }`}
+                />
+                {editingField === 'phoneNumber' && (
+                  <div className="mt-3">
+                    <button 
+                      type="button" 
+                      onClick={() => handleFieldSave('phoneNumber')} 
                       className="px-6 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded hover:bg-gray-700 transition-colors"
                     >
                       Save
