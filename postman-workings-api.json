@@ -6,6 +6,29 @@
   },
   "item": [
     {
+      "name": "Root",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Server health check / welcome endpoint. Returns API status. Public endpoint."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {
@@ -40,8 +63,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "register"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
             }
           },
           "response": []
@@ -78,8 +108,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/auth/log-in",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "log-in"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "log-in"
+              ]
             }
           },
           "response": []
@@ -115,8 +152,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/auth/log-out",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "log-out"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "log-out"
+              ]
             },
             "description": "Logs out the user and clears tokens. Requires authentication (cookie + headers)."
           },
@@ -138,8 +182,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/auth/forgot-password",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "forgot-password"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ]
             },
             "description": "Sends a password reset email. Check server logs for reset token if email is not configured."
           },
@@ -161,8 +212,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/auth/reset-password",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "reset-password"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ]
             },
             "description": "Resets password using token from forgot-password email. Token is valid for 15 minutes."
           },
@@ -200,10 +258,289 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/auth/refresh-token",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "refresh-token"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh-token"
+              ]
             },
             "description": "Refreshes access and refresh tokens. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "OAuth Sign In (Google)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.response && jsonData.response.accessToken) {",
+                  "        pm.environment.set('accessToken', jsonData.response.accessToken);",
+                  "        pm.environment.set('refreshToken', jsonData.response.refreshToken);",
+                  "        pm.environment.set('userId', jsonData.response.userProfile.id);",
+                  "        pm.environment.set('userEmail', jsonData.response.userProfile.email);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\",\n  \"idToken\": \"PASTE_GOOGLE_ID_TOKEN_HERE\",\n  \"companyName\": \"My Glazing Co\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/oauth",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "oauth"
+              ]
+            },
+            "description": "OAuth sign-in with Google. Pass a valid Google ID token. companyName is required only on first sign-up. Public endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/verify-email?token=PASTE_VERIFICATION_TOKEN_HERE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "verify-email"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "PASTE_VERIFICATION_TOKEN_HERE",
+                  "description": "Email verification token sent to the user at registration"
+                }
+              ]
+            },
+            "description": "Verifies a user's email using the token from the verification email. Public endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Email Change",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/confirm-email-change?token=PASTE_CONFIRMATION_TOKEN_HERE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "confirm-email-change"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "PASTE_CONFIRMATION_TOKEN_HERE",
+                  "description": "Email change confirmation token sent to the new email"
+                }
+              ]
+            },
+            "description": "Confirms a user-initiated email change using token from confirmation email. Public endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Verification Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/resend-verification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "description": "Resends the verification email to the authenticated user. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('adminAccessToken', jsonData.response.accessToken);",
+                  "    pm.environment.set('adminRefreshToken', jsonData.response.refreshToken);",
+                  "    pm.environment.set('adminUserId', jsonData.response.adminProfile.id);",
+                  "    pm.environment.set('adminEmail', jsonData.response.adminProfile.email);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/admin/log-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin",
+                "log-in"
+              ]
+            },
+            "description": "Logs in an administrator and returns access/refresh tokens. Public endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.environment.unset('adminAccessToken');",
+                  "    pm.environment.unset('adminRefreshToken');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{adminEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/admin/log-out",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin",
+                "log-out"
+              ]
+            },
+            "description": "Logs out the administrator and clears session cookies/tokens. Requires admin session."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{adminEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"Password123!\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/admin/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin",
+                "change-password"
+              ]
+            },
+            "description": "Changes the password of the currently authenticated administrator. Requires admin session."
           },
           "response": []
         }
@@ -230,8 +567,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/user/{{userId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "user", "{{userId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}"
+              ]
             },
             "description": "Gets user profile. Requires authentication (cookie + headers)."
           },
@@ -263,8 +607,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/user/{{userId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "user", "{{userId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}"
+              ]
             },
             "description": "Updates user profile (name, email, companyName). All fields are optional. Requires authentication (cookie + headers)."
           },
@@ -296,8 +647,16 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/user/{{userId}}/password",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "user", "{{userId}}", "password"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}",
+                "password"
+              ]
             },
             "description": "Changes user password. Requires current password verification. Requires authentication (cookie + headers)."
           },
@@ -329,8 +688,16 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/user/{{userId}}/bank-details",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "user", "{{userId}}", "bank-details"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}",
+                "bank-details"
+              ]
             },
             "description": "Updates user bank details. All fields are required. Requires authentication (cookie + headers)."
           },
@@ -354,8 +721,16 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/user/{{userId}}/points-history?limit=50&offset=0",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "user", "{{userId}}", "points-history"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}",
+                "points-history"
+              ],
               "query": [
                 {
                   "key": "limit",
@@ -370,6 +745,80 @@
               ]
             },
             "description": "Gets user points transaction history with pagination. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Initial Password (OAuth Users)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"MyNewPassword123!\",\n  \"confirmPassword\": \"MyNewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/{{userId}}/set-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}",
+                "set-password"
+              ]
+            },
+            "description": "Sets the initial password for an OAuth-linked user account. Requires session authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/{{userId}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}"
+              ]
+            },
+            "description": "Deactivates the authenticated user's own account. Requires session authentication."
           },
           "response": []
         }
@@ -404,8 +853,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/calculations/calculate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "calculations", "calculate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "calculations",
+                "calculate"
+              ]
             },
             "description": "Runs calculation engine on Project Cart. Points are deducted after successful calculation. Requires authentication (cookie + headers)."
           },
@@ -437,8 +893,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/calculations/verify",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "calculations", "verify"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "calculations",
+                "verify"
+              ]
             },
             "description": "Verifies frontend calculation results against backend calculation. No points deduction. Requires authentication (cookie + headers)."
           },
@@ -470,10 +933,174 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/calculations/sync",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "calculations", "sync"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "calculations",
+                "sync"
+              ]
             },
             "description": "Syncs offline project data with backend. Backend runs calculations and stores results. Points are deducted for each project synced. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Estimation",
+      "item": [
+        {
+          "name": "Get Material Catalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/estimation/material-catalog?category=Profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estimation",
+                "material-catalog"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Profile"
+                }
+              ]
+            },
+            "description": "Retrieves the user's material catalog (with dynamic system/manual pricing). Requires user session."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Price Fill",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/estimation/price-fill",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estimation",
+                "price-fill"
+              ]
+            },
+            "description": "Retrieves pricing information for items to pre-fill calculations. Requires user session."
+          },
+          "response": []
+        },
+        {
+          "name": "Preview Estimation Quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartItems\": [\n    {\n      \"module_id\": \"M1_Casement_DCurve\",\n      \"W\": 1200,\n      \"H\": 1500,\n      \"N\": 2,\n      \"O\": 2,\n      \"qty\": 3\n    }\n  ],\n  \"settings\": {\n    \"stockLength\": 6,\n    \"bladeKerf\": 5,\n    \"wasteThreshold\": 200\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/estimation/preview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estimation",
+                "preview"
+              ]
+            },
+            "description": "Previews costs and material lists without saving. Requires user session."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Estimation Quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartItems\": [\n    {\n      \"module_id\": \"M1_Casement_DCurve\",\n      \"W\": 1200,\n      \"H\": 1500,\n      \"N\": 2,\n      \"O\": 2,\n      \"qty\": 3\n    }\n  ],\n  \"settings\": {\n    \"stockLength\": 6,\n    \"bladeKerf\": 5,\n    \"wasteThreshold\": 200\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/estimation/quotes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estimation",
+                "quotes"
+              ]
+            },
+            "description": "Calculates and saves estimation quote, deducting 3 points. Requires user session."
           },
           "response": []
         }
@@ -500,8 +1127,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/accessories?page=1&limit=50&category=hardware&search=bracket",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "accessories"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accessories"
+              ],
               "query": [
                 {
                   "key": "page",
@@ -547,8 +1180,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/accessories/categories",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "accessories", "categories"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accessories",
+                "categories"
+              ]
             },
             "description": "Gets list of all accessory categories. Requires authentication (cookie + headers)."
           },
@@ -585,8 +1225,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/accessories/{{accessoryId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "accessories", "{{accessoryId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accessories",
+                "{{accessoryId}}"
+              ]
             },
             "description": "Gets single accessory by ID. Requires authentication (cookie + headers)."
           },
@@ -631,8 +1278,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/accessories",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "accessories"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accessories"
+              ]
             },
             "description": "Creates a new accessory in the catalog. Requires authentication (cookie + headers)."
           },
@@ -664,8 +1317,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/accessories/{{accessoryId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "accessories", "{{accessoryId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accessories",
+                "{{accessoryId}}"
+              ]
             },
             "description": "Updates an accessory. All fields are optional. Price changes are automatically added to price history. Requires authentication (cookie + headers)."
           },
@@ -689,8 +1349,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/accessories/{{accessoryId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "accessories", "{{accessoryId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accessories",
+                "{{accessoryId}}"
+              ]
             },
             "description": "Deletes an accessory from the catalog. Requires authentication (cookie + headers)."
           },
@@ -740,8 +1407,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/projects",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "projects"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects"
+              ]
             },
             "description": "Creates a new draft project with minimal information (projectName, customer.name, siteAddress). Description is optional. glazingDimensions is optional - can be added later via update. Points are NOT deducted on creation. Requires authentication (cookie + headers)."
           },
@@ -765,8 +1438,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/projects?page=1&limit=20&status=draft",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "projects"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects"
+              ],
               "query": [
                 {
                   "key": "page",
@@ -807,8 +1486,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/projects/search?q=residential",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "projects", "search"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "search"
+              ],
               "query": [
                 {
                   "key": "q",
@@ -839,8 +1525,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/projects/{{projectId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "projects", "{{projectId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}"
+              ]
             },
             "description": "Gets a single project by ID. Requires authentication (cookie + headers)."
           },
@@ -872,8 +1565,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/projects/{{projectId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "projects", "{{projectId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}"
+              ]
             },
             "description": "Updates project details. All fields are optional. Use this to add glazingDimensions to a draft project. You can update projectName, customer, siteAddress, description, glazingDimensions, calculationSettings, or status. Requires authentication (cookie + headers)."
           },
@@ -897,8 +1597,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/projects/{{projectId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "projects", "{{projectId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}"
+              ]
             },
             "description": "Deletes a project and all associated material lists, cutting lists, and glass cutting lists. Requires authentication (cookie + headers)."
           },
@@ -922,8 +1629,16 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/projects/{{projectId}}/calculate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "projects", "{{projectId}}", "calculate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "calculate"
+              ]
             },
             "description": "Runs calculation on project's glazing dimensions and stores results in MaterialList, CuttingList, and GlassCuttingList. Points are deducted based on modules used. Requires authentication (cookie + headers)."
           },
@@ -967,8 +1682,16 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/material-lists/project/{{projectId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "material-lists", "project", "{{projectId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "material-lists",
+                "project",
+                "{{projectId}}"
+              ]
             },
             "description": "Gets the latest material list for a project. Returns 404 if project has no calculations yet. Requires authentication (cookie + headers)."
           },
@@ -992,8 +1715,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/material-lists/{{materialListId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "material-lists", "{{materialListId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "material-lists",
+                "{{materialListId}}"
+              ]
             },
             "description": "Gets a single material list by ID. Requires authentication (cookie + headers)."
           },
@@ -1037,8 +1767,16 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/cutting-lists/project/{{projectId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "cutting-lists", "project", "{{projectId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cutting-lists",
+                "project",
+                "{{projectId}}"
+              ]
             },
             "description": "Gets the latest cutting list for a project. Returns 404 if project has no calculations yet. Requires authentication (cookie + headers)."
           },
@@ -1062,8 +1800,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/cutting-lists/{{cuttingListId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "cutting-lists", "{{cuttingListId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cutting-lists",
+                "{{cuttingListId}}"
+              ]
             },
             "description": "Gets a single cutting list by ID. Requires authentication (cookie + headers)."
           },
@@ -1107,8 +1852,16 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/glass-cutting-lists/project/{{projectId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "glass-cutting-lists", "project", "{{projectId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "glass-cutting-lists",
+                "project",
+                "{{projectId}}"
+              ]
             },
             "description": "Gets the latest glass cutting list for a project. Returns 404 if project has no calculations yet. Requires authentication (cookie + headers)."
           },
@@ -1132,8 +1885,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/glass-cutting-lists/{{glassCuttingListId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "glass-cutting-lists", "{{glassCuttingListId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "glass-cutting-lists",
+                "{{glassCuttingListId}}"
+              ]
             },
             "description": "Gets a single glass cutting list by ID. Requires authentication (cookie + headers)."
           },
@@ -1183,8 +1943,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/quotes",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "quotes"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ]
             },
             "description": "Creates a new quote (from project OR standalone). Points deduction: 3 points. For 'from_project', include projectId. For 'standalone', set projectId to null. Requires authentication (cookie + headers)."
           },
@@ -1208,8 +1974,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/quotes?page=1&limit=20&status=draft&quoteType=standalone",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "quotes"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ],
               "query": [
                 {
                   "key": "page",
@@ -1260,8 +2032,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "quotes", "{{quoteId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes",
+                "{{quoteId}}"
+              ]
             },
             "description": "Gets a single quote by ID. Requires authentication (cookie + headers)."
           },
@@ -1293,8 +2072,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "quotes", "{{quoteId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes",
+                "{{quoteId}}"
+              ]
             },
             "description": "Updates a quote. All fields are optional. Requires authentication (cookie + headers)."
           },
@@ -1318,8 +2104,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "quotes", "{{quoteId}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes",
+                "{{quoteId}}"
+              ]
             },
             "description": "Deletes a quote. Requires authentication (cookie + headers)."
           },
@@ -1343,8 +2136,16 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}/generate-pdf",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "quotes", "{{quoteId}}", "generate-pdf"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes",
+                "{{quoteId}}",
+                "generate-pdf"
+              ]
             },
             "description": "Generates a PDF for the quote and returns the PDF URL. Points deduction: 1 point. Requires authentication (cookie + headers)."
           },
@@ -1368,8 +2169,16 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/quotes/{{quoteId}}/send",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "quotes", "{{quoteId}}", "send"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes",
+                "{{quoteId}}",
+                "send"
+              ]
             },
             "description": "Sends quote via email to customer. Updates quote status to 'sent'. Requires authentication (cookie + headers)."
           },
@@ -1387,8 +2196,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/v1/subscriptions/plans",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "subscriptions", "plans"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "plans"
+              ]
             },
             "description": "Gets all available subscription plans with pricing and features. Public endpoint (no authentication required)."
           },
@@ -1430,14 +2246,21 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"plan\": \"starter\",\n  \"billingCycle\": \"monthly\"\n}"
+              "raw": "{\n  \"plan\": \"starter\",\n  \"billingCycle\": \"monthly\",\n  \"paymentProvider\": \"paystack\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/v1/subscriptions/subscribe",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "subscriptions", "subscribe"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "subscribe"
+              ]
             },
-            "description": "Initiates Paystack payment for subscription. Returns authorization URL for payment. Plan options: 'free', 'starter', 'pro', 'enterprise'. Billing cycle: 'monthly' or 'yearly'. Requires authentication (cookie + headers)."
+            "description": "Initiates payment for subscription. Returns authorization URL for payment. Plan options: 'free', 'starter', 'pro', 'enterprise'. Billing cycle: 'monthly' or 'yearly'. paymentProvider (optional): 'paystack', 'flutterwave', or 'monnify' - defaults to system priority. Requires authentication (cookie + headers)."
           },
           "response": []
         },
@@ -1459,8 +2282,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/api/v1/subscriptions/current",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "subscriptions", "current"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "current"
+              ]
             },
             "description": "Gets user's current subscription details including plan, billing cycle, expiration date, and points balance. Requires authentication (cookie + headers)."
           },
@@ -1492,15 +2322,233 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/subscriptions/cancel",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "subscriptions", "cancel"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "cancel"
+              ]
             },
             "description": "Cancels user's subscription and moves them to free tier. Reason is optional. Requires authentication (cookie + headers)."
           },
           "response": []
         },
         {
-          "name": "Paystack Webhook",
+          "name": "Get Payment Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/payment-providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "payment-providers"
+              ]
+            },
+            "description": "Gets list of currently enabled payment providers (paystack/flutterwave/monnify). Public endpoint (no authentication required)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Subscription History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "history"
+              ]
+            },
+            "description": "Gets the authenticated user's subscription history (past plans, payments, cancellations). Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Upgrade Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan\": \"pro\",\n  \"billingCycle\": \"monthly\",\n  \"paymentProvider\": \"paystack\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/upgrade",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "upgrade"
+              ]
+            },
+            "description": "Upgrades subscription plan with proration. Plan options: 'starter', 'pro', 'enterprise'. Billing cycle: 'monthly' or 'yearly'. paymentProvider is optional. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Downgrade Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan\": \"starter\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/downgrade",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "downgrade"
+              ]
+            },
+            "description": "Schedules a subscription downgrade (effective at end of current billing cycle). Plan options: 'free', 'starter', 'pro'. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"{{paymentReference}}\",\n  \"provider\": \"paystack\",\n  \"plan\": \"starter\",\n  \"billingCycle\": \"monthly\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/verify-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "verify-payment"
+              ]
+            },
+            "description": "Manually verifies a payment and activates subscription (production-safe fallback for when webhook fails). Provider options: 'paystack', 'flutterwave', 'monnify'. plan and billingCycle are optional. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Webhook (Provider)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-paystack-signature",
+                "value": "PASTE_WEBHOOK_SIGNATURE_HERE",
+                "type": "text",
+                "description": "Provider-specific webhook signature header. Use 'x-paystack-signature' for Paystack, 'verif-hash' for Flutterwave, or appropriate header for Monnify."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"charge.success\",\n  \"data\": {\n    \"reference\": \"sub_123_1234567890_abc123\",\n    \"amount\": 500000,\n    \"metadata\": {\n      \"userId\": 1,\n      \"plan\": \"starter\",\n      \"billingCycle\": \"monthly\"\n    },\n    \"customer\": {\n      \"email\": \"user@example.com\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/subscriptions/webhook/paystack",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "webhook",
+                "paystack"
+              ],
+              "variable": []
+            },
+            "description": "Generic payment webhook endpoint. Replace 'paystack' in path with 'flutterwave' or 'monnify' as needed. Verifies signature and processes payment events. Server-to-server (no auth required - verified by signature). Body shape varies by provider."
+          },
+          "response": []
+        },
+        {
+          "name": "Paystack Webhook (Legacy)",
           "request": {
             "method": "POST",
             "header": [
@@ -1521,20 +2569,185 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/subscriptions/webhook/paystack",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "subscriptions", "webhook", "paystack"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "subscriptions",
+                "webhook",
+                "paystack"
+              ]
             },
-            "description": "Paystack webhook endpoint for payment events. This endpoint verifies webhook signature and processes successful payments. Note: In production, Paystack will call this endpoint. For testing, you can simulate webhook calls, but signature verification must match. Events: 'charge.success', 'charge.failed'."
+            "description": "Legacy Paystack-specific webhook (kept for backward compatibility). Use 'Webhook (Provider)' above for new integrations. Events: 'charge.success', 'charge.failed'."
           },
           "response": []
         }
       ]
     },
     {
-      "name": "Admin",
+      "name": "Templates",
       "item": [
         {
-          "name": "Deactivate User",
+          "name": "Get Templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates"
+              ]
+            },
+            "description": "Gets all template configurations (quoteFormat, paymentMethods, paymentMethodConfig, pdfExport, materialPrices, materialPricesConfig) for the authenticated user. Returns defaults if none have been saved. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Templates",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quoteFormat\": {\n    \"header\": {\n      \"logoUrl\": null,\n      \"companyName\": \"My Glazing Co\",\n      \"tagline\": \"Quality glass solutions\",\n      \"alignment\": \"left\"\n    },\n    \"footer\": {\n      \"content\": \"Thank you for your business\",\n      \"alignment\": \"center\",\n      \"visible\": true\n    },\n    \"colors\": {\n      \"primary\": \"#1F2937\",\n      \"secondary\": \"#6B7280\",\n      \"accent\": \"#3B82F6\"\n    },\n    \"typography\": {\n      \"fontFamily\": \"Arial\",\n      \"headingSize\": 18,\n      \"bodySize\": 12\n    },\n    \"page\": {\n      \"orientation\": \"portrait\",\n      \"margins\": { \"top\": 20, \"bottom\": 20, \"left\": 20, \"right\": 20 },\n      \"sectionSpacing\": 15\n    },\n    \"sections\": {\n      \"projectInfo\": { \"visible\": true, \"order\": 1 },\n      \"customerDetails\": { \"visible\": true, \"order\": 2 },\n      \"itemsTable\": { \"visible\": true, \"order\": 3 },\n      \"summary\": { \"visible\": true, \"order\": 4 },\n      \"paymentInfo\": { \"visible\": true, \"order\": 5 },\n      \"notes\": { \"visible\": true, \"order\": 6 }\n    }\n  },\n  \"paymentMethods\": [],\n  \"paymentMethodConfig\": {\n    \"methods\": [],\n    \"displayOptions\": {\n      \"showInPreview\": true,\n      \"showInPDF\": true,\n      \"customInstructions\": null\n    }\n  },\n  \"pdfExport\": {\n    \"quote\": {\n      \"pageSize\": \"A4\",\n      \"orientation\": \"portrait\",\n      \"header\": { \"enabled\": true, \"height\": 30 },\n      \"footer\": { \"enabled\": true, \"height\": 20 },\n      \"logo\": { \"enabled\": false, \"size\": \"medium\", \"position\": \"top-left\" },\n      \"fonts\": {\n        \"family\": \"Helvetica\",\n        \"headingSize\": 16,\n        \"bodySize\": 10,\n        \"tableSize\": 9,\n        \"headingColor\": \"#000000\",\n        \"bodyColor\": \"#000000\"\n      }\n    },\n    \"materialList\": {\n      \"pageSize\": \"A4\",\n      \"orientation\": \"portrait\",\n      \"includeCuttingList\": true,\n      \"cuttingListFormat\": \"table\",\n      \"includeGlassList\": true\n    },\n    \"fileNaming\": {\n      \"pattern\": \"Quote-{quoteId}-{projectName}\",\n      \"dateFormat\": \"YYYY-MM-DD\"\n    }\n  },\n  \"materialPrices\": [],\n  \"materialPricesConfig\": {\n    \"prices\": [],\n    \"defaultMarkup\": 0,\n    \"categoryMarkups\": {}\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates"
+              ]
+            },
+            "description": "Creates or replaces ALL template configurations for the authenticated user. All top-level fields (quoteFormat, paymentMethods, paymentMethodConfig, pdfExport, materialPrices, materialPricesConfig) are required. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Payment Methods",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates/payment-methods",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "payment-methods"
+              ]
+            },
+            "description": "Gets all payment methods for the authenticated user. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payment Method",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.response && jsonData.response.paymentMethod) {",
+                  "        pm.environment.set('paymentMethodId', jsonData.response.paymentMethod.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountName\": \"John Doe\",\n  \"accountNumber\": \"1234567890\",\n  \"bankName\": \"Access Bank\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates/payment-methods",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "payment-methods"
+              ]
+            },
+            "description": "Creates a new payment method. All fields are required. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Payment Method",
           "request": {
             "method": "PATCH",
             "header": [
@@ -1555,16 +2768,1572 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"isActive\": false\n}"
+              "raw": "{\n  \"accountName\": \"John Doe Updated\",\n  \"isDefault\": true\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/admin/deactivate-user/{{userId}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "admin", "deactivate-user", "{{userId}}"]
+              "raw": "{{base_url}}/api/v1/templates/payment-methods/{{paymentMethodId}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "payment-methods",
+                "{{paymentMethodId}}"
+              ]
             },
-            "description": "Deactivates a user account. Requires admin privileges. Requires authentication (cookie + headers)."
+            "description": "Updates a payment method. All fields are optional (accountName, accountNumber, bankName, isDefault). Requires authentication (cookie + headers)."
           },
           "response": []
+        },
+        {
+          "name": "Delete Payment Method",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates/payment-methods/{{paymentMethodId}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "payment-methods",
+                "{{paymentMethodId}}"
+              ]
+            },
+            "description": "Deletes a payment method. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Material Prices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates/material-prices?category=Profile&search=aluminum",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "material-prices"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Profile",
+                  "description": "Filter by category: 'Profile', 'Glass', 'Accessory', 'Rubber', 'Other' (optional)"
+                },
+                {
+                  "key": "search",
+                  "value": "aluminum",
+                  "description": "Search by name (optional)"
+                }
+              ]
+            },
+            "description": "Gets all material prices for the authenticated user with optional filtering. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Material Price",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.response && jsonData.response.materialPrice) {",
+                  "        pm.environment.set('materialPriceId', jsonData.response.materialPrice.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aluminum D-Curve Profile\",\n  \"category\": \"Profile\",\n  \"unit\": \"Meter\",\n  \"unitPrice\": 1500,\n  \"description\": \"6061-T5 aluminum D-curve profile\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates/material-prices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "material-prices"
+              ]
+            },
+            "description": "Creates a new material price. Category options: 'Profile', 'Glass', 'Accessory', 'Rubber', 'Other'. description is optional. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Material Price",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitPrice\": 1650,\n  \"description\": \"Price updated\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates/material-prices/{{materialPriceId}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "material-prices",
+                "{{materialPriceId}}"
+              ]
+            },
+            "description": "Updates a material price. All fields are optional (name, category, unit, unitPrice, description). Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Material Price",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/templates/material-prices/{{materialPriceId}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "templates",
+                "material-prices",
+                "{{materialPriceId}}"
+              ]
+            },
+            "description": "Deletes a material price. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Saved Templates",
+      "item": [
+        {
+          "name": "List Saved Templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/saved-templates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "saved-templates"
+              ]
+            },
+            "description": "Gets all saved templates (presets) for the authenticated user. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Saved Template",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.response && jsonData.response.savedTemplate) {",
+                  "        pm.environment.set('savedTemplateId', jsonData.response.savedTemplate.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Quote Format Preset\",\n  \"type\": \"quoteFormat\",\n  \"quoteFormat\": {\n    \"header\": {\n      \"logoUrl\": null,\n      \"companyName\": \"My Glazing Co\",\n      \"tagline\": \"Quality glass solutions\",\n      \"alignment\": \"left\"\n    },\n    \"footer\": {\n      \"content\": \"Thank you for your business\",\n      \"alignment\": \"center\",\n      \"visible\": true\n    },\n    \"colors\": {\n      \"primary\": \"#1F2937\",\n      \"secondary\": \"#6B7280\",\n      \"accent\": \"#3B82F6\"\n    },\n    \"typography\": {\n      \"fontFamily\": \"Arial\",\n      \"headingSize\": 18,\n      \"bodySize\": 12\n    },\n    \"page\": {\n      \"orientation\": \"portrait\",\n      \"margins\": { \"top\": 20, \"bottom\": 20, \"left\": 20, \"right\": 20 },\n      \"sectionSpacing\": 15\n    },\n    \"sections\": {\n      \"projectInfo\": { \"visible\": true, \"order\": 1 },\n      \"customerDetails\": { \"visible\": true, \"order\": 2 },\n      \"itemsTable\": { \"visible\": true, \"order\": 3 },\n      \"summary\": { \"visible\": true, \"order\": 4 },\n      \"paymentInfo\": { \"visible\": true, \"order\": 5 },\n      \"notes\": { \"visible\": true, \"order\": 6 }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/saved-templates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "saved-templates"
+              ]
+            },
+            "description": "Creates a new saved template (preset). Type options:\n- 'quoteFormat': only quoteFormat field required\n- 'pdfExport': only pdfExport field required\n- 'full': both quoteFormat and pdfExport required\nRequires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Saved Template",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Preset Name\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/saved-templates/{{savedTemplateId}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "saved-templates",
+                "{{savedTemplateId}}"
+              ]
+            },
+            "description": "Updates a saved template. All fields are optional (name, quoteFormat, pdfExport). Requires authentication (cookie + headers)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Saved Template",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/saved-templates/{{savedTemplateId}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "saved-templates",
+                "{{savedTemplateId}}"
+              ]
+            },
+            "description": "Deletes a saved template. Requires authentication (cookie + headers)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Complaints",
+      "item": [
+        {
+          "name": "Create Complaint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "email",
+                "value": "{{userEmail}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Calculation mismatch in casement window\",\n  \"description\": \"The calculation results do not match expected guidelines.\",\n  \"category\": \"technical\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/complaints",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "complaints"
+              ]
+            },
+            "description": "Submits a user complaint. Requires user session."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "User & Admin Directory",
+          "item": [
+            {
+              "name": "List Users",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/users?page=1&limit=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                },
+                "description": "Lists registered users on the system. Requires admin privileges ('manage_users' or super_admin)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get User Stats",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/users/stats",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "users",
+                    "stats"
+                  ]
+                },
+                "description": "Gets global statistics about user accounts. Requires admin privileges."
+              },
+              "response": []
+            },
+            {
+              "name": "Get User Detail",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/users/{{userId}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "users",
+                    "{{userId}}"
+                  ]
+                },
+                "description": "Retrieves details of a specific user. Requires admin privileges."
+              },
+              "response": []
+            },
+            {
+              "name": "Activate User",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/users/{{userId}}/activate",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "users",
+                    "{{userId}}",
+                    "activate"
+                  ]
+                },
+                "description": "Activates/unlocks a user account. Requires 'manage_users' or super_admin permissions."
+              },
+              "response": []
+            },
+            {
+              "name": "Deactivate User",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"isActive\": false\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/deactivate-user/{{userId}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "deactivate-user",
+                    "{{userId}}"
+                  ]
+                },
+                "description": "Deactivates a user account. Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            },
+            {
+              "name": "Toggle Admin Role",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/users/{{userId}}/admin",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "users",
+                    "{{userId}}",
+                    "admin"
+                  ]
+                },
+                "description": "Toggles whether a user has administrative portal access. Requires super_admin."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Admins List",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/admins",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "admins"
+                  ]
+                },
+                "description": "Lists administrative portal accounts. Requires super_admin."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Complaints Review Board",
+          "item": [
+            {
+              "name": "Get Complaints",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/complaints",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "complaints"
+                  ]
+                },
+                "description": "Lists user-submitted complaints. Requires admin privileges."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Complaint Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"investigating\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/complaints/{{complaintId}}/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "complaints",
+                    "{{complaintId}}",
+                    "status"
+                  ]
+                },
+                "description": "Updates the status of a complaint. Requires 'manage_system' or super_admin."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Points & Ledger",
+          "item": [
+            {
+              "name": "Adjust User Points",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 50,\n  \"reasonCode\": \"bug_compensation\",\n  \"note\": \"Compensating for layout optimizer failures\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/users/{{userId}}/points/adjust",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "users",
+                    "{{userId}}",
+                    "points",
+                    "adjust"
+                  ]
+                },
+                "description": "Adjusts a user's credit points balance. Requires 'manage_users' or super_admin."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Points Transactions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/points/transactions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "points",
+                    "transactions"
+                  ]
+                },
+                "description": "Retrieves administrative points audit logs. Requires admin privileges."
+              },
+              "response": []
+            },
+            {
+              "name": "Add Credits (Test - by Email)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"creditPoints\": 100,\n  \"secret\": \"PASTE_TEST_SECRET_HERE\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/test/add-credits",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "test",
+                    "add-credits"
+                  ]
+                },
+                "description": "TEST-ONLY (TODO: remove before launch). Credits points to a user by email. Requires the test secret. No authentication required."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Subscriptions & Finance",
+          "item": [
+            {
+              "name": "Override User Subscription",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"plan\": \"pro\",\n  \"durationDays\": 30,\n  \"replenishPoints\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/users/{{userId}}/subscription/override",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "users",
+                    "{{userId}}",
+                    "subscription",
+                    "override"
+                  ]
+                },
+                "description": "Overrides a user's subscription plan. Requires 'manage_users' or super_admin."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Subscriptions History",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/subscriptions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "subscriptions"
+                  ]
+                },
+                "description": "Retrieves global subscriptions history. Requires 'manage_billing' or super_admin."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Payment Provider Management",
+          "item": [
+            {
+              "name": "Get Payment Providers (Admin)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/payment-providers",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "payment-providers"
+                  ]
+                },
+                "description": "Gets full payment provider configuration (enabled/disabled status, priority, credentials presence). Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            },
+            {
+              "name": "Enable Payment Provider",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/payment-providers/paystack/enable",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "payment-providers",
+                    "paystack",
+                    "enable"
+                  ]
+                },
+                "description": "Enables a payment provider. Replace 'paystack' in path with 'flutterwave' or 'monnify' as needed. Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            },
+            {
+              "name": "Disable Payment Provider",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/payment-providers/paystack/disable",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "payment-providers",
+                    "paystack",
+                    "disable"
+                  ]
+                },
+                "description": "Disables a payment provider. Replace 'paystack' in path with 'flutterwave' or 'monnify' as needed. Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Payment Provider Priority",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"providers\": [\"paystack\", \"flutterwave\", \"monnify\"]\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/payment-providers/priority",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "payment-providers",
+                    "priority"
+                  ]
+                },
+                "description": "Sets payment provider priority order. Array order = priority order (first = highest). Must include at least one provider. Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Revenue Analytics",
+          "item": [
+            {
+              "name": "Revenue Statistics",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/revenue/stats",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "revenue",
+                    "stats"
+                  ]
+                },
+                "description": "Gets overall revenue statistics (total revenue, MRR, ARR, etc.). Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            },
+            {
+              "name": "Revenue by Date Range",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/revenue/by-date-range?startDate=2026-01-01&endDate=2026-12-31",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "revenue",
+                    "by-date-range"
+                  ],
+                  "query": [
+                    {
+                      "key": "startDate",
+                      "value": "2026-01-01",
+                      "description": "Start date (ISO format YYYY-MM-DD)"
+                    },
+                    {
+                      "key": "endDate",
+                      "value": "2026-12-31",
+                      "description": "End date (ISO format YYYY-MM-DD)"
+                    }
+                  ]
+                },
+                "description": "Gets revenue aggregated for a specific date range. Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            },
+            {
+              "name": "Subscription Metrics",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/revenue/subscription-metrics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "revenue",
+                    "subscription-metrics"
+                  ]
+                },
+                "description": "Gets subscription business metrics (churn rate, conversion rate, plan distribution, etc.). Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            },
+            {
+              "name": "Active Subscriptions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{userEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/revenue/active-subscriptions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "revenue",
+                    "active-subscriptions"
+                  ]
+                },
+                "description": "Lists all currently active paid subscriptions. Requires admin privileges. Requires authentication (cookie + headers)."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Audit Logs",
+          "item": [
+            {
+              "name": "Get Audit Logs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/audit-logs",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "audit-logs"
+                  ]
+                },
+                "description": "Retrieves administrative action audit logs. Requires 'manage_system' or super_admin."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "System Settings",
+          "item": [
+            {
+              "name": "Get Settings",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/settings",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "settings"
+                  ]
+                },
+                "description": "Gets the dynamic system settings cached on the server. Requires admin privileges."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Settings",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pointsCost\": {\n    \"CALCULATION\": {\n      \"CASEMENT\": 5,\n      \"SLIDING_2SASH\": 5,\n      \"SLIDING_2SASH_NET\": 8,\n      \"SLIDING_3TRACK\": 10,\n      \"SLIDING_3SASH\": 10,\n      \"NET_1125_26\": 3,\n      \"EBM_NET_1125_26\": 4,\n      \"EBM_NET_U_CHANNEL\": 4,\n      \"CURTAIN_WALL_GRID\": 15\n    },\n    \"QUOTE_GENERATION\": 3,\n    \"PURCHASE_LIST_GENERATION\": 2,\n    \"PDF_DOWNLOAD\": 1\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/settings",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "settings"
+                  ]
+                },
+                "description": "Updates global system settings (points cost, billing plans). Requires super_admin."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "System Material Prices",
+          "item": [
+            {
+              "name": "List System Material Prices",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/system-material-prices?category=Profile",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "system-material-prices"
+                  ],
+                  "query": [
+                    {
+                      "key": "category",
+                      "value": "Profile"
+                    }
+                  ]
+                },
+                "description": "Lists global system material prices. Requires admin privileges."
+              },
+              "response": []
+            },
+            {
+              "name": "Create System Material Price",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Standard Track Profile\",\n  \"category\": \"Profile\",\n  \"price\": 125.5,\n  \"unit\": \"meter\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/system-material-prices",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "system-material-prices"
+                  ]
+                },
+                "description": "Creates a new system material price definition. Requires 'manage_catalog' or super_admin."
+              },
+              "response": []
+            },
+            {
+              "name": "Get System Material Price Detail",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/system-material-prices/{{priceId}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "system-material-prices",
+                    "{{priceId}}"
+                  ]
+                },
+                "description": "Gets details of a system material price. Requires admin privileges."
+              },
+              "response": []
+            },
+            {
+              "name": "Update System Material Price",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 130\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/system-material-prices/{{priceId}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "system-material-prices",
+                    "{{priceId}}"
+                  ]
+                },
+                "description": "Updates a system material price definition. Requires 'manage_catalog' or super_admin."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete System Material Price",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "email",
+                    "value": "{{adminEmail}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/admin/system-material-prices/{{priceId}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin",
+                    "system-material-prices",
+                    "{{priceId}}"
+                  ]
+                },
+                "description": "Deletes a system material price definition. Requires 'manage_catalog' or super_admin."
+              },
+              "response": []
+            }
+          ]
         }
       ]
     }
@@ -1573,6 +4342,11 @@
     {
       "key": "base_url",
       "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "fatai.wahab3@gmail.com",
       "type": "string"
     }
   ]

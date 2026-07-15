@@ -12,6 +12,7 @@ export interface SubscriptionPlan {
   yearlyPrice: number;
   pointsPerMonth: number;
   projectsLimit: number | null;
+  description?: string;
   modules: string[];
   features: string[];
 }
@@ -52,7 +53,7 @@ export interface SubscribeResponse {
   billingCycle: BillingCycle;
 }
 
-export interface ApiResponse<T> {
+interface ApiResponse<T> {
   responseMessage?: string;
   message?: string;
   response: T;

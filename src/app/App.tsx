@@ -56,7 +56,7 @@ import {
 } from '../stores';
 
 // Import services
-import { projectsService, quotesService, materialListsService, userService } from '../services/api';
+import { projectsService, quotesService, materialListsService, userService, subscriptionsService } from '../services/api';
 
 // Import utilities
 import { getApiResponseData, normalizeApiResponse, isApiResponseSuccess } from '../utils/apiResponseHelper';
@@ -442,7 +442,65 @@ const App: React.FC = () => {
     navigate(view);
   };
 
-  const handleNewProject = () => {
+  const checkProjectLimit = async (): Promise<boolean> => {
+    try {
+      const user = useAuthStore.getState().user;
+      if (!user) return true;
+
+      const plansRes = await subscriptionsService.getPlans();
+      let plans: any[] = [];
+      if (plansRes && Array.isArray(plansRes)) {
+        plans = plansRes;
+      } else if (plansRes && plansRes.response && Array.isArray(plansRes.response.plans)) {
+        plans = plansRes.response.plans;
+      } else if (plansRes && plansRes.response && Array.isArray(plansRes.response)) {
+        plans = plansRes.response;
+      }
+
+      const currentPlan = plans.find((p: any) => p.id === user.subscriptionStatus);
+      if (!currentPlan) return true;
+
+      if (currentPlan.projectsLimit === null || currentPlan.projectsLimit === undefined || currentPlan.projectsLimit < 0) {
+        return true;
+      }
+
+      const projectsRes = await projectsService.getAll();
+      let projectsList: any[] = [];
+      if (projectsRes && Array.isArray(projectsRes)) {
+        projectsList = projectsRes;
+      } else if (projectsRes && projectsRes.response && Array.isArray(projectsRes.response)) {
+        projectsList = projectsRes.response;
+      }
+
+      const currentMonthStart = new Date();
+      currentMonthStart.setUTCDate(1);
+      currentMonthStart.setUTCHours(0, 0, 0, 0);
+
+      const createdThisMonth = projectsList.filter((p: any) => {
+        const createdAt = new Date(p.createdAt);
+        return createdAt >= currentMonthStart;
+      });
+
+      if (createdThisMonth.length >= currentPlan.projectsLimit) {
+        alert(`Upgrade Required: You have reached your monthly limit of ${currentPlan.projectsLimit} projects for the ${currentPlan.name} plan.`);
+        if (window.confirm('Would you like to upgrade your subscription plan now?')) {
+          navigate('billing');
+        }
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Failed to check project limit:', err);
+      return true; // Fallback to let them proceed if check fails
+    }
+  };
+
+  const handleNewProject = async () => {
+    // Check project limit first to prevent entering creation flow
+    const canCreate = await checkProjectLimit();
+    if (!canCreate) return;
+
     // Clear all project data when starting a new project
     clearProjectFlow();
     setDraftProjectId(null);
@@ -594,10 +652,25 @@ const App: React.FC = () => {
           console.warn('[App] Could not extract project ID from response:', responseData);
         }
       }
+      navigate('selectProject');
     } catch (error: any) {
       // Log the full error for debugging
       console.error('Failed to save project as draft:', error);
       
+      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || '';
+      const isLimitError = error?.response?.status === 400 && (
+        errorMsg.toLowerCase().includes('limit') || 
+        errorMsg.toLowerCase().includes('upgrade') ||
+        errorMsg.toLowerCase().includes('reached')
+      );
+
+      if (isLimitError) {
+        if (window.confirm(`${errorMsg}\n\nWould you like to upgrade your subscription plan now?`)) {
+          navigate('billing');
+        }
+        return; // BLOCK navigation to the rest of the flow!
+      }
+
       // Log detailed error information if available
       if (error?.response?.data) {
         const errorData = error.response.data;
@@ -612,9 +685,8 @@ const App: React.FC = () => {
       
       // Silently fail - draft save is not critical, user can continue
       // The project will be saved later when they complete the full flow
+      navigate('selectProject');
     }
-    
-    navigate('selectProject');
   };
 
   const handleSelectProjectNext = (data: any) => {

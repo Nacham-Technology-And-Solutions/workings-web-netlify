@@ -7,6 +7,8 @@ import { getEnabledTypesForCategory, MODULE_CONFIG } from '@/utils/moduleConfig'
 import type { GlazingCategory } from '@/utils/moduleMapping';
 import { getModuleFieldRequirements } from '@/utils/moduleRequirements';
 import { mapGlazingTypeToModuleId } from '@/utils/moduleMapping';
+import { useAuthStore } from '@/stores';
+import { subscriptionsService, type SubscriptionPlan } from '@/services/api/subscriptions.service';
 import {
   getSlidingIllustrationLabel,
   getSlidingIllustrationPanels,
@@ -141,6 +143,29 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const user = useAuthStore(state => state.user);
+
+  useEffect(() => {
+    subscriptionsService.getPlans()
+      .then(res => {
+        if (res && Array.isArray(res)) {
+          setSubscriptionPlans(res);
+        } else if (res && res.response && Array.isArray(res.response.plans)) {
+          setSubscriptionPlans(res.response.plans);
+        } else if (res && res.response && Array.isArray(res.response)) {
+          setSubscriptionPlans(res.response);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load subscription plans for module checks', err);
+      });
+  }, []);
+
+  const currentPlan = useMemo(() => {
+    if (!user || subscriptionPlans.length === 0) return null;
+    return subscriptionPlans.find(p => p.id === user.subscriptionStatus);
+  }, [user, subscriptionPlans]);
 
   // Optional label/color palette for glazing elements (backend uses defaults if omitted)
   const ELEMENT_COLOR_PRESETS = [
@@ -216,9 +241,109 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     return getModuleFieldRequirements(type, category);
   }, [type, enabledCategories, glazingTypes]);
 
+  // Check if selected module is supported by current plan
+  const isSelectedModuleAllowed = useMemo(() => {
+    if (!type || !currentPlan) return true; // Default to true if not loaded yet
+    
+    const selectedType = glazingTypes.find(gt => gt.value === type);
+    const category = selectedType 
+      ? enabledCategories.find(cat => cat.name === selectedType.category)?.moduleCategory || 'Window'
+      : 'Window';
+    
+    const moduleId = mapGlazingTypeToModuleId(type, category);
+    
+    const planModules = currentPlan.modules;
+    if (!planModules) return true;
+
+    const hasAll = planModules.some(m => {
+      const val = String(m).toLowerCase();
+      return val === 'all modules' || val === 'all';
+    });
+    if (hasAll) return true;
+
+    const normalizedModuleId = moduleId.toLowerCase();
+
+    const friendlyNameMap: Record<string, string[]> = {
+      'casement window': ['m1_casement_dcurve'],
+      'sliding window (2-sash)': ['m2_sliding_2sash', 'sliding_window'],
+      'sliding window (2-sash + net)': ['m3_sliding_2sash_net'],
+      'sliding 3-track': ['m4_sliding_3track'],
+      'sliding window (3-sash)': ['m5_sliding_3sash'],
+      'net 11.25 / 26': ['m6_net_1125_26'],
+      'ebm net 11.25 / 26': ['m7_ebm_net_1125_26'],
+      'ebm net u-channel': ['m8_ebm_net_uchannel'],
+      'curtain wall grid': ['m9_curtain_wall_grid']
+    };
+
+    return planModules.some(m => {
+      const allowed = String(m).toLowerCase().trim();
+      if (allowed === normalizedModuleId) return true;
+      if (friendlyNameMap[allowed] && friendlyNameMap[allowed].includes(normalizedModuleId)) {
+        return true;
+      }
+      for (const [friendly, ids] of Object.entries(friendlyNameMap)) {
+        if (ids.includes(normalizedModuleId) && friendly === allowed) {
+          return true;
+        }
+      }
+      return false;
+    });
+  }, [type, currentPlan, glazingTypes, enabledCategories]);
+
+  // Check if any existing dimensions in the project are restricted
+  const hasRestrictedDimensions = useMemo(() => {
+    if (dimensions.length === 0 || !currentPlan) return false;
+    
+    const planModules = currentPlan.modules;
+    if (!planModules) return false;
+
+    const hasAll = planModules.some(m => {
+      const val = String(m).toLowerCase();
+      return val === 'all modules' || val === 'all';
+    });
+    if (hasAll) return false;
+
+    const friendlyNameMap: Record<string, string[]> = {
+      'casement window': ['m1_casement_dcurve'],
+      'sliding window (2-sash)': ['m2_sliding_2sash', 'sliding_window'],
+      'sliding window (2-sash + net)': ['m3_sliding_2sash_net'],
+      'sliding 3-track': ['m4_sliding_3track'],
+      'sliding window (3-sash)': ['m5_sliding_3sash'],
+      'net 11.25 / 26': ['m6_net_1125_26'],
+      'ebm net 11.25 / 26': ['m7_ebm_net_1125_26'],
+      'ebm net u-channel': ['m8_ebm_net_uchannel'],
+      'curtain wall grid': ['m9_curtain_wall_grid']
+    };
+
+    return dimensions.some(dim => {
+      const selectedType = glazingTypes.find(gt => gt.value === dim.type);
+      const category = selectedType 
+        ? enabledCategories.find(cat => cat.name === selectedType.category)?.moduleCategory || 'Window'
+        : 'Window';
+      const moduleId = mapGlazingTypeToModuleId(dim.type, category);
+      const normalizedModuleId = moduleId.toLowerCase();
+
+      const isAllowed = planModules.some(m => {
+        const allowed = String(m).toLowerCase().trim();
+        if (allowed === normalizedModuleId) return true;
+        if (friendlyNameMap[allowed] && friendlyNameMap[allowed].includes(normalizedModuleId)) {
+          return true;
+        }
+        for (const [friendly, ids] of Object.entries(friendlyNameMap)) {
+          if (ids.includes(normalizedModuleId) && friendly === allowed) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      return !isAllowed;
+    });
+  }, [dimensions, currentPlan, glazingTypes, enabledCategories]);
+
   // Form validation - dynamic based on module requirements
   const isFormValid = useMemo(() => {
-    if (!type || !fieldRequirements) return false;
+    if (!type || !fieldRequirements || !isSelectedModuleAllowed) return false;
     
     let valid = type !== '' && width !== '' && height !== '' && quantity !== '';
     
@@ -477,8 +602,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
               )}
               <button
                 onClick={handleCalculateNow}
-                disabled={dimensions.length === 0}
-                className={`px-5 py-2.5 font-semibold rounded transition-colors ${dimensions.length > 0
+                disabled={dimensions.length === 0 || hasRestrictedDimensions}
+                className={`px-5 py-2.5 font-semibold rounded transition-colors ${dimensions.length > 0 && !hasRestrictedDimensions
                   ? 'bg-gray-900 text-white hover:bg-gray-800'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
@@ -723,10 +848,15 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
               </div>
 
               {/* Calculate Now / Recalculate Button - Below Canvas (desktop only; on mobile it's in the bottom bar) */}
+              {hasRestrictedDimensions && (
+                <div className="hidden md:block mb-3.5 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+                  ⚠️ Your list contains elements that are not supported by your current subscription plan. Please remove them to run calculations.
+                </div>
+              )}
               <button
                 onClick={handleCalculateNow}
-                disabled={dimensions.length === 0}
-                className={`hidden md:block w-full py-4 font-semibold rounded transition-colors ${dimensions.length > 0
+                disabled={dimensions.length === 0 || hasRestrictedDimensions}
+                className={`hidden md:block w-full py-4 font-semibold rounded transition-colors ${dimensions.length > 0 && !hasRestrictedDimensions
                   ? 'bg-gray-900 text-white hover:bg-gray-800'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
@@ -769,7 +899,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                     id="type"
                     value={type}
                     onChange={(e) => setType(e.target.value)}
-                    className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className={`w-full px-4 py-3 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 ${
+                      !isSelectedModuleAllowed ? 'border-red-300 focus:ring-red-400' : 'border-gray-300 focus:ring-gray-400'
+                    }`}
                     disabled={filteredGlazingTypes.length === 0}
                   >
                     <option value="">Select type</option>
@@ -777,6 +909,17 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                       <option key={glazingType.value} value={glazingType.value}>{glazingType.label}</option>
                     ))}
                   </select>
+
+                  {!isSelectedModuleAllowed && currentPlan && (
+                    <div className="mt-2.5 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex flex-col gap-1">
+                      <span className="font-bold flex items-center gap-1">
+                        ⚠️ Module Locked
+                      </span>
+                      <span>
+                        Your current subscription plan ({currentPlan.name}) does not support the selected module. Please upgrade to unlock this feature.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Width and Height - Dynamic labels based on module */}
@@ -1165,10 +1308,15 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
             Return to Calculation Results
           </button>
         )}
+        {hasRestrictedDimensions && (
+          <div className="mb-2 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+            ⚠️ Your list contains elements not supported by your current subscription plan. Please remove them to calculate.
+          </div>
+        )}
         <button
           onClick={handleCalculateNow}
-          disabled={dimensions.length === 0}
-          className={`w-full py-3.5 font-semibold rounded-lg transition-colors ${dimensions.length > 0
+          disabled={dimensions.length === 0 || hasRestrictedDimensions}
+          className={`w-full py-3.5 font-semibold rounded-lg transition-colors ${dimensions.length > 0 && !hasRestrictedDimensions
             ? 'bg-gray-900 text-white hover:bg-gray-800'
             : 'bg-gray-200 text-gray-500 cursor-not-allowed'
             }`}

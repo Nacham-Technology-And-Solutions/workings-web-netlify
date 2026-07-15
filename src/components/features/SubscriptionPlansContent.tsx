@@ -41,9 +41,13 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, billingCycle, currentPlanId, 
           {isFreePlan ? '₦0' : `₦${formatPrice(price)}`}
         </div>
         <p className="text-base sm:text-lg font-bold text-gray-900 mb-1">{plan.name}</p>
-        <p className="text-xs sm:text-sm text-gray-500">
-          {plan.projectsLimit === null ? 'Unlimited projects' : `${plan.projectsLimit} projects/month`}
-          {plan.pointsPerMonth > 0 && ` • ${plan.pointsPerMonth} points/month`}
+        <p className="text-xs sm:text-sm text-gray-500 whitespace-pre-line">
+          {plan.description || (
+            <>
+              {plan.projectsLimit === null ? 'Unlimited projects' : `${plan.projectsLimit} projects/month`}
+              {plan.pointsPerMonth > 0 && ` • ${plan.pointsPerMonth} points/month`}
+            </>
+          )}
         </p>
       </div>
 
