@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import * as Sentry from '@sentry/react';
+import { Analytics } from '@vercel/analytics/react';
 import App from './src/app/App';
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN || '';
@@ -64,6 +65,7 @@ root.render(
       ) : (
         appTree
       )}
+      <Analytics />
     </ErrorBoundary>
   </React.StrictMode>
 );
