@@ -349,6 +349,8 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     
     if (fieldRequirements.requiresPanel) {
       valid = valid && panel !== '';
+      const n = parseFloat(panel) || 0;
+      valid = valid && n >= 1 && n <= 10;
     }
     
     if (fieldRequirements.requiresOpeningPanels) {
@@ -356,7 +358,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       // Validate O <= N
       const n = parseFloat(panel) || 0;
       const o = parseFloat(openingPanels) || 0;
-      valid = valid && o <= n && o >= 0;
+      valid = valid && o <= n && o >= 0 && o <= 10;
     }
     
     if (fieldRequirements.requiresVerticalPanels) {
@@ -1035,7 +1037,12 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                             type="text"
                             id="panel"
                             value={panel}
-                            onChange={(e) => setPanel(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || (/^\d+$/.test(val) && parseInt(val, 10) <= 10)) {
+                                setPanel(val);
+                              }
+                            }}
                             placeholder="Eg: 3"
                             className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                           />
@@ -1050,7 +1057,12 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                               type="text"
                               id="openingPanels"
                               value={openingPanels}
-                              onChange={(e) => setOpeningPanels(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || (/^\d+$/.test(val) && parseInt(val, 10) <= 10)) {
+                                  setOpeningPanels(val);
+                                }
+                              }}
                               placeholder="Eg: 1"
                               className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                             />
