@@ -144,6 +144,18 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       };
     });
   });
+
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (dimensions.length > 0) {
+      const timer = setTimeout(() => {
+        previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [dimensions.length]);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
@@ -1057,6 +1069,15 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                               const val = e.target.value;
                               if (val === '' || (/^\d+$/.test(val) && parseInt(val, 10) <= 10)) {
                                 setPanel(val);
+                                if (val !== '') {
+                                  const newMax = parseInt(val, 10);
+                                  if (openingPanels !== '' && !isNaN(parseInt(openingPanels, 10))) {
+                                    const currentOpening = parseInt(openingPanels, 10);
+                                    if (currentOpening > newMax) {
+                                      setOpeningPanels(val); // Clamp it to the new panels value
+                                    }
+                                  }
+                                }
                               }
                             }}
                             placeholder="Eg: 3"
@@ -1075,8 +1096,16 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                               value={openingPanels}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                if (val === '' || (/^\d+$/.test(val) && parseInt(val, 10) <= 10)) {
+                                if (val === '') {
                                   setOpeningPanels(val);
+                                  return;
+                                }
+                                if (/^\d+$/.test(val)) {
+                                  const intVal = parseInt(val, 10);
+                                  const maxPanels = panel !== '' && !isNaN(parseInt(panel, 10)) ? parseInt(panel, 10) : 10;
+                                  if (intVal <= maxPanels) {
+                                    setOpeningPanels(val);
+                                  }
                                 }
                               }}
                               placeholder="Eg: 1"
@@ -1200,7 +1229,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
 
               {/* Preview Table / Mobile card list */}
               {dimensions.length > 0 && (
-                <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4 md:p-6">
+                <div ref={previewRef} className="mt-6 bg-white border border-gray-200 rounded-lg p-4 md:p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Preview</h3>
 
                   {/* Card list for small/medium viewports so Action is never clipped; table only at lg+ */}

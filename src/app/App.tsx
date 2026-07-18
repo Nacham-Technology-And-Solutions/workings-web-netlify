@@ -1717,7 +1717,7 @@ const App: React.FC = () => {
             onNavigate={handleNavigate}
           />
           <div className="flex flex-col flex-1 min-h-0 transition-all duration-300 min-w-0 lg:ml-[336px]">
-            <SettingsScreen onNavigate={handleNavigate} />
+            <SettingsScreen onNavigate={handleNavigate} onMenuClick={() => setSidebarOpen(true)} />
           </div>
         </div>
       </div>

@@ -44,6 +44,13 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     if (isSettingsSectionView(view)) {
       setStoredSettingsSection(view);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('settingsDirectSection', view);
+      }
+    } else if (view === 'settings') {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('settingsDirectSection');
+      }
     }
 
     set({
