@@ -247,8 +247,74 @@ const EditMaterialListScreen: React.FC<EditMaterialListScreenProps> = ({ list, o
           {/* Item List Tab Content */}
           {activeTab === 'Item List' && (
             <div className="space-y-6">
-              {/* Table */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              {/* Mobile View: Cards Layout */}
+              <div className="space-y-4 lg:hidden mb-6">
+                {items.map((item, index) => {
+                  const total = itemTotals[index];
+                  return (
+                    <div key={item.id} className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm space-y-4">
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                        <span className="text-sm font-semibold text-gray-900">Item #{index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          aria-label="Delete item"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Description</label>
+                          <input
+                            type="text"
+                            value={item.description}
+                            onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                            placeholder="Enter description"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent text-sm bg-white"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quantity</label>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                              placeholder="0"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent text-sm text-center bg-white bg-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Unit Price (₦)</label>
+                            <input
+                              type="text"
+                              value={item.unitPrice ? formatNumber(parseFloat(item.unitPrice) || 0) : ''}
+                              onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value.replace(/,/g, ''))}
+                              placeholder="0"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent text-sm text-right bg-white bg-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 flex justify-between items-center">
+                          <span className="text-xs font-semibold text-gray-500 uppercase">Total</span>
+                          <span className="text-sm font-bold text-gray-900">{formatNaira(total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table */}
+              <div className="hidden lg:block bg-white rounded-lg border border-gray-200 overflow-hidden">
                 {/* Table Header */}
                 <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 border-b border-gray-200">
                   <div className="col-span-1 text-xs font-semibold text-gray-700 uppercase">S/N</div>

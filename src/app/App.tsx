@@ -43,6 +43,8 @@ import PaymentCallbackScreen from '../components/features/PaymentCallbackScreen'
 import SessionExpiredModal from '../components/common/SessionExpiredModal';
 import LogViewer from '../components/common/LogViewer';
 import WhatsAppPromptModal from '../components/common/WhatsAppPromptModal';
+import LimitExceededModal from '../components/common/LimitExceededModal';
+import ProgressIndicator from '../components/common/ProgressIndicator';
 
 // Import stores
 import {
@@ -54,6 +56,9 @@ import {
   useSyncStore,
   useEstimationStore,
 } from '../stores';
+
+let plansCache: any[] | null = null;
+let projectsCache: any[] | null = null;
 
 // Import services
 import { projectsService, quotesService, materialListsService, userService, subscriptionsService } from '../services/api';
@@ -225,6 +230,11 @@ const App: React.FC = () => {
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   const [hasPromptedThisSession, setHasPromptedThisSession] = useState(false);
 
+  // Local state for limit exceeded warnings
+  const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
+  const [limitModalMessage, setLimitModalMessage] = useState('');
+  const [isCheckingLimit, setIsCheckingLimit] = useState(false);
+
   // Trigger WhatsApp number prompt modal if authenticated user doesn't have it
   useEffect(() => {
     if (isAuthenticated && user && !user.phoneNumber && !hasPromptedThisSession && !isLoading) {
@@ -239,6 +249,13 @@ const App: React.FC = () => {
       setIsPhoneModalOpen(false);
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    projectsCache = null;
+    if (!isAuthenticated) {
+      plansCache = null;
+    }
+  }, [refreshProjects, isAuthenticated]);
 
   const handleSaveWhatsAppNumber = async (phoneNumber: string) => {
     if (!user) return;
@@ -447,14 +464,19 @@ const App: React.FC = () => {
       const user = useAuthStore.getState().user;
       if (!user) return true;
 
-      const plansRes = await subscriptionsService.getPlans();
-      let plans: any[] = [];
-      if (plansRes && Array.isArray(plansRes)) {
-        plans = plansRes;
-      } else if (plansRes && plansRes.response && Array.isArray(plansRes.response.plans)) {
-        plans = plansRes.response.plans;
-      } else if (plansRes && plansRes.response && Array.isArray(plansRes.response)) {
-        plans = plansRes.response;
+      let plans = plansCache;
+      if (!plans) {
+        const plansRes = await subscriptionsService.getPlans();
+        let plansData: any[] = [];
+        if (plansRes && Array.isArray(plansRes)) {
+          plansData = plansRes;
+        } else if (plansRes && plansRes.response && Array.isArray(plansRes.response.plans)) {
+          plansData = plansRes.response.plans;
+        } else if (plansRes && plansRes.response && Array.isArray(plansRes.response)) {
+          plansData = plansRes.response;
+        }
+        plans = plansData;
+        plansCache = plansData;
       }
 
       const currentPlan = plans.find((p: any) => p.id === user.subscriptionStatus);
@@ -464,12 +486,15 @@ const App: React.FC = () => {
         return true;
       }
 
-      const projectsRes = await projectsService.getAll();
-      let projectsList: any[] = [];
-      if (projectsRes && Array.isArray(projectsRes)) {
-        projectsList = projectsRes;
-      } else if (projectsRes && projectsRes.response && Array.isArray(projectsRes.response)) {
-        projectsList = projectsRes.response;
+      let projectsList = projectsCache;
+      if (!projectsList) {
+        const projectsRes = await projectsService.list(1, 100);
+        let projectsData: any[] = [];
+        if (projectsRes && projectsRes.response && Array.isArray(projectsRes.response.projects)) {
+          projectsData = projectsRes.response.projects;
+        }
+        projectsList = projectsData;
+        projectsCache = projectsData;
       }
 
       const currentMonthStart = new Date();
@@ -482,10 +507,8 @@ const App: React.FC = () => {
       });
 
       if (createdThisMonth.length >= currentPlan.projectsLimit) {
-        alert(`Upgrade Required: You have reached your monthly limit of ${currentPlan.projectsLimit} projects for the ${currentPlan.name} plan.`);
-        if (window.confirm('Would you like to upgrade your subscription plan now?')) {
-          navigate('billing');
-        }
+        setLimitModalMessage(`You have reached your monthly limit of ${currentPlan.projectsLimit} projects for the ${currentPlan.name} plan. Please upgrade your subscription to create more projects.`);
+        setIsLimitModalOpen(true);
         return false;
       }
 
@@ -497,17 +520,22 @@ const App: React.FC = () => {
   };
 
   const handleNewProject = async () => {
-    // Check project limit first to prevent entering creation flow
-    const canCreate = await checkProjectLimit();
-    if (!canCreate) return;
+    setIsCheckingLimit(true);
+    try {
+      // Check project limit first to prevent entering creation flow
+      const canCreate = await checkProjectLimit();
+      if (!canCreate) return;
 
-    // Clear all project data when starting a new project
-    clearProjectFlow();
-    setDraftProjectId(null);
-    setProjectWasCalculated(false);
-    setProjectFlowFromDetail(false);
-    setInitialCalculationResult(null);
-    navigate('projectDescription');
+      // Clear all project data when starting a new project
+      clearProjectFlow();
+      setDraftProjectId(null);
+      setProjectWasCalculated(false);
+      setProjectFlowFromDetail(false);
+      setInitialCalculationResult(null);
+      navigate('projectDescription');
+    } finally {
+      setIsCheckingLimit(false);
+    }
   };
 
   const handleViewProject = (projectId: string) => {
@@ -647,6 +675,7 @@ const App: React.FC = () => {
 
         if (projectId) {
           setDraftProjectId(projectId);
+          projectsCache = null;
           console.log('[App] Draft project created with ID:', projectId);
         } else {
           console.warn('[App] Could not extract project ID from response:', responseData);
@@ -657,7 +686,8 @@ const App: React.FC = () => {
       // Log the full error for debugging
       console.error('Failed to save project as draft:', error);
       
-      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || '';
+      const errorData = error?.response?.data;
+      const errorMsg = errorData?.responseMessage || errorData?.message || errorData?.error || error?.message || '';
       const isLimitError = error?.response?.status === 400 && (
         errorMsg.toLowerCase().includes('limit') || 
         errorMsg.toLowerCase().includes('upgrade') ||
@@ -665,9 +695,8 @@ const App: React.FC = () => {
       );
 
       if (isLimitError) {
-        if (window.confirm(`${errorMsg}\n\nWould you like to upgrade your subscription plan now?`)) {
-          navigate('billing');
-        }
+        setLimitModalMessage(errorMsg);
+        setIsLimitModalOpen(true);
         return; // BLOCK navigation to the rest of the flow!
       }
 
@@ -1628,6 +1657,52 @@ const App: React.FC = () => {
     );
   }
 
+  const renderModals = () => {
+    return (
+      <>
+        {/* Log Viewer - Accessible via Ctrl+Shift+L / Cmd+Shift+L */}
+        {import.meta.env.DEV && (
+          <LogViewer isOpen={showLogViewer} onClose={() => setShowLogViewer(false)} />
+        )}
+
+        {/* Session Expired Modal */}
+        <SessionExpiredModal
+          isOpen={sessionExpired}
+          onConfirm={handleSessionExpiredConfirm}
+          message={sessionExpiredMessage}
+        />
+
+        {/* WhatsApp Number Prompt Modal */}
+        <WhatsAppPromptModal
+          isOpen={isPhoneModalOpen}
+          onClose={() => setIsPhoneModalOpen(false)}
+          onSave={handleSaveWhatsAppNumber}
+        />
+
+        {/* Limit Exceeded Modal */}
+        <LimitExceededModal
+          isOpen={isLimitModalOpen}
+          onClose={() => setIsLimitModalOpen(false)}
+          onUpgrade={() => {
+            setIsLimitModalOpen(false);
+            navigate('subscriptionPlans');
+          }}
+          message={limitModalMessage}
+        />
+
+        {/* Limit Checking Spinner Overlay */}
+        {isCheckingLimit && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[10000] backdrop-blur-[2px]">
+            <div className="bg-white p-5 rounded-2xl shadow-xl flex flex-col items-center gap-3 animate-fade-in">
+              <ProgressIndicator />
+              <span className="text-sm font-semibold text-gray-700">Checking project limit...</span>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   if (currentView === 'settings') {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[#FAFAFA]">
@@ -1947,6 +2022,7 @@ const App: React.FC = () => {
             />
           </div>
         </div>
+        {renderModals()}
       </div>
     );
   }
@@ -2031,7 +2107,13 @@ const App: React.FC = () => {
                 if (projectFlowFromDetail && selectedProjectId) {
                   navigate('projectDetail');
                 } else {
-                  goBack();
+                  const wizardViews = ['selectProject', 'projectMeasurement', 'projectSolution', 'projectEstimationPricing'];
+                  const uiStore = useUIStore.getState();
+                  if (wizardViews.includes(uiStore.previousView)) {
+                    navigate('projects');
+                  } else {
+                    goBack();
+                  }
                 }
               }}
               onNext={handleProjectDescriptionNext}
@@ -2039,6 +2121,7 @@ const App: React.FC = () => {
             />
           </div>
         </div>
+        {renderModals()}
       </div>
     );
   }
@@ -2439,24 +2522,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Log Viewer - Accessible via Ctrl+Shift+L / Cmd+Shift+L */}
-      {import.meta.env.DEV && (
-        <LogViewer isOpen={showLogViewer} onClose={() => setShowLogViewer(false)} />
-      )}
-
-      {/* Session Expired Modal */}
-      <SessionExpiredModal
-        isOpen={sessionExpired}
-        onConfirm={handleSessionExpiredConfirm}
-        message={sessionExpiredMessage}
-      />
-
-      {/* WhatsApp Number Prompt Modal */}
-      <WhatsAppPromptModal
-        isOpen={isPhoneModalOpen}
-        onClose={() => setIsPhoneModalOpen(false)}
-        onSave={handleSaveWhatsAppNumber}
-      />
+      {renderModals()}
     </div>
   );
 };

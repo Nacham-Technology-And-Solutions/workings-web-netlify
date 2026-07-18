@@ -3,7 +3,42 @@
  * Provides accurate visual representations for each module type
  */
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+function useIllustrationDimensions() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ width: 450, height: 550 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    
+    const updateSize = () => {
+      // Account for parent padding (p-12 = 48px on each side = 96px total)
+      const paddingX = 96;
+      const paddingY = 96;
+      setDims({
+        width: Math.max(100, el.clientWidth - paddingX),
+        height: Math.max(100, el.clientHeight - paddingY),
+      });
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(() => {
+      updateSize();
+    });
+    observer.observe(el);
+    
+    window.addEventListener('resize', updateSize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, []);
+
+  return [ref, dims.width, dims.height] as const;
+}
 
 interface BaseIllustrationProps {
   width: number;
@@ -60,12 +95,8 @@ export const CasementIllustration: React.FC<CasementIllustrationProps> = ({
   const totalWidth = frameWidth + rightLabelWidth;
   const totalHeight = topLabelHeight + frameHeight + bottomLabelHeight;
 
-  // Use container-relative sizing with max constraints
-  // Account for parent padding (p-12 = 48px on each side = 96px total)
-  // Use conservative values to ensure content fits within available space
-  const maxContainerWidth = 450; // Conservative max width accounting for padding
-  const maxContainerHeight = 550; // Conservative max height accounting for padding
-  
+  const [containerRef, maxContainerWidth, maxContainerHeight] = useIllustrationDimensions();
+
   // Calculate scale to fit within max container size
   const scaleX = maxContainerWidth / totalWidth;
   const scaleY = maxContainerHeight / totalHeight;
@@ -80,7 +111,7 @@ export const CasementIllustration: React.FC<CasementIllustrationProps> = ({
   const scaledBottomLabelHeight = bottomLabelHeight * scale;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
+    <div ref={containerRef} className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
       <div
         className="relative"
         style={{
@@ -231,12 +262,8 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
   const totalWidth = frameWidth + rightLabelWidth;
   const totalHeight = topLabelHeight + frameHeight + bottomLabelHeight;
 
-  // Use container-relative sizing with max constraints
-  // Account for parent padding (p-12 = 48px on each side = 96px total)
-  // Use conservative values to ensure content fits within available space
-  const maxContainerWidth = 450; // Conservative max width accounting for padding
-  const maxContainerHeight = 550; // Conservative max height accounting for padding
-  
+  const [containerRef, maxContainerWidth, maxContainerHeight] = useIllustrationDimensions();
+
   const scaleX = maxContainerWidth / totalWidth;
   const scaleY = maxContainerHeight / totalHeight;
   const scale = Math.min(scaleX, scaleY, 1);
@@ -269,7 +296,7 @@ export const SlidingWindowIllustration: React.FC<SlidingWindowIllustrationProps>
   };
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
+    <div ref={containerRef} className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
       <div
         className="relative"
         style={{
@@ -424,12 +451,8 @@ export const NetIllustration: React.FC<NetIllustrationProps> = ({
   const totalWidth = frameWidth + rightLabelWidth;
   const totalHeight = topLabelHeight + frameHeight + bottomLabelHeight;
 
-  // Use container-relative sizing with max constraints
-  // Account for parent padding (p-12 = 48px on each side = 96px total)
-  // Use conservative values to ensure content fits within available space
-  const maxContainerWidth = 450; // Conservative max width accounting for padding
-  const maxContainerHeight = 550; // Conservative max height accounting for padding
-  
+  const [containerRef, maxContainerWidth, maxContainerHeight] = useIllustrationDimensions();
+
   const scaleX = maxContainerWidth / totalWidth;
   const scaleY = maxContainerHeight / totalHeight;
   const scale = Math.min(scaleX, scaleY, 1);
@@ -443,7 +466,7 @@ export const NetIllustration: React.FC<NetIllustrationProps> = ({
   const scaledBottomLabelHeight = bottomLabelHeight * scale;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
+    <div ref={containerRef} className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
       <div
         className="relative"
         style={{
@@ -571,12 +594,8 @@ export const CurtainWallIllustration: React.FC<CurtainWallIllustrationProps> = (
   const totalWidth = frameWidth + rightLabelWidth;
   const totalHeight = topLabelHeight + frameHeight + bottomLabelHeight;
 
-  // Use container-relative sizing with max constraints
-  // Account for parent padding (p-12 = 48px on each side = 96px total)
-  // Use conservative values to ensure content fits within available space
-  const maxContainerWidth = 450; // Conservative max width accounting for padding
-  const maxContainerHeight = 550; // Conservative max height accounting for padding
-  
+  const [containerRef, maxContainerWidth, maxContainerHeight] = useIllustrationDimensions();
+
   const scaleX = maxContainerWidth / totalWidth;
   const scaleY = maxContainerHeight / totalHeight;
   const scale = Math.min(scaleX, scaleY, 1);
@@ -604,7 +623,7 @@ export const CurtainWallIllustration: React.FC<CurtainWallIllustrationProps> = (
   const scaledCellHeight = curtainInnerHeight / horizontalPanels;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
+    <div ref={containerRef} className="absolute inset-0 flex items-center justify-center p-12 overflow-hidden">
       <div
         className="relative"
         style={{

@@ -26,6 +26,8 @@ import {
   CurtainWallIllustration,
 } from '@/components/features/projects/illustrations/ModuleIllustrations';
 
+import { useUIStore } from '@/stores';
+
 interface ProjectMeasurementScreenProps {
   onBack: () => void;
   onNext: (data: ProjectMeasurementData) => void;
@@ -40,6 +42,7 @@ interface ProjectMeasurementScreenProps {
 }
 
 const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onBack, onNext, onRecalculate, previousData, initialMeasurementData, onNavigateToStep, isRecalculate }) => {
+  const { setSidebarOpen } = useUIStore();
   // Extract selected project data
   const selectProjectData = previousData || {
     windows: [],
@@ -530,14 +533,27 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
       {/* Header / Breadcrumbs */}
       <div className="px-4 md:px-8 py-4 md:py-6 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
-          {/* Mobile only: headline row = Back + "Projects" */}
-          <div className="flex md:hidden items-center gap-3 mb-4">
-            <button onClick={onBack} className="text-gray-600 hover:text-gray-900 p-1 -ml-1" aria-label="Go back">
+          {/* Mobile only: headline row = Back + "Projects" + Menu */}
+          <div className="flex md:hidden items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <button onClick={onBack} className="text-gray-600 hover:text-gray-900 p-1 -ml-1" aria-label="Go back">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h2 className="text-xl font-bold text-gray-900">Projects</h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 -mr-2 text-gray-600 hover:text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+              aria-label="Open sidebar"
+            >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h2 className="text-xl font-bold text-gray-900">Projects</h2>
           </div>
 
           <div className="hidden md:block">

@@ -457,7 +457,133 @@ const CreateMaterialListScreen: React.FC<CreateMaterialListScreenProps> = ({ onB
                 </button>
               </div>
 
-              <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+              {/* Mobile View: Cards Layout */}
+              <div className="space-y-4 lg:hidden mb-6">
+                {items.map((item, index) => {
+                  const isEditing = editingItemId === item.id;
+                  const qty = parseFloat(item.quantity) || 0;
+                  const price = parseFloat(item.unitPrice) || 0;
+                  const itemTotal = isEditing && editFormData
+                    ? (parseFloat(editFormData.quantity) || 0) * (parseFloat(editFormData.unitPrice) || 0)
+                    : qty * price;
+                  return (
+                    <div key={item.id} className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm space-y-4">
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                        <span className="text-sm font-semibold text-gray-900">Item #{index + 1}</span>
+                        <div className="flex items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleSaveEdit}
+                                className="text-green-600 p-1 hover:text-green-800"
+                                title="Save"
+                              >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                className="text-gray-600 p-1 hover:text-gray-800"
+                                title="Cancel"
+                              >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleEditItem(item)}
+                                className="text-gray-600 p-1 hover:text-blue-600"
+                                title="Edit"
+                              >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item.id)}
+                                className="text-gray-600 p-1 hover:text-red-600"
+                                title="Delete"
+                              >
+                                <TrashIcon className="w-5 h-5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Description</label>
+                          {isEditing && editFormData ? (
+                            <MaterialItemDescriptionEditor
+                              mode={editFormData.sourceMode}
+                              onModeChange={handleSourceModeChange}
+                              catalogItems={catalogItems}
+                              selectedItemKey={editFormData.itemKey}
+                              onCatalogSelect={handleCatalogSelect}
+                              customDescription={editFormData.description}
+                              onCustomDescriptionChange={(value) =>
+                                setEditFormData({ ...editFormData, description: value })
+                              }
+                              isLoadingCatalog={isLoadingCatalog}
+                            />
+                          ) : (
+                            <div className="text-sm font-medium text-gray-900">{item.description || '—'}</div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quantity</label>
+                            {isEditing && editFormData ? (
+                              <input
+                                type="text"
+                                value={editFormData.quantity}
+                                onChange={(e) => handleEditFormChange('quantity', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-white"
+                              />
+                            ) : (
+                              <div className="text-sm text-gray-900">{item.quantity}</div>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Unit Price (₦)</label>
+                            {isEditing && editFormData ? (
+                              <input
+                                type="text"
+                                value={editFormData.unitPrice}
+                                onChange={(e) => handleEditFormChange('unitPrice', e.target.value.replace(/,/g, ''))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-white"
+                              />
+                            ) : (
+                              <div className="text-sm text-gray-900">
+                                {item.unitPrice ? parseFloat(item.unitPrice).toLocaleString() : '—'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 flex justify-between items-center">
+                          <span className="text-xs font-semibold text-gray-500 uppercase">Total</span>
+                          <span className="text-sm font-bold text-gray-900">{formatNaira(itemTotal)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block border border-gray-200 rounded-lg overflow-visible mb-6">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>

@@ -222,7 +222,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
               </div>
             </div>
             {onNewProject && (
-              <>
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => setShowSearch(true)}
                   className="md:hidden p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
@@ -236,7 +236,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 >
                   Create New Project
                 </button>
-              </>
+              </div>
             )}
           </div>
 
@@ -247,8 +247,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-2.5 rounded-full text-base font-semibold transition-colors duration-200 focus:outline-none ${activeTab === tab
-                    ? 'bg-gray-800 text-white'
-                    : 'text-gray-500'
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-500'
                   }`}
               >
                 {tab}
@@ -311,7 +311,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
 
               <img
                 src="/icons/home-screen-icons-start-estimating-now.svg"
-                alt="Start a project now" 
+                alt="Start a project now"
               />
 
 
@@ -330,7 +330,7 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                   {onNewProject && (
                     <button
                       onClick={onNewProject}
-                      className="hidden md:flex w-16 h-16 bg-gray-800 text-white rounded-full items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
+                      className="flex w-16 h-16 bg-gray-800 text-white rounded-full items-center justify-center shadow-lg hover:bg-gray-700 transition-transform transform hover:scale-110"
                       aria-label="Create new project"
                     >
                       <PlusIcon className="w-8 h-8" />
@@ -446,8 +446,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 <button
                   onClick={() => setQuickFilter('all')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'all'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   All Projects
@@ -455,8 +455,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 <button
                   onClick={() => setQuickFilter('recent')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'recent'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   Last 7 Days
@@ -464,8 +464,8 @@ const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                 <button
                   onClick={() => setQuickFilter('this-month')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${quickFilter === 'this-month'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   This Month

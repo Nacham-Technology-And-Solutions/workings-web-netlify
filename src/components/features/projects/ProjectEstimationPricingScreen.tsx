@@ -38,12 +38,15 @@ interface ProjectEstimationPricingScreenProps {
   onPreviewAccepted: (payload: EstimationPreviewAcceptedPayload) => void;
 }
 
+import { useUIStore } from '@/stores';
+
 const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenProps> = ({
   onBack,
   projectId,
   previousData,
   onPreviewAccepted,
 }) => {
+  const { setSidebarOpen } = useUIStore();
   const {
     fillSource,
     pricingInputs,
@@ -125,11 +128,24 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
     <div className="flex flex-col h-full bg-[#FAFAFA] font-sans text-gray-800">
       <div className="px-4 md:px-8 py-4 md:py-6 border-b border-gray-100 bg-white">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <button type="button" onClick={onBack} className="text-gray-600 hover:text-gray-900 p-1 -ml-1" aria-label="Go back">
-              <ChevronLeftIcon className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={onBack} className="text-gray-600 hover:text-gray-900 p-1 -ml-1" aria-label="Go back">
+                <ChevronLeftIcon className="w-6 h-6" />
+              </button>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">Estimation pricing</h1>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 -mr-2 text-gray-600 hover:text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+              aria-label="Open sidebar"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Estimation pricing</h1>
           </div>
           <p className="text-sm text-gray-500 ml-9 md:ml-10">
             Fill unit prices from your library, then generate a quote preview.
