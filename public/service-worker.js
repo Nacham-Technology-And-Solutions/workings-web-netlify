@@ -5,7 +5,7 @@
 const CACHE_NAME = 'workings-sw-__SW_CACHE_REVISION__';
 
 /** Small static files only — do NOT precache HTML (stale shell breaks hashed /assets/). */
-const PRECACHE_URLS = ['/manifest.json', '/icons/app-icon.svg'];
+const PRECACHE_URLS = ['/manifest.json', '/icons/drawer-logo-w.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -2055,38 +2055,80 @@ const ProjectSolutionScreen: React.FC<ProjectSolutionScreenProps> = ({ onBack, o
       {!isLoading && !error && calculationResult && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-4 py-3 safe-area-pb">
           {activeTab === 'material' && (
-            <div className="space-y-2">
-              <div className="relative export-dropdown-container">
-                <button
-                  onClick={() => setShowExportDropdown(showExportDropdown === 'material' ? null : 'material')}
-                  className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800"
-                >
-                  <span>Export Material List</span>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                </button>
-                {showExportDropdown === 'material' && (
-                  <div className="absolute left-0 right-0 bottom-full mb-2 py-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <button onClick={() => handleExportMaterialList('pdf')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm rounded-t-lg">Export as PDF</button>
-                    <button onClick={() => handleExportMaterialList('excel')} className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-b-lg text-sm">Export as Excel</button>
+            <div className="relative export-dropdown-container">
+              <button
+                onClick={() => setShowExportDropdown(showExportDropdown === 'material' ? null : 'material')}
+                className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+              >
+                <span>Export & Actions</span>
+                <svg className={`w-5 h-5 transition-transform duration-200 ${showExportDropdown === 'material' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showExportDropdown === 'material' && (
+                <div className="absolute left-0 right-0 bottom-full mb-2 py-2 bg-white rounded-xl shadow-xl border border-gray-200 z-50 divide-y divide-gray-100">
+                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Export Material List
                   </div>
-                )}
-              </div>
-              <button
-                onClick={handleSendToMaterialList}
-                disabled={isSendingToMaterialList || !onSendToMaterialList}
-                className="w-full py-3 font-semibold rounded-lg bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSendingToMaterialList ? 'Saving…' : 'Send to Material List'}
-              </button>
-              <button
-                onClick={handleOpenGenerateQuote}
-                disabled={isSaving}
-                className="w-full py-3 font-semibold rounded-lg bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Generate Quote
-              </button>
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(null);
+                        handleExportMaterialList('pdf');
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V7.5L14.5 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span>Export as PDF</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(null);
+                        handleExportMaterialList('excel');
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L17 8.5V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>Export as Excel</span>
+                    </button>
+                  </div>
+                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">
+                    Project Actions
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(null);
+                        handleSendToMaterialList();
+                      }}
+                      disabled={isSendingToMaterialList || !onSendToMaterialList}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      <span>{isSendingToMaterialList ? 'Saving…' : 'Send to Material List'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(null);
+                        handleOpenGenerateQuote();
+                      }}
+                      disabled={isSaving}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L17 8.5V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>Generate Quote</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {activeTab === 'cutting' && (

@@ -10,6 +10,67 @@ import { formatNaira, formatNumber } from '@/utils/formatters';
 import { CloseIcon } from '@/assets/icons/IconComponents';
 import { previewToQuoteItems } from '@/utils/estimationQuoteMappers';
 
+function formatInputWithCommas(value: number | string): string {
+  if (value === '' || value === null || value === undefined) return '';
+  const str = String(value).replace(/,/g, '');
+  if (isNaN(Number(str)) && str !== '.') return str;
+  const parts = str.split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.length > 1 ? `${integerPart}.${parts[1]}` : integerPart;
+}
+
+function parseFormattedNumber(val: string): number {
+  const cleaned = val.replace(/,/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+interface FormattedNumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
+  value: number | string;
+  onValueChange: (numericValue: number) => void;
+}
+
+const FormattedNumberInput: React.FC<FormattedNumberInputProps> = ({
+  value,
+  onValueChange,
+  className = '',
+  ...props
+}) => {
+  const [text, setText] = useState<string>(() =>
+    value || value === 0 ? formatInputWithCommas(value) : ''
+  );
+
+  useEffect(() => {
+    const numericProp = typeof value === 'number' ? value : parseFormattedNumber(value);
+    const numericText = parseFormattedNumber(text);
+    if (numericProp !== numericText) {
+      setText(numericProp || numericProp === 0 ? formatInputWithCommas(numericProp) : '');
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) return;
+
+    const formatted = formatInputWithCommas(cleaned);
+    setText(formatted);
+    onValueChange(parseFormattedNumber(cleaned));
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={handleChange}
+      className={className}
+      {...props}
+    />
+  );
+};
+
 export interface EstimationPreviewAcceptedPayload {
   quoteSource: 'project_cart' | 'material_list';
   previewResult: NonNullable<
@@ -100,9 +161,23 @@ const EstimationQuotePreviewModal: React.FC<EstimationQuotePreviewModalProps> = 
       <div className="relative bg-white w-full sm:max-w-3xl max-h-[90vh] overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Quote preview</h2>
-          <button type="button" onClick={onClose} className="p-1 text-gray-500 hover:text-gray-700" aria-label="Close">
-            <CloseIcon className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => void preview(quoteSource, { force: true })}
+              disabled={isPreviewing}
+              title="Refresh preview"
+              aria-label="Refresh preview"
+              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <svg className={`w-5 h-5 ${isPreviewing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button type="button" onClick={onClose} className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors" aria-label="Close">
+              <CloseIcon className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
@@ -165,19 +240,16 @@ const EstimationQuotePreviewModal: React.FC<EstimationQuotePreviewModalProps> = 
                             <label className="text-xs text-gray-500">Unit price</label>
                             <div className="flex items-center gap-2">
                               <span className="text-gray-500 text-sm">₦</span>
-                              <input
-                                type="number"
-                                min={0}
+                              <FormattedNumberInput
                                 value={finalPrice}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 0;
+                                onValueChange={(val) => {
                                   if (val === line.finalUnitPrice && !hasOverride) {
                                     clearItemOverride(index);
                                   } else {
                                     setItemOverride(index, val);
                                   }
                                 }}
-                                className="w-full sm:w-32 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                                className="w-full sm:w-32 px-2 py-1 border border-gray-300 rounded text-right text-sm font-medium text-gray-900"
                               />
                             </div>
                             <p className="text-sm font-semibold text-gray-900">
@@ -234,27 +306,12 @@ const EstimationQuotePreviewModal: React.FC<EstimationQuotePreviewModalProps> = 
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void preview(quoteSource, { force: true })}
-            disabled={isPreviewing}
-            className="px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            Refresh preview
-          </button>
+        <div className="px-6 py-4 border-t border-gray-200">
           <button
             type="button"
             onClick={handleAccept}
             disabled={isPreviewing || !previewResult}
-            className="px-4 py-2.5 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+            className="w-full py-3 text-base font-semibold bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition-colors shadow-sm"
           >
             Accept and Continue
           </button>

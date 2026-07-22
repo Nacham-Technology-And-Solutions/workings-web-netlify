@@ -9,13 +9,13 @@
     "orientation": "portrait-primary",
     "icons": [
         {
-            "src": "/icons/app-icon.svg",
+            "src": "/icons/drawer-logo-w.svg",
             "sizes": "any",
             "type": "image/svg+xml",
             "purpose": "any"
         },
         {
-            "src": "/icons/app-icon.svg",
+            "src": "/icons/drawer-logo-w.svg",
             "sizes": "any",
             "type": "image/svg+xml",
             "purpose": "maskable"

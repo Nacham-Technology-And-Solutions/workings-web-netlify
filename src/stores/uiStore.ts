@@ -13,7 +13,8 @@ interface UIState {
   // Actions
   setCurrentView: (view: string) => void;
   setPreviousView: (view: string) => void;
-  navigate: (view: string) => void;
+  navigate: (view: string, options?: { replace?: boolean; skipHistory?: boolean }) => void;
+  navigateFromHistory: (view: string) => void;
   goBack: () => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -38,7 +39,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   setCurrentView: (view) => set({ currentView: view }),
   setPreviousView: (view) => set({ previousView: view }),
   
-  navigate: (view) => {
+  navigate: (view, options) => {
     const current = get().currentView;
     const nextView = isSettingsSectionView(view) ? 'settings' : view;
 
@@ -53,6 +54,31 @@ export const useUIStore = create<UIState>((set, get) => ({
       }
     }
 
+    if (!options?.skipHistory && typeof window !== 'undefined' && window.history) {
+      const stateObj = { view: nextView };
+      const hash = `#${nextView}`;
+      if (options?.replace) {
+        window.history.replaceState(stateObj, '', hash);
+      } else if (current !== nextView) {
+        window.history.pushState(stateObj, '', hash);
+      }
+    }
+
+    set({
+      previousView: current,
+      currentView: nextView,
+      isSidebarOpen: false,
+    });
+  },
+
+  navigateFromHistory: (view) => {
+    const current = get().currentView;
+    const nextView = isSettingsSectionView(view) ? 'settings' : view;
+
+    if (isSettingsSectionView(view)) {
+      setStoredSettingsSection(view);
+    }
+
     set({
       previousView: current,
       currentView: nextView,
@@ -61,6 +87,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   
   goBack: () => {
+    if (typeof window !== 'undefined' && window.history && window.history.state?.view) {
+      window.history.back();
+      return;
+    }
+
     const previous = get().previousView;
     set({
       currentView: previous,

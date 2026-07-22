@@ -26,6 +26,67 @@ function readStoredFillSource(): PriceFillSource {
   return 'last_used';
 }
 
+function formatInputWithCommas(value: number | string): string {
+  if (value === '' || value === null || value === undefined) return '';
+  const str = String(value).replace(/,/g, '');
+  if (isNaN(Number(str)) && str !== '.') return str;
+  const parts = str.split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.length > 1 ? `${integerPart}.${parts[1]}` : integerPart;
+}
+
+function parseFormattedNumber(val: string): number {
+  const cleaned = val.replace(/,/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+interface FormattedNumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
+  value: number | string;
+  onValueChange: (numericValue: number) => void;
+}
+
+const FormattedNumberInput: React.FC<FormattedNumberInputProps> = ({
+  value,
+  onValueChange,
+  className = '',
+  ...props
+}) => {
+  const [text, setText] = useState<string>(() =>
+    value || value === 0 ? formatInputWithCommas(value) : ''
+  );
+
+  useEffect(() => {
+    const numericProp = typeof value === 'number' ? value : parseFormattedNumber(value);
+    const numericText = parseFormattedNumber(text);
+    if (numericProp !== numericText) {
+      setText(numericProp || numericProp === 0 ? formatInputWithCommas(numericProp) : '');
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) return;
+
+    const formatted = formatInputWithCommas(cleaned);
+    setText(formatted);
+    onValueChange(parseFormattedNumber(cleaned));
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={handleChange}
+      className={className}
+      {...props}
+    />
+  );
+};
+
 interface ProjectEstimationPricingScreenProps {
   onBack: () => void;
   projectId: number;
@@ -238,14 +299,10 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
                           <td className="py-2 pr-4 text-right">
                             <div className="inline-flex items-center gap-1">
                               <span className="text-gray-500">₦</span>
-                              <input
-                                type="number"
-                                min={0}
+                              <FormattedNumberInput
                                 value={row.unitPrice || ''}
-                                onChange={(e) =>
-                                  updatePricingInput(row.itemKey, parseFloat(e.target.value) || 0)
-                                }
-                                className="w-28 px-2 py-1 border border-gray-300 rounded text-right"
+                                onValueChange={(val) => updatePricingInput(row.itemKey, val)}
+                                className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-medium text-gray-900"
                               />
                             </div>
                           </td>
@@ -271,14 +328,10 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
                       </p>
                       <label className="block text-sm">
                         <span className="text-gray-600">Unit price (₦)</span>
-                        <input
-                          type="number"
-                          min={0}
+                        <FormattedNumberInput
                           value={row.unitPrice || ''}
-                          onChange={(e) =>
-                            updatePricingInput(row.itemKey, parseFloat(e.target.value) || 0)
-                          }
-                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-right"
+                          onValueChange={(val) => updatePricingInput(row.itemKey, val)}
+                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-right font-medium text-gray-900"
                         />
                       </label>
                     </div>
@@ -289,14 +342,10 @@ const ProjectEstimationPricingScreen: React.FC<ProjectEstimationPricingScreenPro
 
             <label className="block text-sm mt-6 max-w-xs">
               <span className="text-gray-600 font-medium">Offcut markup (₦)</span>
-              <input
-                type="number"
-                min={0}
-                value={quoteSettings.offcutMarkup}
-                onChange={(e) =>
-                  updateQuoteSettings({ offcutMarkup: parseFloat(e.target.value) || 0 })
-                }
-                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"
+              <FormattedNumberInput
+                value={quoteSettings.offcutMarkup || ''}
+                onValueChange={(val) => updateQuoteSettings({ offcutMarkup: val })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg font-medium text-gray-900"
               />
             </label>
 

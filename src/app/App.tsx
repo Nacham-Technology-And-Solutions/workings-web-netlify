@@ -41,6 +41,7 @@ import EditMaterialListScreen from '../components/features/material-lists/EditMa
 import TemplatesScreen from '../components/features/TemplatesScreen';
 import PaymentCallbackScreen from '../components/features/PaymentCallbackScreen';
 import SessionExpiredModal from '../components/common/SessionExpiredModal';
+import { useHistoryNavigation } from '../hooks/useHistoryNavigation';
 import LogViewer from '../components/common/LogViewer';
 import WhatsAppPromptModal from '../components/common/WhatsAppPromptModal';
 import LimitExceededModal from '../components/common/LimitExceededModal';
@@ -157,6 +158,8 @@ const App: React.FC = () => {
     goBack,
     setSidebarOpen,
   } = useUIStore();
+
+  useHistoryNavigation();
 
   const {
     projectDescriptionData,

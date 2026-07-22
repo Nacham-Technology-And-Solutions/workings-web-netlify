@@ -409,6 +409,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     setElementTitle(dimension.title ?? '');
     setElementColor(dimension.color ?? '');
     setEditingId(dimension.id);
+    
+    // Scroll to form elements
+    formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleAddDimension = () => {
