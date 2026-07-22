@@ -31,6 +31,39 @@ import { SLIDING_SASH_OPTIONS, isSlidingGlazingType } from '@/utils/slidingWindo
 
 preloadPdfAppLogo();
 
+/**
+ * Saves a PDF to the device and attempts to open the Web Share sheet if supported.
+ */
+export async function saveAndSharePdf(
+  doc: jsPDF,
+  fileName: string,
+  shareTitle?: string,
+  shareText?: string
+) {
+  // Always trigger download to user device
+  doc.save(fileName);
+
+  // Attempt file sharing on mobile / supported browsers
+  try {
+    const blob = doc.output('blob');
+    const pdfFile = new File([blob], fileName, { type: 'application/pdf' });
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({ files: [pdfFile] })
+    ) {
+      await navigator.share({
+        files: [pdfFile],
+        title: shareTitle || fileName,
+        text: shareText || 'Here is your PDF document',
+      });
+    }
+  } catch (err) {
+    console.log('Share sheet dismissed or unsupported:', err);
+  }
+}
+
 /** One project cart line for PDF cover tables (cutting / glass exports). */
 export interface ProjectCartExportRow {
   index: number;
@@ -334,7 +367,8 @@ export const exportProjectMaterialListToPDF = async (
   }
 
   applyPdfWatermarks(doc, workingsLogo);
-  doc.save(materialListExportFilename(projectName, mode, 'pdf'));
+  const pdfFileName = materialListExportFilename(projectName, mode, 'pdf');
+  await saveAndSharePdf(doc, pdfFileName, `Material List - ${projectName}`, `Material list for ${projectName}`);
 };
 
 export const exportProjectMaterialListToExcel = (
@@ -1815,7 +1849,12 @@ export const exportQuoteToPDF = async (quote: QuoteData) => {
 
   const fileName = generateFileName(fileNamingConfig.pattern, quote, fileNamingConfig.dateFormat) + '.pdf';
   applyPdfWatermarks(doc, workingsLogo);
-  doc.save(fileName);
+  await saveAndSharePdf(
+    doc,
+    fileName,
+    quote.projectName ? `Quote - ${quote.projectName}` : `Quote #${quote.quoteId}`,
+    `Quote #${quote.quoteId} for ${quote.customerName || quote.projectName || 'client'}`
+  );
 };
 
 /**

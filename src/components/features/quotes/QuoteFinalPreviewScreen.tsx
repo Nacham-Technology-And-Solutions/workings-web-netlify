@@ -289,7 +289,7 @@ const QuoteFinalPreviewScreen: React.FC<QuoteFinalPreviewScreenProps> = ({
                     onClick={onDownloadPDF}
                     className="w-full py-3 font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
                 >
-                    Download PDF
+                    Download & Share PDF
                 </button>
             </div>
         </div>

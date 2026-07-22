@@ -114,34 +114,42 @@ const DimensionInputModal: React.FC<DimensionInputModalProps> = ({ isOpen, onClo
           </div>
 
           {/* Width and Height */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="dimension-width" className="block text-sm font-medium text-gray-700 mb-2">
-                Width (mm) <span className="text-red-500">*</span>
-              </label>
-              <FormattedAmountInput
-                id="dimension-width"
-                value={width}
-                onValueChange={(val) => setWidth(val ? String(val) : '')}
-                placeholder="1200"
-                max={10000}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
-              />
-            </div>
-            <div>
-              <label htmlFor="dimension-height" className="block text-sm font-medium text-gray-700 mb-2">
-                Height (mm) <span className="text-red-500">*</span>
-              </label>
-              <FormattedAmountInput
-                id="dimension-height"
-                value={height}
-                onValueChange={(val) => setHeight(val ? String(val) : '')}
-                placeholder="1200"
-                max={10000}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
-              />
-            </div>
-          </div>
+          {(() => {
+            const isCurtain = description.toLowerCase().includes('curtain');
+            const maxDim = isCurtain ? 100000 : 5995;
+            return (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="dimension-width" className="block text-sm font-medium text-gray-700 mb-2">
+                    Width (mm) <span className="text-red-500">*</span>
+                  </label>
+                  <FormattedAmountInput
+                    id="dimension-width"
+                    value={width}
+                    onValueChange={(val) => setWidth(val ? String(val) : '')}
+                    placeholder="1200"
+                    max={maxDim}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">Max {maxDim.toLocaleString()}mm</p>
+                </div>
+                <div>
+                  <label htmlFor="dimension-height" className="block text-sm font-medium text-gray-700 mb-2">
+                    Height (mm) <span className="text-red-500">*</span>
+                  </label>
+                  <FormattedAmountInput
+                    id="dimension-height"
+                    value={height}
+                    onValueChange={(val) => setHeight(val ? String(val) : '')}
+                    placeholder="1200"
+                    max={maxDim}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">Max {maxDim.toLocaleString()}mm</p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Quantity and Panels */}
           <div className="grid grid-cols-2 gap-4">

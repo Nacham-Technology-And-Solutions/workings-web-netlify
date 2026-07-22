@@ -286,7 +286,7 @@ const QuotePreviewScreen: React.FC<QuotePreviewScreenProps> = ({ quote, onBack, 
               onClick={() => handleExportOption('pdf')}
               className="px-4 py-2 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
             >
-              Download PDF
+              Download & Share PDF
             </button>
           </div>
         </div>

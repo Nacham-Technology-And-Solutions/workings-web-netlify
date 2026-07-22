@@ -358,11 +358,16 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     });
   }, [dimensions, currentPlan, glazingTypes, enabledCategories]);
 
+  const isCurtainWall = selectedCategory === 'Curtain Wall' || type?.toLowerCase().includes('curtain');
+  const maxDimension = isCurtainWall ? 100000 : 5995;
+
   // Form validation - dynamic based on module requirements
   const isFormValid = useMemo(() => {
     if (!type || !fieldRequirements || !isSelectedModuleAllowed) return false;
     
-    let valid = type !== '' && width !== '' && height !== '' && quantity !== '';
+    const w = parseFloat(width) || 0;
+    const h = parseFloat(height) || 0;
+    let valid = type !== '' && width !== '' && height !== '' && quantity !== '' && w > 0 && h > 0 && w <= maxDimension && h <= maxDimension;
     
     if (fieldRequirements.requiresPanel) {
       valid = valid && panel !== '';
@@ -395,7 +400,7 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     }
     
     return valid;
-  }, [type, width, height, quantity, panel, openingPanels, verticalPanels, horizontalPanels, sashLayout, fieldRequirements]);
+  }, [type, width, height, quantity, panel, openingPanels, verticalPanels, horizontalPanels, sashLayout, fieldRequirements, maxDimension]);
 
   const handleEditDimension = (dimension: DimensionItem) => {
     setType(dimension.type);
@@ -514,9 +519,6 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     if (!sashLabel) return dim.type;
     return dim.fixedNet ? `${dim.type} · ${sashLabel} + fixed net` : `${dim.type} · ${sashLabel}`;
   };
-
-  const isCurtainWall = selectedCategory === 'Curtain Wall' || type?.toLowerCase().includes('curtain');
-  const maxDimension = isCurtainWall ? 100000 : 10000;
 
   const [showRecalculateConfirm, setShowRecalculateConfirm] = useState(false);
   const formContainerRef = useRef<HTMLDivElement>(null);
@@ -981,6 +983,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                         max={maxDimension}
                         className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                       />
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Max {maxDimension.toLocaleString()}{unit} {!isCurtainWall ? '(6,000mm stock bar − 5mm kerf)' : ''}
+                      </p>
                     </div>
 
                     <div>
@@ -1001,6 +1006,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                         max={maxDimension}
                         className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                       />
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Max {maxDimension.toLocaleString()}{unit} {!isCurtainWall ? '(6,000mm stock bar − 5mm kerf)' : ''}
+                      </p>
                     </div>
                   </div>
                 )}
