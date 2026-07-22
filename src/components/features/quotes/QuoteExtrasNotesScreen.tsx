@@ -11,6 +11,7 @@ import {
 } from '@/utils/quoteExtrasCalculations';
 import PaymentMethodFormModal from '@/components/common/PaymentMethodFormModal';
 import type { PaymentMethod } from '@/types/templates';
+import { FormattedAmountInput } from '@/components/common/FormattedAmountInput';
 
 interface QuoteExtrasNotesScreenProps {
     onBack: () => void;
@@ -302,7 +303,7 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto min-h-0 px-4 md:px-8 py-8 pb-44 lg:pb-8">
+            <main className="flex-1 overflow-y-auto min-h-0 px-4 md:px-8 py-8 pb-80 lg:pb-8">
                 <div className="max-w-7xl mx-auto">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
@@ -336,12 +337,19 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                 <h3 className="text-sm font-semibold text-gray-900">Project extras</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <label className="block text-sm sm:col-span-2">
-                                        <span className="text-gray-600">Margin %</span>
-                                        <input
+                                        <span className="text-gray-600">Margin % (max 1,000%)</span>
+                                         <input
                                             type="number"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
                                             min={0}
+                                            max={1000}
                                             value={marginPercent || ''}
-                                            onChange={(e) => handleMarginChange(parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => {
+                                                const raw = parseFloat(e.target.value) || 0;
+                                                const val = Math.min(1000, Math.max(0, raw));
+                                                handleMarginChange(val);
+                                            }}
                                             className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
                                         />
                                         <span className="text-xs text-gray-500 mt-1 block">
@@ -349,13 +357,19 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                         </span>
                                     </label>
                                     <label className="block text-sm">
-                                        <span className="text-gray-600">Discount %</span>
+                                        <span className="text-gray-600">Discount % (max 100%)</span>
                                         <input
                                             type="number"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
                                             min={0}
                                             max={100}
                                             value={discountPercent || ''}
-                                            onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => {
+                                                const raw = parseFloat(e.target.value) || 0;
+                                                const val = Math.min(100, Math.max(0, raw));
+                                                setDiscountPercent(val);
+                                            }}
                                             className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
                                         />
                                     </label>
@@ -364,29 +378,51 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                         <div className="mt-1 flex flex-col sm:flex-row gap-2">
                                             <select
                                                 value={taxType}
-                                                onChange={(e) => setTaxType(e.target.value as QuoteTaxType)}
+                                                onChange={(e) => {
+                                                    const newType = e.target.value as QuoteTaxType;
+                                                    setTaxType(newType);
+                                                    if (newType === 'percent' && taxValue > 100) {
+                                                        setTaxValue(100);
+                                                    } else if (newType === 'fixed' && taxValue > taxableBase) {
+                                                        setTaxValue(Math.max(0, taxableBase));
+                                                    }
+                                                }}
                                                 className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
                                             >
                                                 <option value="fixed">Fixed amount (₦)</option>
                                                 <option value="percent">Percentage (%)</option>
                                             </select>
                                             <div className="relative flex-1">
-                                                {taxType === 'fixed' && (
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₦</span>
-                                                )}
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    max={taxType === 'percent' ? 100 : undefined}
-                                                    value={taxValue || ''}
-                                                    onChange={(e) => setTaxValue(parseFloat(e.target.value) || 0)}
-                                                    placeholder={taxType === 'percent' ? 'e.g. 7.5' : '0.00'}
-                                                    className={`w-full py-2 border border-gray-300 rounded-lg bg-white ${
-                                                        taxType === 'fixed' ? 'pl-8 pr-3' : 'px-3'
-                                                    }`}
-                                                />
-                                                {taxType === 'percent' && (
-                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                                                {taxType === 'fixed' ? (
+                                                    <div className="relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₦</span>
+                                                        <FormattedAmountInput
+                                                            value={taxValue || ''}
+                                                            onValueChange={(val) => {
+                                                                const maxAllowed = Math.max(0, taxableBase);
+                                                                setTaxValue(Math.min(maxAllowed, Math.max(0, val)));
+                                                            }}
+                                                            placeholder="0.00"
+                                                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            max={100}
+                                                            value={taxValue || ''}
+                                                            onChange={(e) => {
+                                                                const raw = parseFloat(e.target.value) || 0;
+                                                                const val = Math.min(100, Math.max(0, raw));
+                                                                setTaxValue(val);
+                                                            }}
+                                                            placeholder="e.g. 7.5"
+                                                            className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                                                        />
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -434,12 +470,11 @@ const QuoteExtrasNotesScreen: React.FC<QuoteExtrasNotesScreenProps> = ({
                                     </label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">₦</span>
-                                        <input
-                                            type="number"
+                                        <FormattedAmountInput
                                             value={amount || ''}
-                                            onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                                            onValueChange={(val) => setAmount(val)}
                                             placeholder="0.00"
-                                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                                         />
                                     </div>
                                 </div>

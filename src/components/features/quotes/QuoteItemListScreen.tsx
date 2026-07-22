@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { QuoteItemListData, QuoteItemRow } from '@/types';
 import { getInitialQuoteItems } from '@/utils/quoteDataTransformers';
+import { QuantityInput } from '@/components/common/QuantityInput';
+import { FormattedAmountInput } from '@/components/common/FormattedAmountInput';
 
 interface QuoteItemListScreenProps {
     onBack: () => void;
@@ -301,7 +303,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
             )}
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto min-h-0 px-4 md:px-8 py-8 pb-36 md:pb-8">
+            <main className="flex-1 overflow-y-auto min-h-0 px-4 md:px-8 py-8 pb-80 md:pb-8">
                 <div className="max-w-7xl mx-auto relative">
                     {/* Tabs */}
                     <div className="mb-8 border-b border-gray-200">
@@ -366,11 +368,10 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                             <div>
                                                 <span className="text-xs text-gray-500 block mb-0.5">Quantity</span>
                                                 {isEditing && editFormData ? (
-                                                    <input
-                                                        type="number"
+                                                    <QuantityInput
                                                         value={editFormData.quantity}
-                                                        onChange={(e) => handleEditFormChange('quantity', parseInt(e.target.value) || 0)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                        onValueChange={(val) => handleEditFormChange('quantity', val)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
                                                     />
                                                 ) : (
                                                     <p className="text-sm text-gray-900">{item.quantity}</p>
@@ -379,11 +380,10 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                             <div>
                                                 <span className="text-xs text-gray-500 block mb-0.5">Unit Price (₦)</span>
                                                 {isEditing && editFormData ? (
-                                                    <input
-                                                        type="number"
+                                                    <FormattedAmountInput
                                                         value={editFormData.unitPrice}
-                                                        onChange={(e) => handleEditFormChange('unitPrice', parseFloat(e.target.value) || 0)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                        onValueChange={(val) => handleEditFormChange('unitPrice', val)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
                                                     />
                                                 ) : (
                                                     <p className="text-sm text-gray-900">{item.unitPrice.toLocaleString()}</p>
@@ -429,6 +429,7 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                         })}
                     </div>
 
+                    {/* Desktop Table View */}
                     <div className="hidden lg:block border border-gray-200 rounded-lg overflow-hidden mb-6">
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
@@ -462,11 +463,10 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                             </td>
                                             <td className="px-4 py-4 text-sm">
                                                 {isEditing && editFormData ? (
-                                                    <input
-                                                        type="number"
+                                                    <QuantityInput
                                                         value={editFormData.quantity}
-                                                        onChange={(e) => handleEditFormChange('quantity', parseInt(e.target.value) || 0)}
-                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                        onValueChange={(val) => handleEditFormChange('quantity', val)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
                                                     />
                                                 ) : (
                                                     <span className="text-gray-900">{item.quantity}</span>
@@ -474,11 +474,10 @@ const QuoteItemListScreen: React.FC<QuoteItemListScreenProps> = ({ onBack, onNex
                                             </td>
                                             <td className="px-4 py-4 text-sm">
                                                 {isEditing && editFormData ? (
-                                                    <input
-                                                        type="number"
+                                                    <FormattedAmountInput
                                                         value={editFormData.unitPrice}
-                                                        onChange={(e) => handleEditFormChange('unitPrice', parseFloat(e.target.value) || 0)}
-                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                                        onValueChange={(val) => handleEditFormChange('unitPrice', val)}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
                                                     />
                                                 ) : (
                                                     <span className="text-gray-900">{item.unitPrice.toLocaleString()}</span>

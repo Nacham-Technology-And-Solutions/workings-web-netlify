@@ -4,6 +4,8 @@ import { ChevronLeftIcon } from '@/assets/icons/IconComponents';
 import type { ProjectMeasurementData, DimensionItem, SelectProjectData, GlazingCategoryKey } from '@/types';
 import { GLAZING_CATEGORY_KEYS } from '@/types';
 import { getEnabledTypesForCategory, MODULE_CONFIG } from '@/utils/moduleConfig';
+import { FormattedAmountInput } from '@/components/common/FormattedAmountInput';
+import { QuantityInput } from '@/components/common/QuantityInput';
 import type { GlazingCategory } from '@/utils/moduleMapping';
 import { getModuleFieldRequirements } from '@/utils/moduleRequirements';
 import { mapGlazingTypeToModuleId } from '@/utils/moduleMapping';
@@ -513,6 +515,9 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
     return dim.fixedNet ? `${dim.type} · ${sashLabel} + fixed net` : `${dim.type} · ${sashLabel}`;
   };
 
+  const isCurtainWall = selectedCategory === 'Curtain Wall' || type?.toLowerCase().includes('curtain');
+  const maxDimension = isCurtainWall ? 100000 : 10000;
+
   const [showRecalculateConfirm, setShowRecalculateConfirm] = useState(false);
   const formContainerRef = useRef<HTMLDivElement>(null);
 
@@ -968,13 +973,13 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                           <span className="text-xs text-gray-500 font-normal">(inside-to-inside)</span>
                         )}
                       </label>
-                      <input
-                        type="text"
+                      <FormattedAmountInput
                         id="width"
                         value={width}
-                        onChange={(e) => setWidth(e.target.value)}
+                        onValueChange={(val) => setWidth(val ? String(val) : '')}
                         placeholder={`Eg: 120${unit}`}
-                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        max={maxDimension}
+                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                       />
                     </div>
 
@@ -988,13 +993,13 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                           <span className="text-xs text-gray-500 font-normal">(inside-to-inside)</span>
                         )}
                       </label>
-                      <input
-                        type="text"
+                      <FormattedAmountInput
                         id="height"
                         value={height}
-                        onChange={(e) => setHeight(e.target.value)}
+                        onValueChange={(val) => setHeight(val ? String(val) : '')}
                         placeholder={`Eg: 120${unit}`}
-                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        max={maxDimension}
+                        className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                       />
                     </div>
                   </div>
@@ -1008,13 +1013,14 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </label>
-                  <input
-                    type="text"
+                  <QuantityInput
                     id="quantity"
                     value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
+                    onValueChange={(val) => setQuantity(String(val))}
                     placeholder="Eg: 3"
-                    className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    min={1}
+                    max={1000}
+                    className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                   />
                 </div>
 
@@ -1126,26 +1132,26 @@ const ProjectMeasurementScreen: React.FC<ProjectMeasurementScreenProps> = ({ onB
                           <label htmlFor="verticalPanels" className="block text-sm font-medium text-gray-700 mb-2">
                             Vertical Panels (N_v)
                           </label>
-                          <input
-                            type="text"
+                          <QuantityInput
                             id="verticalPanels"
                             value={verticalPanels}
-                            onChange={(e) => setVerticalPanels(e.target.value)}
+                            onValueChange={(val) => setVerticalPanels(val ? String(val) : '')}
                             placeholder="Eg: 3"
-                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                            min={1}
+                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                           />
                         </div>
                         <div>
                           <label htmlFor="horizontalPanels" className="block text-sm font-medium text-gray-700 mb-2">
                             Horizontal Panels (N_h)
                           </label>
-                          <input
-                            type="text"
+                          <QuantityInput
                             id="horizontalPanels"
                             value={horizontalPanels}
-                            onChange={(e) => setHorizontalPanels(e.target.value)}
+                            onValueChange={(val) => setHorizontalPanels(val ? String(val) : '')}
                             placeholder="Eg: 2"
-                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                            min={1}
+                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium"
                           />
                         </div>
                       </div>

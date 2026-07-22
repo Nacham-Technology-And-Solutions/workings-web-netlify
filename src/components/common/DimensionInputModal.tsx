@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { formatNaira } from '@/utils/formatters';
 import { CloseIcon } from '@/assets/icons/IconComponents';
 import type { QuoteItem } from '@/types';
+import { QuantityInput } from '@/components/common/QuantityInput';
+import { FormattedAmountInput } from '@/components/common/FormattedAmountInput';
 
 interface DimensionInputModalProps {
   isOpen: boolean;
@@ -117,26 +119,26 @@ const DimensionInputModal: React.FC<DimensionInputModalProps> = ({ isOpen, onClo
               <label htmlFor="dimension-width" className="block text-sm font-medium text-gray-700 mb-2">
                 Width (mm) <span className="text-red-500">*</span>
               </label>
-              <input
+              <FormattedAmountInput
                 id="dimension-width"
-                type="number"
                 value={width}
-                onChange={(e) => setWidth(e.target.value)}
+                onValueChange={(val) => setWidth(val ? String(val) : '')}
                 placeholder="1200"
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400"
+                max={10000}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
               />
             </div>
             <div>
               <label htmlFor="dimension-height" className="block text-sm font-medium text-gray-700 mb-2">
                 Height (mm) <span className="text-red-500">*</span>
               </label>
-              <input
+              <FormattedAmountInput
                 id="dimension-height"
-                type="number"
                 value={height}
-                onChange={(e) => setHeight(e.target.value)}
+                onValueChange={(val) => setHeight(val ? String(val) : '')}
                 placeholder="1200"
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400"
+                max={10000}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
               />
             </div>
           </div>
@@ -147,28 +149,26 @@ const DimensionInputModal: React.FC<DimensionInputModalProps> = ({ isOpen, onClo
               <label htmlFor="dimension-quantity" className="block text-sm font-medium text-gray-700 mb-2">
                 Quantity <span className="text-red-500">*</span>
               </label>
-              <input
+              <QuantityInput
                 id="dimension-quantity"
-                type="number"
                 value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
+                onValueChange={(val) => setQuantity(String(val))}
                 placeholder="1"
-                min="1"
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400"
+                min={1}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
               />
             </div>
             <div>
               <label htmlFor="dimension-panels" className="block text-sm font-medium text-gray-700 mb-2">
                 Panels
               </label>
-              <input
+              <QuantityInput
                 id="dimension-panels"
-                type="number"
                 value={panels}
-                onChange={(e) => setPanels(e.target.value)}
+                onValueChange={(val) => setPanels(String(val))}
                 placeholder="1"
-                min="1"
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400"
+                min={1}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
               />
             </div>
           </div>
@@ -180,13 +180,12 @@ const DimensionInputModal: React.FC<DimensionInputModalProps> = ({ isOpen, onClo
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">₦</span>
-              <input
+              <FormattedAmountInput
                 id="dimension-price"
-                type="text"
-                value={unitPrice ? parseFloat(unitPrice).toLocaleString('en-US') : ''}
-                onChange={(e) => setUnitPrice(e.target.value.replace(/[^0-9.]/g, ''))}
+                value={unitPrice}
+                onValueChange={(val) => setUnitPrice(val ? String(val) : '')}
                 placeholder="0.00"
-                className="w-full pl-8 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="w-full pl-8 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 font-medium text-gray-900"
               />
             </div>
           </div>

@@ -3,6 +3,7 @@ import type { EstimationSavedQuote } from '@/types/estimation';
 import { useEstimationStore } from '@/stores/estimationStore';
 import { formatNaira, formatNumber } from '@/utils/formatters';
 import { CloseIcon } from '@/assets/icons/IconComponents';
+import { FormattedAmountInput } from '@/components/common/FormattedAmountInput';
 
 interface GenerateQuoteModalProps {
   isOpen: boolean;
@@ -166,19 +167,16 @@ const GenerateQuoteModal: React.FC<GenerateQuoteModalProps> = ({
                             <label className="text-xs text-gray-500">Final unit price</label>
                             <div className="flex items-center gap-2">
                               <span className="text-gray-500 text-sm">₦</span>
-                              <input
-                                type="number"
-                                min={0}
+                              <FormattedAmountInput
                                 value={finalPrice}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 0;
+                                onValueChange={(val) => {
                                   if (val === line.finalUnitPrice && !hasOverride) {
                                     clearItemOverride(index);
                                   } else {
                                     setItemOverride(index, val);
                                   }
                                 }}
-                                className="w-32 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                                className="w-32 px-2 py-1 border border-gray-300 rounded text-right text-sm font-medium text-gray-900"
                               />
                             </div>
                             <p className="text-sm font-semibold text-gray-900">
@@ -257,12 +255,10 @@ const GenerateQuoteModal: React.FC<GenerateQuoteModalProps> = ({
                   <span className="text-gray-600">Tax (on save)</span>
                   <div className="flex items-center gap-1">
                     <span className="text-gray-500">₦</span>
-                    <input
-                      type="number"
-                      min={0}
+                    <FormattedAmountInput
                       value={tax || ''}
-                      onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border border-gray-300 rounded text-right"
+                      onValueChange={(val) => setTax(Math.min(previewResult.grandTotal, Math.max(0, val)))}
+                      className="w-28 px-2 py-1 border border-gray-300 rounded text-right font-medium text-gray-900"
                     />
                   </div>
                 </label>
