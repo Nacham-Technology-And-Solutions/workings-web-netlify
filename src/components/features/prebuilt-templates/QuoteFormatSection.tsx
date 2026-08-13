@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useAuthStore } from '@/stores';
+import { uploadService } from '@/services/api/upload.service';
+import { resolveImageUrl } from '@/utils/imageUrl';
+import { isApiResponseSuccess, getApiResponseData } from '@/utils/apiResponseHelper';
 
 const QuoteFormatSection: React.FC = () => {
   const { quoteFormat, updateQuoteFormat, resetQuoteFormat } = useTemplateStore();
@@ -29,22 +32,29 @@ const QuoteFormatSection: React.FC = () => {
     }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Logo file size must be less than 5MB');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setLogoPreview(result);
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Logo file size must be less than 5MB');
+      return;
+    }
+    try {
+      const uploadRes = await uploadService.uploadImage(file, 'logos');
+      if (isApiResponseSuccess(uploadRes)) {
+        const uploadedData = getApiResponseData(uploadRes) as { url: string };
+        const imageUrl = uploadedData.url;
+        setLogoPreview(imageUrl);
         updateQuoteFormat({
-          header: { ...quoteFormat.header, logoSource: 'custom', logoUrl: result },
+          header: { ...quoteFormat.header, logoSource: 'custom', logoUrl: imageUrl },
         });
-      };
-      reader.readAsDataURL(file);
+      } else {
+        alert('Failed to upload custom logo file');
+      }
+    } catch {
+      alert('Error uploading custom logo file');
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -96,7 +106,7 @@ const QuoteFormatSection: React.FC = () => {
             {logoSource === 'custom' ? (
               logoPreview ? (
                 <div className="flex items-center gap-4">
-                  <img src={logoPreview} alt="Logo" className="h-20 w-auto object-contain" />
+                  <img src={resolveImageUrl(logoPreview) || ''} alt="Logo" className="h-20 w-auto object-contain" />
                   <button
                     onClick={handleRemoveLogo}
                     className="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-50"
@@ -136,7 +146,7 @@ const QuoteFormatSection: React.FC = () => {
                 </div>
               )
             ) : logoSource === 'company' && logoPreview ? (
-              <img src={logoPreview} alt="Company logo" className="h-20 w-auto object-contain" />
+              <img src={resolveImageUrl(logoPreview) || ''} alt="Company logo" className="h-20 w-auto object-contain" />
             ) : (
               <p className="text-sm text-gray-500">No logo will appear on exports. Company name may be used instead.</p>
             )}

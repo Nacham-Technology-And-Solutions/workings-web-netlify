@@ -151,8 +151,21 @@ apiClient.interceptors.response.use(
     }
 
     // Handle 401 Unauthorized or 403 Forbidden (often used for expired/invalid session) - Try to refresh token
+    // Exclude auth entry endpoints (login, register, forgot-password, etc.) where 401/403 represents invalid credentials, not session expiration
+    const requestUrl = originalRequest?.url || '';
+    const isAuthEntryEndpoint =
+      requestUrl.includes('/auth/log-in') ||
+      requestUrl.includes('/auth/sign-in') ||
+      requestUrl.includes('/auth/register') ||
+      requestUrl.includes('/auth/sign-up') ||
+      requestUrl.includes('/auth/forgot-password') ||
+      requestUrl.includes('/auth/reset-password') ||
+      requestUrl.includes('/auth/verify-otp') ||
+      requestUrl.includes('/auth/google') ||
+      requestUrl.includes('/auth/oauth');
+
     const isAuthFailure = error.response?.status === 401 || error.response?.status === 403;
-    if (isAuthFailure && !originalRequest._retry) {
+    if (isAuthFailure && !isAuthEntryEndpoint && !originalRequest._retry) {
       originalRequest._retry = true;
 
       const refreshToken = localStorage.getItem('refreshToken');

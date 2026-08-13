@@ -5,6 +5,8 @@ import { getPdfAppLogo } from '@/utils/pdfAppLogo';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useAuthStore } from '@/stores';
 
+import { resolveImageUrl } from '@/utils/imageUrl';
+
 export type ExportHeaderBranding =
   | { type: 'image'; logo: PdfAppLogo }
   | { type: 'text'; companyName: string }
@@ -52,13 +54,13 @@ export function resolveEffectiveLogoUrl(): string | null {
   const user = useAuthStore.getState().user;
   const source = quoteFormat.header.logoSource ?? 'none';
 
+  let rawUrl: string | null = null;
   if (source === 'company') {
-    return user?.companyLogoUrl || null;
+    rawUrl = user?.companyLogoUrl || null;
+  } else if (source === 'custom') {
+    rawUrl = quoteFormat.header.logoUrl || null;
   }
-  if (source === 'custom') {
-    return quoteFormat.header.logoUrl || null;
-  }
-  return null;
+  return resolveImageUrl(rawUrl);
 }
 
 export function resolveExportCompanyName(): string {

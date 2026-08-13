@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { EyeIcon, EyeOffIcon } from '@/assets/icons/IconComponents';
 import { useAuthStore } from '@/stores';
 import { authService, userService } from '@/services/api';
+import { uploadService } from '@/services/api/upload.service';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import UserAvatar from '@/components/common/UserAvatar';
 import { extractErrorMessage } from '@/utils/errorHandler';
 import { normalizeApiResponse, isApiResponseSuccess, getApiResponseData, getApiResponseMessage } from '@/utils/apiResponseHelper';
@@ -217,28 +219,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const result = reader.result as string;
-      setIsSaving(true);
-      setError(null);
-      try {
-        const apiResponse = await userService.updateProfile(user.id, { companyLogoUrl: result });
-        if (isApiResponseSuccess(apiResponse)) {
-          const responseData = getApiResponseData(apiResponse);
-          const userProfile = (responseData as { user?: unknown }).user || responseData;
-          applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
-          setCompanyLogoPreview(result);
-        } else {
-          setError(getApiResponseMessage(apiResponse) || 'Failed to upload company logo');
-        }
-      } catch (err) {
-        setError(extractErrorMessage(err).message);
-      } finally {
-        setIsSaving(false);
+    setIsSaving(true);
+    setError(null);
+    try {
+      const uploadRes = await uploadService.uploadImage(file, 'logos');
+      if (!isApiResponseSuccess(uploadRes)) {
+        setError(getApiResponseMessage(uploadRes) || 'Failed to upload logo image');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      const uploadedData = getApiResponseData(uploadRes) as { url: string };
+      const imageUrl = uploadedData.url;
+
+      const apiResponse = await userService.updateProfile(user.id, { companyLogoUrl: imageUrl });
+      if (isApiResponseSuccess(apiResponse)) {
+        const responseData = getApiResponseData(apiResponse);
+        const userProfile = (responseData as { user?: unknown }).user || responseData;
+        applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
+        setCompanyLogoPreview(imageUrl);
+      } else {
+        setError(getApiResponseMessage(apiResponse) || 'Failed to upload company logo');
+      }
+    } catch (err) {
+      setError(extractErrorMessage(err).message);
+    } finally {
+      setIsSaving(false);
+      e.target.value = '';
+    }
   };
 
   const handleRemoveCompanyLogo = async () => {
@@ -272,29 +278,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const result = reader.result as string;
-      setIsSaving(true);
-      setError(null);
-      try {
-        const apiResponse = await userService.updateProfile(user.id, { profilePhotoUrl: result });
-        if (isApiResponseSuccess(apiResponse)) {
-          const responseData = getApiResponseData(apiResponse);
-          const userProfile = (responseData as { user?: unknown }).user || responseData;
-          applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
-          setProfilePhotoPreview(result);
-        } else {
-          setError(getApiResponseMessage(apiResponse) || 'Failed to upload profile photo');
-        }
-      } catch (err) {
-        setError(extractErrorMessage(err).message);
-      } finally {
-        setIsSaving(false);
-        e.target.value = '';
+    setIsSaving(true);
+    setError(null);
+    try {
+      const uploadRes = await uploadService.uploadImage(file, 'avatars');
+      if (!isApiResponseSuccess(uploadRes)) {
+        setError(getApiResponseMessage(uploadRes) || 'Failed to upload profile photo');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      const uploadedData = getApiResponseData(uploadRes) as { url: string };
+      const imageUrl = uploadedData.url;
+
+      const apiResponse = await userService.updateProfile(user.id, { profilePhotoUrl: imageUrl });
+      if (isApiResponseSuccess(apiResponse)) {
+        const responseData = getApiResponseData(apiResponse);
+        const userProfile = (responseData as { user?: unknown }).user || responseData;
+        applyProfileToState(userProfile as Parameters<typeof applyProfileToState>[0]);
+        setProfilePhotoPreview(imageUrl);
+      } else {
+        setError(getApiResponseMessage(apiResponse) || 'Failed to upload profile photo');
+      }
+    } catch (err) {
+      setError(extractErrorMessage(err).message);
+    } finally {
+      setIsSaving(false);
+      e.target.value = '';
+    }
   };
 
   const handleRemoveProfilePhoto = async () => {
@@ -701,7 +710,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onNavigate }) => 
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                   <label className="w-full sm:w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors flex-shrink-0 overflow-hidden">
                     {companyLogoPreview ? (
-                      <img src={companyLogoPreview} alt="Company logo" className="max-h-full max-w-full object-contain p-2" />
+                      <img src={resolveImageUrl(companyLogoPreview) || ''} alt="Company logo" className="max-h-full max-w-full object-contain p-2" />
                     ) : (
                       <>
                         <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

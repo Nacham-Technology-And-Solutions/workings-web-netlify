@@ -9,4 +9,5 @@ export * from './subscriptions.service';
 export * from './materialLists.service';
 export * from './templates.service';
 export * from './estimation.service';
+export * from './upload.service';
 

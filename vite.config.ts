@@ -52,6 +52,11 @@ export default defineConfig(({ mode }) => {
             secure: false,
             rewrite: (path) => path, // Keep the /api path as is
           },
+          '/uploads': {
+            target: devApiProxyTarget(apiBase),
+            changeOrigin: true,
+            secure: false,
+          },
         },
       },
       plugins: [react(), injectSwCacheRevision()],
